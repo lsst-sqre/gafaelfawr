@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Self
+from typing import Any, Self, override
 
 from pydantic import BaseModel, Field
 from safir.database import DatetimeIdCursor
@@ -248,14 +248,17 @@ class TokenChangeHistoryRecord(TokenChangeHistoryEntry):
 class TokenChangeHistoryCursor(DatetimeIdCursor[TokenChangeHistoryRecord]):
     """Pagination cursor for token history entries."""
 
+    @override
     @staticmethod
     def id_column() -> InstrumentedAttribute:
         return SQLTokenChangeHistory.id
 
+    @override
     @staticmethod
     def time_column() -> InstrumentedAttribute:
         return SQLTokenChangeHistory.event_time
 
+    @override
     @classmethod
     def from_entry(
         cls, entry: TokenChangeHistoryRecord, *, reverse: bool = False

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Self
+from typing import Any, Self, override
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 from safir.datetime import current_datetime
@@ -101,6 +101,7 @@ class Token(BaseModel):
         else:
             return True
 
+    @override
     def __str__(self) -> str:
         """Return the encoded token."""
         return f"gt-{self.key}.{self.secret}"

@@ -3,7 +3,7 @@
 import copy
 from abc import ABCMeta, abstractmethod
 from collections.abc import Awaitable, Callable
-from typing import Self
+from typing import Self, override
 
 from fastapi import FastAPI, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -93,6 +93,7 @@ class StateMiddleware[T: BaseState](BaseHTTPMiddleware):
         self._state_class = state_class
         self._parameters = parameters
 
+    @override
     async def dispatch(
         self,
         request: Request,

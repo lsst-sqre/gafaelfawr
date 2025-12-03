@@ -12,7 +12,7 @@
 #   - Runs as a non-root user.
 #   - Sets up the entrypoint and port.
 
-FROM python:3.13.7-slim-trixie AS base-image
+FROM python:3.13.9-slim-trixie AS base-image
 
 # Update system packages
 COPY scripts/install-base-packages.sh .
@@ -23,7 +23,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 FROM base-image AS install-image
 
 # Install uv.
-COPY --from=ghcr.io/astral-sh/uv:0.9.14 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.9.15 /uv /bin/uv
 
 # Install some additional packages required for building dependencies.
 COPY scripts/install-dependency-packages.sh .
@@ -45,7 +45,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Install the Gafaelfawr Python application.
 ADD . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --no-deps --compile-bytecode .
+    uv sync --frozen --no-default-groups --compile-bytecode --no-editable
 
 FROM base-image AS runtime-image
 
@@ -53,7 +53,7 @@ FROM base-image AS runtime-image
 RUN useradd --create-home appuser
 
 # Copy the virtualenv.
-COPY --from=install-image /app /app
+COPY --from=install-image /app/.venv /app/.venv
 
 # Set the working directory.
 WORKDIR /app

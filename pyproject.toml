@@ -90,7 +90,7 @@ tox = [
     "tox-uv>=1.25",
 ]
 typing = [
-    "mypy>=1.15",
+    "mypy>=1.19",
     "sqlalchemy[mypy]>=2",
     "types-cachetools>=5.5",
     "types-pyyaml>=6",
@@ -123,12 +123,23 @@ exclude_lines = [
 ]
 
 [tool.mypy]
-disallow_untyped_defs = true
 disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+enable_error_code = [
+    "deprecated",
+    "exhaustive-match",
+    "explicit-override",
+    "ignore-without-code",
+    "redundant-expr",
+    "redundant-self",
+    "truthy-iterable",
+    "unused-awaitable",
+]
 ignore_missing_imports = true
 local_partial_types = true
-no_implicit_reexport = true
 plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
+no_implicit_reexport = true
 show_error_codes = true
 strict_equality = true
 warn_redundant_casts = true
