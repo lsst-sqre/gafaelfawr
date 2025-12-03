@@ -55,6 +55,9 @@ RUN useradd --create-home appuser
 # Copy the virtualenv.
 COPY --from=install-image /app/.venv /app/.venv
 
+# Install the startup script.
+COPY scripts/start.sh /app/scripts/start.sh
+
 # Set the working directory.
 WORKDIR /app
 
