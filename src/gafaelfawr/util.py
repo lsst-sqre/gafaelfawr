@@ -50,7 +50,7 @@ def base64_to_number(data: str) -> int:
     Returns
     -------
     int
-        The result converted to a number.  Note that Python ints can be
+        The result converted to a number. Note that Python ints can be
         arbitrarily large.
 
     Notes
@@ -76,8 +76,8 @@ def is_bot_user(username: str) -> bool:
 def group_name_for_github_team(organization: str, team: str) -> str:
     """Convert a GitHub organization and team to a group name.
 
-    Paramters
-    ---------
+    Parameters
+    ----------
     organization
         Name of organization.
     team
@@ -91,7 +91,7 @@ def group_name_for_github_team(organization: str, team: str) -> str:
     Notes
     -----
     The default construction is the organization name (from the login field),
-    a dash, and the team slug.  If this is over 32 characters, it will be
+    a dash, and the team slug. If this is over 32 characters, it will be
     truncated to 25 characters and the first six characters of a hash of the
     full name will be appended for uniqueness.
     """
