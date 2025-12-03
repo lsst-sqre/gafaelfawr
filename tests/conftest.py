@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
-from urllib.parse import urljoin
 
 import pytest
 import pytest_asyncio
@@ -16,7 +15,6 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from safir.database import create_database_engine, stamp_database_async
 from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
-from selenium import webdriver
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.config import Config
@@ -26,11 +24,10 @@ from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.main import create_app
 from gafaelfawr.models.token import Token
 
-from .support.config import config_path, configure
+from .support.config import configure
 from .support.constants import TEST_HOSTNAME
 from .support.firestore import MockFirestore, patch_firestore
 from .support.ldap import MockLDAP, patch_ldap
-from .support.selenium import SeleniumConfig, run_app, selenium_driver
 
 _ISSUER_KEY = RSAKeyPair.generate()
 """RSA key pair for JWT issuance and verification.
@@ -107,16 +104,6 @@ def config(monkeypatch: pytest.MonkeyPatch) -> Config:
     return configure("github")
 
 
-@pytest.fixture(scope="session")
-def driver() -> Iterator[webdriver.Chrome]:
-    """Create a driver for Selenium testing."""
-    driver = selenium_driver()
-    try:
-        yield driver
-    finally:
-        driver.quit()
-
-
 @pytest_asyncio.fixture
 async def empty_database(engine: AsyncEngine, config: Config) -> None:
     """Empty the database before a test.
@@ -188,23 +175,3 @@ def mock_slack(
         return None
     webhook = config.slack_webhook.get_secret_value()
     return mock_slack_webhook(webhook, respx_mock)
-
-
-@pytest.fixture
-def selenium_config(
-    tmp_path: Path, config: Config, driver: webdriver.Chrome
-) -> Iterator[SeleniumConfig]:
-    """Start a server for Selenium tests.
-
-    The server will be automatically stopped at the end of the test.  The
-    Selenium web driver will be automatically configured with a valid
-    authentication token in a cookie.
-
-    Returns
-    -------
-    SeleniumConfig
-        Configuration information for the server.
-    """
-    with run_app(tmp_path, config_path("selenium")) as selenium_config:
-        driver.get(urljoin(selenium_config.url, "/selenium-login"))
-        yield selenium_config

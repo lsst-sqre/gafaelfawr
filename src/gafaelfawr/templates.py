@@ -1,7 +1,7 @@
 """Templated responses.
 
-Since the primary UI is provided by JavaScript, these are generally used only
-for error messages.
+Since the primary UI is provided by Squareone_, these are used only for error
+messages.
 """
 
 from __future__ import annotations

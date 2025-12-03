@@ -145,7 +145,7 @@ class APIConfig(BaseModel):
 class APILoginResponse(BaseModel):
     """Response to an API login request.
 
-    The JavaScript UI visits the ``/auth/api/v1/login`` route to get a CSRF
+    The Squareone_ UI visits the ``/auth/api/v1/login`` route to get a CSRF
     token and metadata about the currently-authenticated user from the session
     cookie (which the UI doesn't have the keys to read).
     """

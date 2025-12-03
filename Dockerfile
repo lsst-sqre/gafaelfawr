@@ -23,10 +23,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 FROM base-image AS install-image
 
 # Install uv.
-COPY --from=ghcr.io/astral-sh/uv:0.8.22 /uv /bin/uv
-
-# Determine the Node version that we want to install
-COPY .nvmrc /opt/.nvmrc
+COPY --from=ghcr.io/astral-sh/uv:0.9.14 /uv /bin/uv
 
 # Install some additional packages required for building dependencies.
 COPY scripts/install-dependency-packages.sh .
@@ -58,9 +55,8 @@ RUN useradd --create-home appuser
 # Copy the virtualenv.
 COPY --from=install-image /app /app
 
-# Set the working directory and tell Gafaelfawr where the UI is.
+# Set the working directory.
 WORKDIR /app
-ENV GAFAELFAWR_UI_PATH=/app/ui/public
 
 # Switch to the non-root user.
 USER appuser

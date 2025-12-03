@@ -1,7 +1,5 @@
 # Some additional things to ignore beyond what .gitignore already handles.
 # We cannot exclude the .git directory because setuptools_scm requires it.
-ui/.cache/
-ui/node_modules/
 
 # VSCode
 .vscode/
