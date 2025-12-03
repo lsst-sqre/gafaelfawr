@@ -84,33 +84,20 @@ async def test_invalid(
 async def test_invalid_auth(
     client: AsyncClient, config: Config, mock_slack: MockSlackWebhook
 ) -> None:
-    r = await client.get(
-        "/ingress/auth",
-        params={"scope": "exec:admin"},
-        headers={"Authorization": "Bearer"},
-    )
-    assert r.status_code == 403
-    assert r.headers["X-Error-Status"] == "400"
-    assert AuthError.invalid_request.value in r.headers["X-Error-Body"]
-    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
-    assert isinstance(authenticate, AuthErrorChallenge)
-    assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == config.base_hostname
-    assert authenticate.error == AuthError.invalid_request
-
-    r = await client.get(
-        "/ingress/auth",
-        params={"scope": "exec:admin"},
-        headers={"Authorization": "token foo"},
-    )
-    assert r.status_code == 403
-    assert r.headers["X-Error-Status"] == "400"
-    assert AuthError.invalid_request.value in r.headers["X-Error-Body"]
-    authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
-    assert isinstance(authenticate, AuthErrorChallenge)
-    assert authenticate.auth_type == AuthType.Bearer
-    assert authenticate.realm == config.base_hostname
-    assert authenticate.error == AuthError.invalid_request
+    for authorization in ("Bearer", " Bearer", "Bearer ", "token foo"):
+        r = await client.get(
+            "/ingress/auth",
+            params={"scope": "exec:admin"},
+            headers={"Authorization": authorization},
+        )
+        assert r.status_code == 403
+        assert r.headers["X-Error-Status"] == "400"
+        assert AuthError.invalid_request.value in r.headers["X-Error-Body"]
+        authenticate = parse_www_authenticate(r.headers["WWW-Authenticate"])
+        assert isinstance(authenticate, AuthErrorChallenge)
+        assert authenticate.auth_type == AuthType.Bearer
+        assert authenticate.realm == config.base_hostname
+        assert authenticate.error == AuthError.invalid_request
 
     r = await client.get(
         "/ingress/auth",

@@ -315,9 +315,10 @@ def parse_authorization(
     # Parse the header and handle Bearer.
     if not header:
         return None
-    if " " not in header:
-        raise InvalidRequestError("Malformed Authorization header")
-    auth_type, auth_blob = header.split(None, 1)
+    try:
+        auth_type, auth_blob = header.split(None, 1)
+    except Exception as e:
+        raise InvalidRequestError("Malformed Authorization header") from e
     if auth_type.lower() == "bearer":
         context.rebind_logger(token_source="bearer")
         return auth_blob
