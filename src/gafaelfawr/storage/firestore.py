@@ -194,7 +194,7 @@ class FirestoreStorage:
 # stand-alone functions that take all the required parameters as arguments.
 
 
-@firestore.async_transactional
+@firestore.async_transactional  # type: ignore[untyped-decorator]
 async def _get_or_assign_gid(
     transaction: firestore.AsyncTransaction,
     *,
@@ -249,7 +249,7 @@ async def _get_or_assign_gid(
     return next_gid
 
 
-@firestore.async_transactional
+@firestore.async_transactional  # type: ignore[untyped-decorator]
 async def _get_or_assign_uid(
     transaction: firestore.Transaction,
     *,
@@ -309,7 +309,7 @@ async def _get_or_assign_uid(
     return next_uid
 
 
-@firestore.async_transactional
+@firestore.async_transactional  # type: ignore[untyped-decorator]
 async def _initialize_in_transaction(
     transaction: firestore.Transaction,
     counter_refs: dict[str, firestore.AsyncDocumentReference],

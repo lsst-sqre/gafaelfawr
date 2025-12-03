@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from contextlib import suppress
 from enum import StrEnum
-from typing import Any, Self
+from typing import Any, Self, override
 
 from pydantic import BaseModel, Field
 from safir.datetime import current_datetime
@@ -109,6 +109,7 @@ class OIDCAuthorizationCode(BaseModel):
 
         return cls(key=key, secret=secret)
 
+    @override
     def __str__(self) -> str:
         """Return the encoded code."""
         return f"gc-{self.key}.{self.secret}"

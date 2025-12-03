@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import Enum
+from typing import override
 
 from pydantic import BaseModel, Field
 
@@ -77,6 +78,7 @@ class AuthErrorChallenge(AuthChallenge):
     scope: str | None = None
     """Scope required to access this URL."""
 
+    @override
     def to_header(self) -> str:
         """Construct the WWW-Authenticate header for this challenge.
 

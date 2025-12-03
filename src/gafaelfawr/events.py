@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import override
+
 from pydantic import Field
 from safir.dependencies.metrics import EventMaker
 from safir.metrics import EventManager, EventPayload
@@ -72,6 +74,7 @@ class StateEvents(EventMaker):
         Event publisher for the count of active user tokens.
     """
 
+    @override
     async def initialize(self, manager: EventManager) -> None:
         self.active_user_sessions = await manager.create_publisher(
             "active_user_sessions", ActiveUserSessionsEvent
@@ -211,6 +214,7 @@ class FrontendEvents(EventMaker):
         Event publisher for rate limit rejections.
     """
 
+    @override
     async def initialize(self, manager: EventManager) -> None:
         self.auth_bot = await manager.create_publisher(
             "auth_bot", AuthBotEvent

@@ -24,7 +24,7 @@ from collections import defaultdict
 from datetime import timedelta
 from ipaddress import IPv4Network, IPv6Network
 from pathlib import Path
-from typing import Annotated, Any, NotRequired, Self, TypedDict
+from typing import Annotated, Any, NotRequired, Self, TypedDict, override
 from urllib.parse import quote
 
 import yaml
@@ -109,6 +109,7 @@ class EnvFirstSettings(CamelCaseSettings):
     variables over arguments to the class constructor.
     """
 
+    @override
     @classmethod
     def settings_customise_sources(
         cls,
@@ -667,6 +668,7 @@ class GitHubGroupTeam(BaseModel):
 
     team: str = Field(..., title="Slug of the team")
 
+    @override
     def __str__(self) -> str:
         return group_name_for_github_team(self.organization, self.team)
 
@@ -678,6 +680,7 @@ class GitHubGroup(BaseModel):
 
     github: GitHubGroupTeam = Field(..., title="Details of the GitHub team")
 
+    @override
     def __str__(self) -> str:
         return str(self.github)
 
