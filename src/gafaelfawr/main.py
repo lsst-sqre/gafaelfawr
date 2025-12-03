@@ -3,16 +3,13 @@
 from __future__ import annotations
 
 import json
-import os
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from importlib.metadata import version
-from pathlib import Path
 
 import structlog
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
-from fastapi.staticfiles import StaticFiles
 from safir.database import create_database_engine, is_database_current
 from safir.dependencies.db_session import db_session_dependency
 from safir.dependencies.http_client import http_client_dependency
@@ -151,21 +148,6 @@ def create_app(
     app.include_router(login.router)
     app.include_router(logout.router)
     app.include_router(oidc.router)
-
-    # Add static path serving to support the JavaScript UI.  This does not use
-    # importlib.resources because the UI files are not shipped with the Python
-    # package, but instead written to a specific location in the Docker image.
-    # This will go away in the future when the Gafaelfawr UI is moved into a
-    # pure UI package and is no longer distributed with and served from the
-    # Python API webapp.
-    static_path = os.getenv(
-        "GAFAELFAWR_UI_PATH",
-        str(Path(__file__).parent.parent.parent / "ui" / "public"),
-    )
-    app.mount(
-        "/auth/tokens",
-        StaticFiles(directory=static_path, html=True, check_dir=False),
-    )
 
     # Load configuration if it is available to us and configure Uvicorn
     # logging.

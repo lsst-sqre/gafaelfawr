@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Sequence
 from datetime import timedelta
 from typing import Any
 from urllib.parse import urlparse
@@ -141,7 +142,7 @@ class OIDCService:
         client_id: str,
         redirect_uri: str,
         token: Token,
-        scopes: list[OIDCScope],
+        scopes: Sequence[OIDCScope],
         nonce: str | None = None,
     ) -> OIDCAuthorizationCode:
         """Issue a new authorization code.
@@ -178,7 +179,7 @@ class OIDCService:
             client_id=client_id,
             redirect_uri=redirect_uri,
             token=token,
-            scopes=scopes,
+            scopes=list(scopes),
             nonce=nonce,
         )
         await self._authorization_store.create(authorization)

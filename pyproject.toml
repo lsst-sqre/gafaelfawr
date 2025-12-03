@@ -72,7 +72,6 @@ dev = [
     "pytest-cov>=6",
     "pytest-sugar>=1",
     "respx>=0.22",
-    "selenium>=4.29",
 ]
 docs = [
     "documenteer[guide]>=2",

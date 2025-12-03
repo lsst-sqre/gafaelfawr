@@ -88,21 +88,6 @@ uv-lock
 When these hooks fail, your Git commit will be aborted.
 To proceed, stage the new modifications and proceed with your Git commit.
 
-Building the UI
-===============
-
-Before running tests, you must build the UI.
-The Gafaelfawr UI is written in JavaScript and contained in the :file:`ui` subdirectory.
-To build it, run (from the top level):
-
-.. prompt:: bash
-
-   make ui
-
-You will need to have `Node.js <https://nodejs.org/en/>`__ and npm installed.
-The easiest way to do this is generally to use `nvm <https://github.com/nvm-sh/nvm>`__.
-Gafaelfawr provides an :file:`.nvmrc` file that sets the version of Node.js to what is currently used to build the UI in GitHub Actions for the official Docker image.
-
 .. _dev-run-tests:
 
 Running tests
@@ -115,9 +100,6 @@ To test all components of Gafaelfawr other than the Kubernetes operator (see bel
    uv run tox run
 
 This uses tox-docker to start PostgreSQL and Redis Docker containers for the tess to use, so Docker must be installed and the user running tox must have permission to create Docker containers.
-
-To run the Selenium tests, you will need to have the ``chromedriver`` package installed.
-On Debian and Ubuntu systems, you can install this with :command:`apt install chromium-driver`.
 
 To run the tests with coverage analysis and generate a report, run:
 
@@ -202,7 +184,7 @@ Running a development server
 ============================
 
 Properly and fully testing Gafaelfawr requires deploying it in a Kubernetes cluster and testing its interactions with Kubernetes and the NGINX ingress.
-Gafaelfawr therefore doesn't support starting a local development server; that would only allow limited testing of the API and UI, and in practice we never used that ability when we supported it.
+Gafaelfawr therefore doesn't support starting a local development server; that would only allow limited testing of the API, and in practice we never used that ability when we supported it.
 
 Therefore, to run a development version of Gafaelfawr for more thorough manual testing, deploy it in a development Phalanx environment.
 See `the Phalanx documentation <https://phalanx.lsst.io/developers/deploy-from-a-branch.html>`__ for more details on how to do this.

@@ -1,12 +1,8 @@
-UV_VERSION = $(shell uv export -q --no-hashes --only-group tox \
-               | grep ^uv== | sed 's/.*=//')
-
 .PHONY: help
 help:
 	@echo "Make targets for Gafaelfawr"
 	@echo "make init - Set up dev environment"
 	@echo "make linkcheck - Check for broken links in documentation"
-	@echo "make ui - Build the JavaScript frontend"
 	@echo "make update - Update pinned dependencies and run make init"
 	@echo "make update-deps - Update pinned dependencies"
 
@@ -14,7 +10,6 @@ help:
 init:
 	uv sync --frozen --all-groups
 	uv run pre-commit install
-	cd ui && npm install --force
 
 # This is defined as a Makefile target instead of only a tox command because
 # if the command fails we want to cat output.txt, which contains the
@@ -26,11 +21,6 @@ linkcheck:
 	    docs/_build/linkcheck				\
 	    || (cat docs/_build/linkcheck/output.txt; exit 1)
 
-.PHONY: ui
-ui:
-	cd ui && npm run lint:fix
-	cd ui && npm run build
-
 .PHONY: update
 update: update-deps init
 
@@ -39,4 +29,3 @@ update-deps:
 	uv lock --upgrade
 	uv run --only-group=lint pre-commit autoupdate
 	./scripts/update-uv-version.sh
-	cd ui && npm upgrade --legacy-peer-deps

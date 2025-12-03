@@ -274,8 +274,8 @@ async def get_admin_token_change_history(
 @router.get(
     "/auth/api/v1/login",
     description=(
-        "Used by the JavaScript UI to obtain a CSRF token, user metadata,"
-        " and server configuration. Not used with regular API calls."
+        "Used by Squareone to obtain a CSRF token, user metadata, and server"
+        " configuration. Not used with regular API calls."
     ),
     summary="Initialize UI",
     tags=["browser"],

@@ -15,7 +15,7 @@ The mapping of groups to scopes is controlled by the ``config.groupMappings`` He
 See :ref:`scopes` for more information.
 
 The list of supported scopes and their human-readable descriptions are configured in the ``config.knownScopes`` Helm configuration setting.
-The human-readable descriptions are used in the UI.
+The human-readable descriptions are used in Squareone_.
 
 For more details on how scopes are used in the Rubin Science Platform, see :dmtn:`235`.
 

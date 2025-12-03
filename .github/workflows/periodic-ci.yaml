@@ -8,7 +8,7 @@ env:
   # Current supported uv version. The uv documentation recommends pinning
   # this. The version should match the version used in .pre-commit-config.yaml
   # and frozen in uv.lock. It is updated by make update-deps.
-  UV_VERSION: "0.8.22"
+  UV_VERSION: "0.9.14"
 
 "on":
   schedule:
@@ -44,47 +44,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y graphviz libpq-dev libldap2-dev libsasl2-dev
 
-      - name: Set up Node
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: ui/package-lock.json
-
-      - name: Read .nvmrc
-        id: node_version
-        run: echo "NODE_VERSION=$(cat .nvmrc)" >> $GITHUB_OUTPUT
-
-      # First try to restore the fully-installed node modules. If that works
-      # (no changes to the JavaScript layer), skip npm i and restoring the
-      # cache of downloaded modules. If that fails, restore the cache of the
-      # downloaded modules and then run npm clean-install.
-      - name: Cache installed Node modules
-        uses: actions/cache@v4
-        id: node-cache
-        with:
-          path: ./ui/node_modules
-          key: node-${{ steps.node_version.outputs.NODE_VERSION }}-${{ hashFiles('**/package-lock.json') }}
-
-      # --force is currently required because react-aria-modal hasn't been
-      # updated for the latest React.
-      - name: Install Node dependencies
-        run: npm install --force
-        if: steps.node-cache.outputs.cache-hit != 'true'
-        working-directory: ./ui
-
-      - name: Build the UI
-        run: npm run build
-        working-directory: ./ui
-
-      # Do not use make update-deps because it also tries to upgrade the NPM
-      # dependencies, which we do not want to check periodically.
       - name: Update dependencies
-        run: |
-          uv lock --upgrade
-          uv sync --only-group lint --inexact
-          uv run pre-commit autoupdate
-        shell: bash
+        run: make update-deps
 
       - name: Run tox
         run: uv run --only-group=tox tox run -e lint,typing,py-full,docs,docs-linkcheck

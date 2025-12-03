@@ -16,6 +16,7 @@
 .. _scriv: https://scriv.readthedocs.io/en/latest/
 .. _semver: https://semver.org/
 .. _Sentry: https://sentry.io/welcome/
+.. _Squareone: https://squareone.lsst.io/
 .. _structlog: https://www.structlog.org/en/stable/
 .. _tox: https://tox.wiki/en/latest/
 .. _uv: https://docs.astral.sh/uv/

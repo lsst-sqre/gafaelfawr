@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from contextlib import suppress
 from enum import StrEnum
 from typing import Any, Self
@@ -42,7 +43,7 @@ class OIDCScope(StrEnum):
     rubin = "rubin"
 
     @classmethod
-    def parse_scopes(cls, scopes: str) -> list[Self]:
+    def parse_scopes(cls, scopes: str) -> Sequence[Self]:
         """Parse a space-separated list of scopes.
 
         Any unknown scopes are silently ignored, following the OpenID Connect

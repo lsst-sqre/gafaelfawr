@@ -33,9 +33,9 @@ with SphinxDiagram(
 
     with Cluster("Kubernetes"):
         ingress = LoadBalancing("NGINX ingress")
+        ui = React("Squareone")
 
         with Cluster("Gafaelfawr"):
-            ui = React("UI")
             server = KubernetesEngine("Server")
             redis = KubernetesEngine("Redis")
             storage = PersistentDisk("Redis storage")

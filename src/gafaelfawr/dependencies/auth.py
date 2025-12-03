@@ -264,7 +264,7 @@ class AuthenticateWrite(Authenticate):
                 title="CSRF token",
                 description=(
                     "Only required when authenticating with a cookie, such as"
-                    " via the JavaScript UI."
+                    " via the Squareone UI"
                 ),
                 examples=["OmNdVTtKKuK_VuJsGFdrqg"],
             ),
