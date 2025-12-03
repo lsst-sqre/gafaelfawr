@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 
 from safir.database import CountedPaginatedList
 from safir.datetime import current_datetime, format_datetime_for_logging
+from safir.redis import DeserializeError
 from sqlalchemy.ext.asyncio import async_scoped_session
 from structlog.stdlib import BoundLogger
 
@@ -112,69 +113,55 @@ class TokenService:
         list of str
             A list of human-readable alert messages formatted in Markdown.
         """
-        alert: str | None
         alerts = []
+        malformed_redis = []
+        redis = self._token_redis_store
+        database = self._token_db_store
         now = current_datetime()
 
         async with self._session.begin():
             db_tokens = {
-                t.token: t
-                for t in await self._token_db_store.list_with_parents()
+                t.token: t for t in await database.list_with_parents()
             }
         db_token_keys = set(db_tokens.keys())
         redis_tokens = {}
-        for key in await self._token_redis_store.list():
-            token_data = await self._token_redis_store.get_data_by_key(key)
-            if token_data:
-                redis_tokens[key] = token_data
+        for key in await redis.list():
+            try:
+                token_data = await redis.get_data_by_key_unchecked(key)
+            except DeserializeError:
+                malformed_redis.append(key)
+            else:
+                if token_data:
+                    redis_tokens[key] = token_data
         redis_token_keys = set(redis_tokens.keys())
+
+        # Invalid tokens.
+        for key in malformed_redis:
+            self._logger.warning("Token data invalid in Redis", token=key)
+            alert = f"Token `{key}` in Redis is malformed"
+            if fix:
+                await redis.delete(key)
+                alert += " (fixed)"
+            alerts.append(alert)
 
         # Tokens in the database but not in Redis.
         for key in db_token_keys - redis_token_keys:
-            expires = db_tokens[key].expires
-            if expires and expires <= now:
-                continue
-            self._logger.warning(
-                "Token found in database but not Redis",
-                token=key,
-                user=db_tokens[key].username,
-            )
-            alert = (
-                f"Token `{key}` for `{db_tokens[key].username}` found in"
-                " database but not Redis"
-            )
-            if fix:
-                async with self._session.begin():
-                    await self._token_db_store.modify(key, expires=now)
-                alert += " (fixed)"
-            alerts.append(alert)
+            info = db_tokens[key]
+            alerts.extend(await self._audit_db_not_redis(info, now, fix=fix))
 
         # Tokens in Redis but not in the database.
         for key in redis_token_keys - db_token_keys:
-            self._logger.warning(
-                "Token found in Redis but not database",
-                token=key,
-                user=redis_tokens[key].username,
-            )
-            alert = (
-                f"Token `{key}` for `{redis_tokens[key].username}` found in"
-                " Redis but not database"
-            )
-            if fix:
-                await self._token_redis_store.delete(key)
-                alert += " (fixed)"
-            alerts.append(alert)
+            data = redis_tokens[key]
+            alerts.extend(await self._audit_redis_not_db(data, fix=fix))
 
         # Check that the data matches between the database and Redis. Older
         # versions of Gafaelfawr didn't sort the scopes in Redis, so we have
         # to sort them here or we get false positives with old tokens.
         for key in db_token_keys & redis_token_keys:
-            db = db_tokens[key]
-            redis = redis_tokens[key]
-            parent = db_tokens.get(db.parent) if db.parent else None
-            alerts.extend(
-                await self._audit_token(key, db, redis, parent, fix=fix)
-            )
+            info = db_tokens[key]
+            data = redis_tokens[key]
+            parent = db_tokens.get(info.parent) if info.parent else None
+            alerts.extend(await self._audit_token(info, data, parent, fix=fix))
 
         # Check for orphaned tokens.
         alerts.extend(await self._audit_orphaned())
@@ -1049,6 +1036,44 @@ class TokenService:
         async with self._session.begin():
             await self._token_change_store.delete(older_than=cutoff)
 
+    async def _audit_db_not_redis(
+        self, token_info: TokenInfo, now: datetime, *, fix: bool
+    ) -> list[str]:
+        """Audit for a token in the database but not Redis.
+
+        Parameters
+        ----------
+        token_info
+            Token information from the database.
+        now
+            Time at which the Redis data was retrieved.
+        fix
+            Whether to fix errors if possible.
+
+        Returns
+        -------
+        list of str
+            Alerts to report.
+        """
+        user = token_info.username
+        key = token_info.token
+
+        # If the token is expired, don't worry about it. The maintenance job
+        # will delete the entry from the database.
+        if token_info.expires and token_info.expires <= now:
+            return []
+
+        # Generate the alert and fix the problem if possible.
+        self._logger.warning(
+            "Token found in database but not Redis", token=key, user=user
+        )
+        alert = f"Token `{key}` for `{user}` found in database but not Redis"
+        if fix:
+            async with self._session.begin():
+                await self._token_db_store.modify(key, expires=now)
+            alert += " (fixed)"
+        return [alert]
+
     async def _audit_orphaned(self) -> list[str]:
         """Audit for orphaned tokens.
 
@@ -1068,9 +1093,36 @@ class TokenService:
                 alerts.append(alert)
         return alerts
 
+    async def _audit_redis_not_db(
+        self, token_data: TokenData, *, fix: bool
+    ) -> list[str]:
+        """Audit for a token in Redis but not the database.
+
+        Parameters
+        ----------
+        token_data
+            Token data from Redis.
+        fix
+            Whether to fix errors if possible.
+
+        Returns
+        -------
+        list of str
+            Alerts to report.
+        """
+        key = token_data.token.key
+        user = token_data.username
+        self._logger.warning(
+            "Token found in Redis but not database", token=key, user=user
+        )
+        alert = f"Token `{key}` for `{user}` found in Redis but not database"
+        if fix:
+            await self._token_redis_store.delete(key)
+            alert += " (fixed)"
+        return [alert]
+
     async def _audit_token(
         self,
-        key: str,
         db: TokenInfo,
         redis: TokenData,
         parent: TokenInfo | None,
@@ -1084,8 +1136,6 @@ class TokenService:
 
         Parameters
         ----------
-        key
-            Key of the token.
         db
             Database version of token.
         parent
@@ -1100,8 +1150,10 @@ class TokenService:
         str or `None`
             List of alerts to report.
         """
+        key = db.token
         alerts = []
         mismatches = []
+
         if db.username != redis.username:
             mismatches.append("username")
         if db.token_type != redis.token_type:
@@ -1120,6 +1172,7 @@ class TokenService:
             mismatches.append("created")
         if db.expires != redis.expires:
             mismatches.append("expires")
+
         if mismatches:
             self._logger.warning(
                 "Token does not match between database and Redis",
@@ -1131,6 +1184,7 @@ class TokenService:
                 f"Token `{key}` for `{redis.username}` does not match"
                 f" between database and Redis ({', '.join(mismatches)})"
             )
+
         if parent:
             exp = db.expires
             if parent.expires and (not exp or exp > parent.expires):
@@ -1145,6 +1199,7 @@ class TokenService:
                     f"Token `{key}` for `{redis.username}` expires after"
                     " its parent token"
                 )
+
         return alerts
 
     def _audit_unknown_scopes(self, tokens: Iterable[TokenData]) -> list[str]:

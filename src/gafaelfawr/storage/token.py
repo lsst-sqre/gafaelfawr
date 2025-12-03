@@ -538,8 +538,8 @@ class TokenRedisStore:
         Returns
         -------
         TokenData or None
-            The data underlying the token, or `None` if the token is not
-            valid.
+            The data underlying the token, or `None` if the token doesn't
+            exist or is not valid.
         """
         data = await self.get_data_by_key(token.key)
         if not data:
@@ -567,8 +567,8 @@ class TokenRedisStore:
         Returns
         -------
         TokenData or None
-            The data underlying the token, or `None` if the token is not
-            valid.
+            The data underlying the token, or `None` if the token doesn't
+            exist or is not valid.
         """
         try:
             data = await self._storage.get(key)
@@ -577,6 +577,33 @@ class TokenRedisStore:
             await report_exception(e, slack_client=self._slack)
             return None
         return data
+
+    async def get_data_by_key_unchecked(self, key: str) -> TokenData | None:
+        """Retrieve the data for a token by key without catching errors.
+
+        This method allows retrieving a working token while bypassing the
+        check that the caller is in possession of the secret, and therefore
+        must never be used with user-supplied keys. It raises exceptions if
+        the key is invalid rather than pretending the token doesn't exist,
+        making it suitable for lower-level audits.
+
+        Parameters
+        ----------
+        key
+            The key of the token.
+
+        Returns
+        -------
+        TokenData or None
+            The data underlying the token, or `None` if the token doesn't
+            exist.
+
+        Raises
+        ------
+        safir.redis.DeserializeError
+            Raised if the data stored in Redis is invalid.
+        """
+        return await self._storage.get(key)
 
     async def list(self) -> list[str]:
         """List all token keys stored in Redis.
