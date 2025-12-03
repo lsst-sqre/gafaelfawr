@@ -1616,7 +1616,9 @@ async def test_truncate_history(factory: Factory) -> None:
 
 
 @pytest.mark.asyncio
-async def test_audit(factory: Factory) -> None:
+async def test_audit(
+    config: Config, factory: Factory, mock_slack: MockSlackWebhook
+) -> None:
     token_service = factory.create_token_service()
     token_db_store = token_service._token_db_store
     token_redis_store = token_service._token_redis_store
@@ -1725,8 +1727,19 @@ async def test_audit(factory: Factory) -> None:
     async with factory.session.begin():
         await token_db_store.add(expired_token_data)
 
-    # Run the audit.  This should result in a Slack message about all of the
-    # problems found.
+    # Add an entry in Redis that looks like a token but is not encrypted.
+    expires = int(timedelta(days=1).total_seconds())
+    string = Token()
+    await factory.persistent_redis.set(f"token:{string.key}", "f", ex=expires)
+
+    # Add an entry in Redis that is correctly encrypted but is malformed.
+    fernet = Fernet(config.session_secret.get_secret_value().encode())
+    raw = fernet.encrypt(b"malformed json")
+    invalid = Token()
+    await factory.persistent_redis.set(f"token:{invalid.key}", raw, ex=expires)
+
+    # Run the audit. This should result in a message about all of the problems
+    # found.
     alerts = await token_service.audit()
     expected = [
         f"Token `{db_session_token_data.token.key}` for `some-user`"
@@ -1741,13 +1754,19 @@ async def test_audit(factory: Factory) -> None:
         " no parent token",
         f"Token `{unknown_scope_token_data.token.key}` for `some-user`"
         " has unknown scope (`bogus:scope`)",
+        f"Token `{string.key}` in Redis is malformed",
+        f"Token `{invalid.key}` in Redis is malformed",
     ]
+    assert sorted(alerts) == sorted(expected)
+
+    # Nothing changes if the audit is run a second time, still without fix.
+    alerts = await token_service.audit()
     assert sorted(alerts) == sorted(expected)
 
     # Run the audit again with fixing enabled.
     alerts = await token_service.audit(fix=True)
-    expected[0] += " (fixed)"
-    expected[1] += " (fixed)"
+    for fixed in (0, 1, 6, 7):
+        expected[fixed] += " (fixed)"
     expected[2] = (
         f"Token `{db_user_token_data.token.key}` for `some-user` does"
         " not match between database and Redis (scopes [fixed], created)"
@@ -1760,12 +1779,15 @@ async def test_audit(factory: Factory) -> None:
 
     # Run the audit again, which should show fewer issues.
     alerts = await token_service.audit()
-    expected = expected[2:]
+    expected = expected[2:6]
     expected[0] = (
         f"Token `{db_user_token_data.token.key}` for `some-user` does"
         " not match between database and Redis (created)"
     )
     assert sorted(alerts) == sorted(expected)
+
+    # Audits should not produce Slack alerts.
+    assert mock_slack.messages == []
 
 
 @pytest.mark.asyncio
