@@ -3,9 +3,17 @@
 from gafaelfawr.keypair import RSAKeyPair
 
 __all__ = [
+    "POSTGRES_IMAGE",
+    "REDIS_IMAGE",
     "TEST_HOSTNAME",
     "TEST_KEYPAIR",
 ]
+
+POSTGRES_IMAGE = "postgres:18"
+"""PostgreSQL Docker image to use for testing."""
+
+REDIS_IMAGE = "redis:8"
+"""Redis Docker image to use for testing."""
 
 TEST_HOSTNAME = "example.com"
 """The hostname used in ASGI requests to the application."""
