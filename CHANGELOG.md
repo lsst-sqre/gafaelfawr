@@ -10,6 +10,23 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-15.0.0'></a>
+## 15.0.0 (2025-12-03)
+
+### Backwards-incompatible changes
+
+- Remove the JavaScript token user interface. This is now provided by [Squareone](https://squareone.lsst.io/).
+
+### New features
+
+- Publish multi-platform images that support both linux/amd64 and linux/arm64.
+
+### Bug fixes
+
+- Return the correct error code for clients that send an `Authorization` header with the method, a space, and no value instead of raising an uncaught exception.
+- Diagnose malformed token entries in Redis and support fixing them with `gafaelfawr audit --fix` instead of raising Slack exceptions and otherwise ignoring them.
+- Fix error handling for application metrics when the underlying Kafka infrastructure is down. Previously some edge cases could cause Gafaelfawr to stop working if it couldn't report metrics.
+
 <a id='changelog-14.1.0'></a>
 ## 14.1.0 (2025-09-30)
 
