@@ -989,6 +989,7 @@ dev = [
     { name = "pytest-cov" },
     { name = "pytest-sugar" },
     { name = "respx" },
+    { name = "testcontainers", extra = ["redis"] },
 ]
 docs = [
     { name = "documenteer", extra = ["guide"] },
@@ -1003,7 +1004,6 @@ lint = [
 ]
 tox = [
     { name = "tox" },
-    { name = "tox-docker" },
     { name = "tox-uv" },
 ]
 typing = [
@@ -1052,6 +1052,7 @@ dev = [
     { name = "pytest-cov", specifier = ">=6" },
     { name = "pytest-sugar", specifier = ">=1" },
     { name = "respx", specifier = ">=0.22" },
+    { name = "testcontainers", extras = ["postgres", "redis"] },
 ]
 docs = [
     { name = "documenteer", extras = ["guide"], specifier = ">=2" },
@@ -1066,7 +1067,6 @@ lint = [
 ]
 tox = [
     { name = "tox", specifier = ">=4.24" },
-    { name = "tox-docker", specifier = ">=5" },
     { name = "tox-uv", specifier = ">=1.25" },
 ]
 typing = [
@@ -3301,6 +3301,27 @@ wheels = [
 ]
 
 [[package]]
+name = "testcontainers"
+version = "4.13.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "docker" },
+    { name = "python-dotenv" },
+    { name = "typing-extensions" },
+    { name = "urllib3" },
+    { name = "wrapt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fc/b3/c272537f3ea2f312555efeb86398cc382cd07b740d5f3c730918c36e64e1/testcontainers-4.13.3.tar.gz", hash = "sha256:9d82a7052c9a53c58b69e1dc31da8e7a715e8b3ec1c4df5027561b47e2efe646", size = 79064, upload-time = "2025-11-14T05:08:47.584Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/73/27/c2f24b19dafa197c514abe70eda69bc031c5152c6b1f1e5b20099e2ceedd/testcontainers-4.13.3-py3-none-any.whl", hash = "sha256:063278c4805ffa6dd85e56648a9da3036939e6c0ac1001e851c9276b19b05970", size = 124784, upload-time = "2025-11-14T05:08:46.053Z" },
+]
+
+[package.optional-dependencies]
+redis = [
+    { name = "redis" },
+]
+
+[[package]]
 name = "tomlkit"
 version = "0.13.3"
 source = { registry = "https://pypi.org/simple" }
@@ -3346,19 +3367,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/59/bf/0e4dbd42724cbae25959f0e34c95d0c730df03ab03f54d52accd9abfc614/tox-4.32.0.tar.gz", hash = "sha256:1ad476b5f4d3679455b89a992849ffc3367560bbc7e9495ee8a3963542e7c8ff", size = 203330, upload-time = "2025-10-24T18:03:38.132Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fc/cc/e09c0d663a004945f82beecd4f147053567910479314e8d01ba71e5d5dea/tox-4.32.0-py3-none-any.whl", hash = "sha256:451e81dc02ba8d1ed20efd52ee409641ae4b5d5830e008af10fe8823ef1bd551", size = 175905, upload-time = "2025-10-24T18:03:36.337Z" },
-]
-
-[[package]]
-name = "tox-docker"
-version = "5.0.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "docker" },
-    { name = "tox" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/de/3c/dcec11dadd48a8f2ba276cd499a4db46a0c70388e0505dae46730a185a35/tox_docker-5.0.0.tar.gz", hash = "sha256:3cbfe70713910b9dbb9f74e20a5c42f19da42d375bac7d6a3ccc11aed0738d7a", size = 19779, upload-time = "2024-05-25T12:50:22.173Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/fc/98/82381ccd7adf9b1d4b488199b916f0b77068e449b7186f8aeeb9f5264f1e/tox_docker-5.0.0-py3-none-any.whl", hash = "sha256:7dd7293ea286dff422eab6c23a70652147b275eb436c02e97a90ac59ba41f8a8", size = 29561, upload-time = "2024-05-25T12:50:20.636Z" },
 ]
 
 [[package]]

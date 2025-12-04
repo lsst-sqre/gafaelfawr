@@ -19,8 +19,15 @@ from .support.config import config_path
 def _environment(monkeypatch: pytest.MonkeyPatch) -> None:
     """Set up environment variables that provide secrets."""
     session_secret = Fernet.generate_key().decode()
+    postgres_url = "postgresql://gafaelfawr@localhost/gafaelfawr"
+    redis_persistent_url = "redis://localhost/0"
     monkeypatch.setenv("GAFAELFAWR_BOOTSTRAP_TOKEN", str(Token()))
+    monkeypatch.setenv("GAFAELFAWR_DATABASE_PASSWORD", "password")
+    monkeypatch.setenv("GAFAELFAWR_DATABASE_URL", postgres_url)
     monkeypatch.setenv("GAFAELFAWR_GITHUB_CLIENT_SECRET", "github-secret")
+    monkeypatch.setenv("GAFAELFAWR_REDIS_EPHEMERAL_URL", "redis://localhost/1")
+    monkeypatch.setenv("GAFAELFAWR_REDIS_PASSWORD", "password")
+    monkeypatch.setenv("GAFAELFAWR_REDIS_PERSISTENT_URL", redis_persistent_url)
     monkeypatch.setenv("GAFAELFAWR_SESSION_SECRET", session_secret)
 
 
@@ -141,8 +148,6 @@ def test_config_cilogon_test(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_redis_rate_limit_url(monkeypatch: pytest.MonkeyPatch) -> None:
     ephemeral = "redis://gafaelfawr-redis-ephemeral.gafaelfawr:6370/1"
     persistent = "redis://gafaelfawr-redis.gafaelfawr:6370/0"
-    monkeypatch.delenv("REDIS_6379_TCP_PORT")
-    monkeypatch.delenv("REDIS_HOST")
     monkeypatch.setenv("GAFAELFAWR_REDIS_EPHEMERAL_URL", ephemeral)
     monkeypatch.setenv("GAFAELFAWR_REDIS_PERSISTENT_URL", persistent)
     monkeypatch.setenv("GAFAELFAWR_REDIS_PASSWORD", "f:b/b@c")

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 
@@ -16,6 +17,8 @@ from httpx import ASGITransport, AsyncClient
 from safir.database import create_database_engine, stamp_database_async
 from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
 from sqlalchemy.ext.asyncio import AsyncEngine
+from testcontainers.postgres import PostgresContainer
+from testcontainers.redis import RedisContainer
 
 from gafaelfawr.config import Config
 from gafaelfawr.database import initialize_gafaelfawr_database
@@ -25,7 +28,7 @@ from gafaelfawr.main import create_app
 from gafaelfawr.models.token import Token
 
 from .support.config import configure
-from .support.constants import TEST_HOSTNAME
+from .support.constants import REDIS_IMAGE, TEST_HOSTNAME
 from .support.firestore import MockFirestore, patch_firestore
 from .support.ldap import MockLDAP, patch_ldap
 
@@ -41,6 +44,8 @@ every configuration file.
 @pytest.fixture(autouse=True)
 def environment(monkeypatch: pytest.MonkeyPatch) -> None:
     """Set default values of environment variables for testing."""
+    alembic_path = Path(__file__).parent.parent / "alembic.ini"
+    monkeypatch.setenv("GAFAELFAWR_ALEMBIC_CONFIG_PATH", str(alembic_path))
     monkeypatch.setenv("GAFAELFAWR_BASE_URL", f"https://{TEST_HOSTNAME}")
     monkeypatch.setenv(
         "GAFAELFAWR_BASE_INTERNAL_URL",
@@ -77,7 +82,11 @@ async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
 
 
 @pytest.fixture
-def config(monkeypatch: pytest.MonkeyPatch) -> Config:
+def config(
+    monkeypatch: pytest.MonkeyPatch,
+    postgres: PostgresContainer,
+    redis: RedisContainer,
+) -> Config:
     """Set up and return the default test configuration.
 
     The fixture always configures Gafealfawr for GitHub authentication, but it
@@ -94,13 +103,27 @@ def config(monkeypatch: pytest.MonkeyPatch) -> Config:
     oidc_server_key = _ISSUER_KEY.private_key_as_pem().decode()
     session_secret = Fernet.generate_key().decode()
     slack_webhook = "https://slack.example.com/webhook"
+
+    postgres_url = postgres.get_connection_url()
+
+    redis_host = redis.get_container_host_ip()
+    redis_port = redis.get_exposed_port(redis.port)
+    redis_ephemeral_url = f"redis://{redis_host}:{redis_port}/1"
+    redis_persistent_url = f"redis://{redis_host}:{redis_port}/0"
+
     monkeypatch.setenv("GAFAELFAWR_BOOTSTRAP_TOKEN", str(Token()))
+    monkeypatch.setenv("GAFAELFAWR_DATABASE_PASSWORD", postgres.password)
+    monkeypatch.setenv("GAFAELFAWR_DATABASE_URL", postgres_url)
     monkeypatch.setenv("GAFAELFAWR_CILOGON_CLIENT_SECRET", "oidc-secret")
     monkeypatch.setenv("GAFAELFAWR_GITHUB_CLIENT_SECRET", "github-secret")
     monkeypatch.setenv("GAFAELFAWR_OIDC_CLIENT_SECRET", "oidc-secret")
     monkeypatch.setenv("GAFAELFAWR_OIDC_SERVER_KEY", oidc_server_key)
+    monkeypatch.setenv("GAFAELFAWR_REDIS_EPHEMERAL_URL", redis_ephemeral_url)
+    monkeypatch.setenv("GAFAELFAWR_REDIS_PASSWORD", redis.password)
+    monkeypatch.setenv("GAFAELFAWR_REDIS_PERSISTENT_URL", redis_persistent_url)
     monkeypatch.setenv("GAFAELFAWR_SESSION_SECRET", session_secret)
     monkeypatch.setenv("GAFAELFAWR_SLACK_WEBHOOK", slack_webhook)
+
     return configure("github")
 
 
@@ -175,3 +198,22 @@ def mock_slack(
         return None
     webhook = config.slack_webhook.get_secret_value()
     return mock_slack_webhook(webhook, respx_mock)
+
+
+@pytest.fixture(scope="session")
+def postgres() -> Iterator[PostgresContainer]:
+    with PostgresContainer(
+        driver="asyncpg",
+        dbname="gafaelfawr",
+        username="gafaelfawr",
+        password=os.urandom(16).hex(),
+    ) as postgres:
+        yield postgres
+
+
+@pytest.fixture(scope="session")
+def redis() -> Iterator[RedisContainer]:
+    """Start a Redis container."""
+    password = os.urandom(16).hex()
+    with RedisContainer(image=REDIS_IMAGE, password=password) as redis:
+        yield redis
