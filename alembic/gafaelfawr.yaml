@@ -4,7 +4,12 @@
 # actually work. Do not use the secrets contained in this file for any other
 # purpose; they are completely insecure.
 
-logLevel: "DEBUG"
+# Raise the log level so that Gafaelfawr logging doesn't get into SQL dumps.
+logLevel: "WARNING"
+
+# Dummy base URLs.
+baseUrl: "https://example.org/"
+baseInternalUrl: "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080"
 
 # Dummy secrets so that Gafaelfawr will start.
 bootstrapToken: "gt-HJQLhg7DQT7lXDL3BDFjgw.kRGKrVPcQBsNHszvZN9Qjw"

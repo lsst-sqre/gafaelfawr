@@ -26,11 +26,6 @@ jobs:
           # Ensure the documentation gets the right version.
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version-file: ".python-version"
-
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
@@ -47,8 +42,8 @@ jobs:
       - name: Update dependencies
         run: make update-deps
 
-      - name: Run tox
-        run: uv run --only-group=tox tox run -e lint,typing,py-full,docs,docs-linkcheck
+      - name: Run nox
+        run: uv run --only-group=nox nox -s lint typing test-full docs docs-linkcheck
 
       - name: Report status
         if: failure()

@@ -12,7 +12,7 @@ Gafaelfawr is an open source package, meaning that you can contribute to Gafaelf
 Since Gafaelfawr is intended for internal use by Rubin Observatory, community contributions can only be accepted if they align with Rubin Observatory's aims.
 For that reason, it's a good idea to propose changes with a new `GitHub issue`_ before investing time in making a pull request.
 
-Gafaelfawr is developed by the LSST SQuaRE team.
+Gafaelfawr is developed by the Rubin Observatory SQuaRE team.
 
 .. _GitHub issue: https://github.com/lsst-sqre/gafaelfawr/issues/new
 
@@ -24,9 +24,9 @@ Setting up a local development environment
 Prerequisites
 -------------
 
-Gafaelfawr uses uv_ for all dependency management.
-A reasonably recent version of :command:`uv` must already be installed.
-See `the uv installation instructions <https://docs.astral.sh/uv/getting-started/installation/>`__ if needed.
+Gafaelfawr is developed using uv_.
+You will therefore need it installed to set up a development environment.
+See the `uv installation instructions <https://docs.astral.sh/uv/getting-started/installation/>`__ for details.
 
 Gafaelfawr development requires Docker be installed locally.
 The user doing development must be able to start and manage Docker containers.
@@ -34,37 +34,27 @@ The user doing development must be able to start and manage Docker containers.
 Set up development environment
 ------------------------------
 
-To develop Gafaelfawr, create a virtual environment with :command:`uv venv` and then run :command:`make init`.
+To develop Gafaelfawr, clone the repository and set up a virtual environment:
 
-.. prompt:: bash
+.. code-block:: sh
 
    git clone https://github.com/lsst-sqre/gafaelfawr.git
    cd gafaelfawr
-   uv venv
    make init
 
 This init step does three things:
 
-1. Installs Gafaelfawr in a virtualenv in the :file:`.venv` directory, including the dependency groups for local development.
-2. Installs pre-commit_, tox_, and the necessary tox plugins.
+1. Creates a Python virtual environment in the :file:`.venv` subdirectory with the packages needed to do Repertoire development installed.
+2. Installs Gafaelfawr in an editable mode in that virtual environment.
 3. Installs the pre-commit hooks.
 
-On macOS hosts, you may need to run the following before running :command:`make init` and in the same terminal window.
-
-.. prompt:: bash
-
-   export LDFLAGS="-L/usr/local/opt/openssl/lib"
-
-Otherwise, OpenSSL isn't on the default linker path and some Python extensions may not build.
-This must be set in any terminal window where you may run :command:`tox`.
-
-Finally, you can optionally enter the Gafaelfawr development virtualenv with:
+You can activate the Gafaelfawr virtual environment if you wish with:
 
 .. prompt:: bash
 
    source .venv/bin/activate
 
-This is optional; you do not have to activate the virtualenv to do development.
+This is optional; you do not have to activate the virtual environment to do development.
 However, if you do, you can omit :command:`uv run` from the start of all commands described below.
 Also, editors with Python integration, such as VSCode, may work more smoothly if you activate the virtualenv before starting them.
 
@@ -82,52 +72,54 @@ blacken-docs
 ruff
     Lint Python code and attempt to automatically fix some problems.
 
-uv-lock
-    Update the :file:`uv.lock` file if dependencies in :file:`pyproject.toml` have changed.
-
 When these hooks fail, your Git commit will be aborted.
 To proceed, stage the new modifications and proceed with your Git commit.
+
+If the ``uv-lock`` pre-commit hook fails, that indicates that the :file:`uv.lock` file is out of sync with the declared dependencies.
+To fix this, run :command:`make update-deps` as described in :ref:`dev-updating-dependencies`.
 
 .. _dev-run-tests:
 
 Running tests
 =============
 
-To test all components of Gafaelfawr other than the Kubernetes operator (see below), run tox_, which tests the library the same way that the CI workflow does:
+Gafaelfawr uses nox_ as its automation tool for testing.
+
+To run all tests:
 
 .. prompt:: bash
 
-   uv run tox run
+   uv run nox
 
-This uses tox-docker to start PostgreSQL and Redis Docker containers for the tess to use, so Docker must be installed and the user running tox must have permission to create Docker containers.
+This will run several nox sessions to lint and type-check the code, run the test suite, and build the documentation.
 
-To run the tests with coverage analysis and generate a report, run:
-
-.. prompt:: bash
-
-   uv run tox run -e py-coverage,coverage-report
-
-To see a listing of test environments, run:
+To run a specific nox session, run:
 
 .. prompt:: bash
 
-   uv run tox list
+   uv run nox -s <session>
 
-To run a specific test environment, run:
+For example, :command:`uv run nox -s typing` will only run mypy and not the rest of the tests.
+
+Normally, the tests run without coverage analysis, since gathering that data slows down testing by about a third.
+To test with coverage analysis, run:
 
 .. prompt:: bash
 
-   uv run tox -e <environment>
+   uv run nox -s test-coverage coverage-report
 
-For example, ``uv run tox -e typing`` will only run mypy and not the rest of th
-e tests.
+To list the available sessions, run:
 
-To run a specific test or list of tests, you can add test file names (and any other pytest_ options) after ``--`` when executing the ``py`` or ``py-full`` tox environment.
+.. prompt:: bash
+
+   uv run nox --list
+
+To run a specific test or list of tests, you can add test file names (and any other pytest_ options) after ``--`` when executing the ``test`` nox session.
 For example:
 
 .. prompt:: bash
 
-   uv run tox run -e py -- tests/handlers/api_tokens_test.py
+   uv run nox -s test -- tests/cli_test.py
 
 You can run a specific test function by appending two colons and the function name to the end of the file name.
 
@@ -135,9 +127,6 @@ Testing the Kubernetes operator
 -------------------------------
 
 To test the Kubernetes operator, you must have a Kubernetes cluster available that is not already running Gafaelfawr.
-This is only tested with Minikube_, which is the approach used by CI.
-
-.. _Minikube: https://minikube.sigs.k8s.io/docs/
 
 .. warning::
 
@@ -148,7 +137,13 @@ This is only tested with Minikube_, which is the approach used by CI.
 
    If you want to run these tests manually rather than via CI, using Minikube for tests and carefully verifying that the default Kubernetes credentials are for the Minikube environment is strongly encouraged.
 
-To set up Minikube:
+These tests are normally only run via Minikube_ configured via GitHub Actions.
+If you want to run them locally, the following setup instructions may work, but are not tested and may have broken.
+
+.. _Minikube: https://minikube.sigs.k8s.io/docs/
+
+Install Minikube
+^^^^^^^^^^^^^^^^
 
 #. `Install Minikube <https://minikube.sigs.k8s.io/docs/start/>`__ for your platform.
 
@@ -156,7 +151,7 @@ To set up Minikube:
 
    .. prompt:: bash
 
-      minikube start --driver=docker --cpus=4 --memory=8g --disk-size=100g  --kubernetes-version=1.21.5
+      minikube start --driver=docker --cpus=4 --memory=8g --disk-size=100g
 
    The ``--kubernetes-version`` option can be used to specify the Kubernetes version to use.
 
@@ -165,6 +160,9 @@ To set up Minikube:
    .. prompt:: bash
 
       minikube addons enable ingress
+
+Run the tests
+^^^^^^^^^^^^^
 
 To run all of the tests including Kubernetes tests, first check that your default Kubernetes environment is the one in which you want to run tests:
 
@@ -176,9 +174,42 @@ Then, run:
 
 .. prompt:: bash
 
-   uv run tox run -e py-full
+   uv run nox -s test-full
 
-Add the ``coverage-report`` environment to also get a test coverage report.
+Add the ``coverage-report`` session to also get a test coverage report.
+
+Building documentation
+======================
+
+Documentation is built with Sphinx_.
+It is built as part of a normal test run to check that the documentation can still build without warnings, or can be built explicitly with:
+
+.. _Sphinx: https://www.sphinx-doc.org/en/master/
+
+.. prompt:: bash
+
+   uv run nox -s docs
+
+The build documentation is located in the :file:`docs/_build/html` directory.
+
+Additional dependencies required only for the documentation build should be added to the ``docs`` dependency group in :file:`pyproject.toml`.
+
+Documentation builds are incremental, and generate and use cached descriptions of the internal Python APIs.
+If you see errors in building the Python API documentation or have problems with changes to the documentation (particularly diagrams) not showing up, try a clean documentation build with:
+
+.. prompt:: bash
+
+   uv run nox -s docs-clean
+
+This will be slower, but it will ensure that the documentation build doesn't rely on any cached data.
+
+To check the documentation for broken links, run:
+
+.. prompt:: bash
+
+   uv run nox -s docs-linkcheck
+
+.. _dev-server:
 
 Running a development server
 ============================
@@ -199,16 +230,36 @@ Do this by adding the following to the appropriate :file:`values-{environment}.y
      pullPolicy: Always
 
 Replace the tag with the name of your development branch.
-Slashes will be replaced with underscores.
+Slashes in the branch name should be changed to dashes in the tag name.
 
 .. note::
 
    Be sure you use a branch naming pattern that will cause the Gafaelfawr GitHub Actions configuration to build and upload a Docker image.
-   By default, this means the branch name must begin with ``tickets/``.
+   By default, this means the branch name must begin with ``tickets/`` or ``t/``.
    You can change this in :file:`.github/workflows/ci.yaml` under the ``build`` step.
 
 Updating dependencies
 =====================
+
+To update dependencies, run:
+
+.. prompt:: bash
+
+   make update-deps
+
+This will update all pinned Python dependencies, update the versions of the pre-commit hooks, and, if needed, update the version of uv pinned in the GitHub Actions configuration and :file:`Dockerfile`.
+
+To also update the development virtualenv, instead run:
+
+.. prompt:: bash
+
+   make update-deps
+
+You may wish to do this at the start of a development cycle so that you're using the latest versions of the linters.
+You may also want to update dependencies immediately before release so that each release includes the latest dependencies.
+
+Dependency structure
+--------------------
 
 All Gafaelfawr dependencies are configured in :file:`pyproject.toml` like a regular Python package.
 Runtime dependencies are configured in ``project.dependencies``, and development dependencies are configured under ``dependency-groups``.
@@ -223,20 +274,18 @@ docs
 lint
     Dependencies required to run pre-commit_ and to lint the code base.
 
-tox
-    Dependencies required to run tox_.
+nox
+    Dependencies required to run nox_.
 
 typing
     Dependencies required to run mypy_
 
-These dependency groups are used by the tox configuration in :file:`tox.ini` to install the appropriate dependencies based on the tox action.
+These dependency groups are used by the nox build script in :file:`noxfile.py` to install the appropriate dependencies based on the nox session.
 The development virtualenv in :file:`.venv` will have all of these dependency groups installed so the developer can freely use commands such as :command:`ruff` and :command:`mypy`.
 
 A frozen version of all of these dependencies is managed by uv_ in the file :file:`uv.lock`.
 This is used to pin all dependencies so that they only change when a developer intends to update them and is prepared to run tests to ensure nothing broke.
-
-After changing any dependency, run :command:`make update-deps` to rebuild the :file:`uv.lock` file and update any JavaScript dependencies.
-To also update the development virtualenv, run :command:`make update` instead.
+This is the file updated with :command:`make update` or :command:`make update-deps`.
 
 Temporary Git dependencies
 --------------------------
@@ -267,29 +316,41 @@ Creating database migrations
 
 Gafaelfawr uses Alembic_ to manage and perform database migrations.
 Alembic is invoked automatically when the Gafaelfawr server is started.
-
 Whenever the database schema changes, you will need to create an Alembic migration.
-To do this, follow the `Safir schema migration documentation <https://safir.lsst.io/user-guide/database/schema.html#creating-database-migrations>`__.
-Add :command:`uv run` to the start of all tox commands shown there, unless you have activated the Gafaelfawr development virtualenv.
 
-Building documentation
-======================
+To do so, take the following steps:
 
-Documentation is built with Sphinx_:
+#. Make any planned code changes that will change the database schema.
 
-.. _Sphinx: https://www.sphinx-doc.org/en/master/
+#. Ask Alembic to autogenerate a database migration to the new schema:
 
-.. prompt:: bash
+   .. prompt:: bash
 
-   uv run tox run -e docs
+      uv run nox -s create-migration <message>
 
-The build documentation is located in the :file:`docs/_build/html` directory.
+   Replace ``<message>`` with a short, human-readable summary of the change, ending in a period.
+   This command will create a new file in :file:`alembic/versions` starting with the current date.
 
-To check the documentation for broken links, run:
+#. Edit the created file in :file:`alembic/versions` and adjust it as necessary.
+   See the `Alembic documentation <https://alembic.sqlalchemy.org/en/latest/autogenerate.html>`__ for details about what Alembic can and cannot autodetect.
 
-.. prompt:: bash
+   One common change that Alembic cannot autodetect is changes to the valid values of enum types.
+   You will need to add Alembic code to the ``upgrade`` function of the migration such as:
 
-   uv run tox run -e docs-linkcheck
+   .. code-block:: python
+
+      op.execute("ALTER TYPE tokentype ADD VALUE 'oidc' IF NOT EXISTS")
+
+   Another common change that it cannot autodetect is changes from ``VARCHAR`` to ``TEXT`` columns in PostgreSQL.
+
+   If you need to manually compare the old and new schemas to look for changes like that, you can dump the database schema created by your current working tree with:
+
+   .. prompt:: bash
+
+      nox -s dump-schema
+
+All schema changes are backwards-incompatible changes for versioning and change log purposes.
+Remember to add a note to :file:`CHANGELOG.md` that the new version will require a schema migration.
 
 .. _dev-change-log:
 
@@ -310,10 +371,29 @@ Change log entries use the following sections:
 - **Bug fixes**
 - **Other changes** (for minor, patch-level changes that are not bug fixes, such as logging formatting changes or updates to the documentation)
 
-Versioning assumes that Gafaelfawr is installed via Phalanx, so changes to its internal configuration file do not count as backward-incompatible chnages unless they require changes to Helm :file:`values.yaml` files.
+The change log entries should be written in imperative tense and describe to the user the change in behavior or the impact on the user at a high level.
+Technical descriptions of how the change was implemented belong in commit messages, not change log entries.
 
-Do not include a change log entry solely for updating pinned dependencies, without any visible change to Gafaelfawr's behavior.
+Rules for what to put in the change log
+---------------------------------------
+
+Changes that are not visible to the user, including minor documentation changes, should not have a change log fragment.
+"User" here means a user of the Gafaelfawr API, the administrator of a Phalanx environment where Gafaelfawr is deployed, or the maintainer of an application that uses a Gafaelfawr Kubernetes resource.
+
+Changes that require changes to the Phalanx Helm chart but do not require changes to any of the per-environment :file:`values-{environment}.yaml` files are not user-visible in this sense.
+They do not warrant change log entries unless they have some other user-visible impact.
+Even if they are user-visible, changes that do not require modifications to :file:`values-{environment}.yaml` are generally not backwards-incompatible changes.
+Normally, they are features or bug fixes.
+
+If the change to a dependency results in a user-visible behavior change, describe that change in the Gafaelfawr change log.
+Do not only say that the dependency was updated.
+If the change to a dependency has no user-visible impact, do not create a change log entry for it.
+
 Every release is implicitly assumed to update all pinned dependencies.
+This should not be noted in the change log unless there is a user-visible behavior change.
+
+Formatting change log entries
+-----------------------------
 
 These entries will eventually be cut and pasted into the release description for the next release, so the Markdown for the change descriptions must be compatible with GitHub's Markdown conventions for the release description.
 Specifically:
@@ -321,7 +401,7 @@ Specifically:
 - Each bullet point should be entirely on one line, even if it contains multiple sentences.
   This is an exception to the normal documentation convention of a newline after each sentence.
   Unfortunately, GitHub interprets those newlines as hard line breaks, so they would result in an ugly release description.
-- Avoid using too much complex markup, such as nested bullet lists, since the formatting in the GitHub release description may not be what you expect and manually editing it is tedious.
+- Be cautious with complex markup, such as nested bullet lists, since the formatting in the GitHub release description may not be what you expect and manually repairing it is tedious.
 
 .. _style-guide:
 
@@ -331,12 +411,12 @@ Style guide
 Code
 ----
 
-- Gafaelfawr follows the :sqr:`072` Python style guide.
+- Gafaelfawr follows the :sqr:`072` Python style guide and uses the repository layout documented in :sqr:`075`.
 
 - The code formatting follows :pep:`8`, though in practice lean on Ruff to format the code for you.
 
 - Use :pep:`484` type annotations.
-  The :command:`uv run tox run -e typing` command, which runs mypy_, ensures that the project's types are consistent.
+  The :command:`uv run nox -s typing` command, which runs mypy_, ensures that the project's types are consistent.
 
 - Gafaelfawr uses the Ruff_ linter with most checks enabled.
   Its primary configuration is in :file:`ruff-shared.toml`, which should be an exact copy of the version from the `FastAPI Safir app template <https://github.com/lsst/templates/blob/main/project_templates/fastapi_safir_app/example/ruff-shared.toml>`__.

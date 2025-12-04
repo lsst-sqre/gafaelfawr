@@ -85,9 +85,10 @@ lint = [
     "pre-commit-uv",
     "ruff>=0.9",
 ]
-tox = [
-    "tox>=4.24",
-    "tox-uv>=1.25",
+nox = [
+    "nox",
+    "nox-uv",
+    "testcontainers[postgres,redis]",
 ]
 typing = [
     "mypy>=1.19",
@@ -124,7 +125,6 @@ exclude_lines = [
 
 [tool.mypy]
 disallow_incomplete_defs = true
-disallow_untyped_decorators = true
 disallow_untyped_defs = true
 enable_error_code = [
     "deprecated",
