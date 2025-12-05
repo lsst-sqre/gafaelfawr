@@ -5,6 +5,7 @@
 .. _Kopf: https://kopf.readthedocs.io/en/stable/
 .. _limits: https://limits.readthedocs.io/en/stable/
 .. _mypy: https://mypy.readthedocs.io/en/stable/
+.. _nox: https://nox.thea.codes/en/stable/index.html
 .. _Nublado: https://nublado.lsst.io/
 .. _Phalanx: https://phalanx.lsst.io/
 .. _pre-commit: https://pre-commit.com
@@ -18,7 +19,6 @@
 .. _Sentry: https://sentry.io/welcome/
 .. _Squareone: https://squareone.lsst.io/
 .. _structlog: https://www.structlog.org/en/stable/
-.. _tox: https://tox.wiki/en/latest/
 .. _uv: https://docs.astral.sh/uv/
 .. _uvicorn: https://www.uvicorn.org/
 .. _Vault: https://developer.hashicorp.com/vault
