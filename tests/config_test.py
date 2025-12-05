@@ -46,6 +46,7 @@ def parse_config(path: Path) -> Config:
 def test_config_alembic(monkeypatch: pytest.MonkeyPatch) -> None:
     """Check the configuration used for Alembic operations."""
     monkeypatch.delenv("GAFAELFAWR_BASE_URL")
+    monkeypatch.delenv("GAFAELFAWR_BASE_INTERNAL_URL")
     monkeypatch.delenv("GAFAELFAWR_BOOTSTRAP_TOKEN")
     monkeypatch.delenv("GAFAELFAWR_GITHUB_CLIENT_SECRET")
     monkeypatch.delenv("GAFAELFAWR_SESSION_SECRET")
