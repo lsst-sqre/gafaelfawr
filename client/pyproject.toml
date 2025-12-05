@@ -1,49 +1,31 @@
 [project]
 # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
-name = "gafaelfawr"
-description = "Token-based authentication and authorization system"
-license = { file = "LICENSE" }
+name = "rubin-gafaelfawr"
+description = "Client for Gafaelfawr authentication and identity service."
+license = "MIT"
+license-files = ["LICENSE"]
 readme = "README.md"
 keywords = ["rubin", "lsst"]
 # https://pypi.org/classifiers/
 classifiers = [
     "Development Status :: 5 - Production/Stable",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Intended Audience :: Developers",
     "Natural Language :: English",
     "Operating System :: POSIX",
     "Typing :: Typed",
 ]
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 dependencies = [
-    "alembic[tz]>=1.16",
-    "asyncpg",
-    "bonsai>=1.5.0",
-    "cachetools",
-    "click>8.1.4",
-    "cryptography",
-    "fastapi>=0.100",
-    "google-api-core",
-    "google-cloud-firestore",
-    "httpx",
-    "limits[async-redis]",
-    "kopf",
-    "kubernetes-asyncio",
-    "jinja2",
-    "pydantic>=2.10",
-    "pydantic-settings!=2.6.0",
-    "python-multipart",
-    "pyjwt",
-    "pyyaml",
-    "redis>=4.2.0",
-    "safir[db,kafka,kubernetes]>=14.0.0",
-    "sentry-sdk[fastapi]",
-    "sqlalchemy>=2",
-    "starlette",
-    "structlog",
-    "uvicorn[standard]",
+    "cachetools>=6.1,<7",
+    "httpx>=0.28,<1",
+    "pydantic>=2.10,<3",
+    "pydantic-settings>=2.6,<3",
+    "rubin-repertoire>=0.6,<1",
+    "structlog>24",
 ]
 dynamic = ["version"]
 
@@ -51,62 +33,38 @@ dynamic = ["version"]
 name = "Association of Universities for Research in Astronomy, Inc. (AURA)"
 email = "sqre-admin@lists.lsst.org"
 
-[project.scripts]
-gafaelfawr = "gafaelfawr.cli:main_with_sentry"
-
 [project.urls]
-Homepage = "https://gafaelfawr.lsst.io/"
+Homepage = "https://gafaelfawr.lsst.io"
 Source = "https://github.com/lsst-sqre/gafaelfawr"
 "Change log" = "https://gafaelfawr.lsst.io/changelog.html"
 "Issue tracker" = "https://github.com/lsst-sqre/gafaelfawr/issues"
 
 [build-system]
 requires = ["setuptools>=61", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
 
 [dependency-groups]
 dev = [
-    "asgi-lifespan",
     "coverage[toml]",
     "pytest>=8.3",
     "pytest-asyncio>=0.25",
     "pytest-cov>=6",
     "pytest-sugar>=1",
     "respx>=0.22",
-    "testcontainers[postgres,redis]",
-]
-docs = [
-    "documenteer[guide]>=2",
-    "rubin-gafaelfawr",
-    "scriv[toml]>=1.5",
-    "sphinx-click>=6",
-    "sphinx-diagrams>=0.4",
-]
-lint = [
-    "pre-commit",
-    "pre-commit-uv",
-    "ruff>=0.9",
 ]
 nox = [
     "nox",
     "nox-uv",
-    "testcontainers[postgres,redis]",
 ]
 typing = [
     "mypy>=1.19",
-    "rubin-gafaelfawr",
-    "sqlalchemy[mypy]>=2",
     "types-cachetools>=5.5",
-    "types-pyyaml>=6",
 ]
-
-[tool.black]
-line-length = 79
-target-version = ["py313"]
 
 [tool.coverage.run]
 parallel = true
 branch = true
-source = ["gafaelfawr"]
+source = ["rubin/gafaelfawr"]
 
 [tool.coverage.paths]
 source = ["src", ".tox/*/site-packages"]
@@ -140,7 +98,7 @@ enable_error_code = [
 ]
 ignore_missing_imports = true
 local_partial_types = true
-plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
+plugins = ["pydantic.mypy"]
 no_implicit_reexport = true
 show_error_codes = true
 strict_equality = true
@@ -164,7 +122,6 @@ filterwarnings = [
     # testcontainers hasn't updated all of the community modules
     "ignore:.*wait_container_is_ready decorator.*:DeprecationWarning",
 ]
-norecursedirs = ["client/*"]
 # The python_files setting is not for test detection (pytest will pick up any
 # test files named *_test.py without this setting) but to enable special
 # assert processing in any non-test supporting files under tests. We
@@ -173,53 +130,17 @@ norecursedirs = ["client/*"]
 # enables magical assert processing (showing a full diff on assert failures
 # with complex data structures rather than only the assert message) in files
 # listed in python_files.
-python_files = ["tests/*.py", "tests/*/*.py"]
-
-# Use the generic Ruff configuration in ruff.toml and extend it with only
-# project-specific settings.
-[tool.ruff]
-extend = "ruff-shared.toml"
-
-[tool.ruff.lint.extend-per-file-ignores]
-"*/noxfile.py" = [
-    "INP001",  # subdirectory nox configuration isn't in a package
+python_files = [
+    "src/rubin/gafaelfawr/_mock.py",
+    "tests/*.py",
+    "tests/*/*.py",
 ]
-"client/src/rubin/gafaelfawr/_mock.py" = [
-    "S101",    # test support functions are allowed to use assert
-]
-"tests/cli_test.py" = [
-    "ASYNC221", # useful to run subprocess in async tests for Alembic
-]
-
-[tool.ruff.lint.isort]
-known-first-party = [
-    "gafaelfawr",
-    "rubin.gafaelfawr",
-    "tests",
-]
-known-third-party = ["alembic"]
-split-on-trailing-comma = false
-
-[tool.scriv]
-categories = [
-    "Backwards-incompatible changes",
-    "New features",
-    "Bug fixes",
-    "Other changes",
-]
-entry_title_template = "{{ version }} ({{ date.strftime('%Y-%m-%d') }})"
-format = "md"
-md_header_level = "2"
-new_fragment_template = "file:changelog.d/_template.md.jinja"
-skip_fragments = "_template.md.jinja"
 
 [tool.setuptools_scm]
+root = ".."
 
 [tool.uv]
 required-environments = [
     "sys_platform == 'manylinux' and platform_machine == 'x86_64'",
     "sys_platform == 'manylinux' and platform_machine == 'aarch64'",
 ]
-
-[tool.uv.sources]
-rubin-gafaelfawr = { path = "client", editable = true }

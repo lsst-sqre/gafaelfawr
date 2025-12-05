@@ -1,6 +1,10 @@
 version = 1
 revision = 3
 requires-python = ">=3.14"
+required-markers = [
+    "platform_machine == 'x86_64' and sys_platform == 'manylinux'",
+    "platform_machine == 'aarch64' and sys_platform == 'manylinux'",
+]
 
 [[package]]
 name = "accessible-pygments"
@@ -869,6 +873,7 @@ dev = [
 ]
 docs = [
     { name = "documenteer", extra = ["guide"] },
+    { name = "rubin-gafaelfawr" },
     { name = "scriv" },
     { name = "sphinx-click" },
     { name = "sphinx-diagrams" },
@@ -885,6 +890,7 @@ nox = [
 ]
 typing = [
     { name = "mypy" },
+    { name = "rubin-gafaelfawr" },
     { name = "sqlalchemy", extra = ["mypy"] },
     { name = "types-cachetools" },
     { name = "types-pyyaml" },
@@ -933,6 +939,7 @@ dev = [
 ]
 docs = [
     { name = "documenteer", extras = ["guide"], specifier = ">=2" },
+    { name = "rubin-gafaelfawr", editable = "client" },
     { name = "scriv", extras = ["toml"], specifier = ">=1.5" },
     { name = "sphinx-click", specifier = ">=6" },
     { name = "sphinx-diagrams", specifier = ">=0.4" },
@@ -949,6 +956,7 @@ nox = [
 ]
 typing = [
     { name = "mypy", specifier = ">=1.19" },
+    { name = "rubin-gafaelfawr", editable = "client" },
     { name = "sqlalchemy", extras = ["mypy"], specifier = ">=2" },
     { name = "types-cachetools", specifier = ">=5.5" },
     { name = "types-pyyaml", specifier = ">=6" },
@@ -2461,6 +2469,64 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/da/8a/22b7beea3ee0d44b1916c0c1cb0ee3af23b700b6da9f04991899d0c555d4/rsa-4.9.1.tar.gz", hash = "sha256:e7bdbfdb5497da4c07dfd35530e1a902659db6ff241e39d9953cad06ebd0ae75", size = 29034, upload-time = "2025-04-16T09:51:18.218Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/64/8d/0133e4eb4beed9e425d9a98ed6e081a55d195481b7632472be1af08d2f6b/rsa-4.9.1-py3-none-any.whl", hash = "sha256:68635866661c6836b8d39430f97a996acbd61bfa49406748ea243539fe239762", size = 34696, upload-time = "2025-04-16T09:51:17.142Z" },
+]
+
+[[package]]
+name = "rubin-gafaelfawr"
+source = { editable = "client" }
+dependencies = [
+    { name = "cachetools" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "rubin-repertoire" },
+    { name = "structlog" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cachetools", specifier = ">=6.1,<7" },
+    { name = "httpx", specifier = ">=0.28,<1" },
+    { name = "pydantic", specifier = ">=2.10,<3" },
+    { name = "pydantic-settings", specifier = ">=2.6,<3" },
+    { name = "rubin-repertoire", specifier = ">=0.6,<1" },
+    { name = "structlog", specifier = ">24" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "coverage", extras = ["toml"] },
+    { name = "pytest", specifier = ">=8.3" },
+    { name = "pytest-asyncio", specifier = ">=0.25" },
+    { name = "pytest-cov", specifier = ">=6" },
+    { name = "pytest-sugar", specifier = ">=1" },
+    { name = "respx", specifier = ">=0.22" },
+]
+nox = [
+    { name = "nox" },
+    { name = "nox-uv" },
+]
+typing = [
+    { name = "mypy", specifier = ">=1.19" },
+    { name = "types-cachetools", specifier = ">=5.5" },
+]
+
+[[package]]
+name = "rubin-repertoire"
+version = "0.6.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "jinja2" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "pyyaml" },
+    { name = "safir" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/63/30/d0ac29a480b7c9926aa2eb48063f1cf9df6d5750d7cc894a33507a96c143/rubin_repertoire-0.6.1.tar.gz", hash = "sha256:882839dfe221e0430503693d7c822de8522bd5e8ac86c824bb7adba4c215cef9", size = 15501, upload-time = "2025-12-04T18:18:14.756Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3e/fc/75c6e635e664a67d027b00fb04e885f683468696624f64c6a609a77f8755/rubin_repertoire-0.6.1-py3-none-any.whl", hash = "sha256:732abc87e576739a3120a5773e269b6e075bf0a83fbed01bdad504d0f3ae84ad", size = 18286, upload-time = "2025-12-04T18:18:13.973Z" },
 ]
 
 [[package]]

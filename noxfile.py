@@ -6,10 +6,12 @@ import logging
 import os
 import shutil
 import sys
+from collections import defaultdict
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Self
 
 import nox
 from nox.command import CommandFailed
@@ -23,6 +25,9 @@ nox.options.sessions = ["lint", "typing", "test", "docs"]
 # Other nox defaults.
 nox.options.default_venv_backend = "uv"
 nox.options.reuse_existing_virtualenvs = True
+
+# Recurse into these subdirectories, which have their own separate noxfile.py.
+_SUBDIRECTORIES = ["client"]
 
 
 @dataclass
@@ -182,38 +187,172 @@ def lint(session: nox.Session) -> None:
     session.run("pre-commit", "run", "--all-files", *session.posargs)
 
 
-@session(uv_groups=["dev"])
+@dataclass
+class TestArguments:
+    """Holds parsed test arguments, used to control test recursion.
+
+    If the user passed in arguments to the session, they may be specific tests
+    to run. In that case, only run tests in the relevant directory. This
+    requires some unfortunately complicated argument parsing to separate out
+    the generic arguments, any tests specific to the parent directory, and any
+    tests specific to subdirectories. This class handles that parsing.
+    """
+
+    generic: list[str]
+    """Arguments that don't limit execution and are always used."""
+
+    per_directory: dict[str, list[str]]
+    """Arguments that apply to only one subdirectory."""
+
+    parent_tests: list[str]
+    """Specific tests to run only in the parent directory."""
+
+    @classmethod
+    def from_session(cls, session: nox.Session) -> Self:
+        """Parse the session arguments into this data structure."""
+        generic = []
+        per_directory: dict[str, list[str]] = defaultdict(list)
+        parent_tests = []
+
+        # Parse the session arguments.
+        for arg in session.posargs:
+            # Ignore a speficied test when testing if the file exists.
+            test_file = arg.split("::")[0]
+            if "tests/" in arg and Path(test_file).exists():
+                if arg.startswith("tests/"):
+                    parent_tests.append(arg)
+                else:
+                    found = False
+                    for subdir in _SUBDIRECTORIES:
+                        prefix = f"{subdir}/"
+                        if arg.startswith(f"{prefix}tests"):
+                            adjusted_arg = arg.removeprefix(prefix)
+                            per_directory[subdir].append(adjusted_arg)
+                            found = True
+                            break
+                    if not found:
+                        generic.append(arg)
+            else:
+                generic.append(arg)
+
+        # Return the results.
+        return cls(
+            generic=generic,
+            per_directory=per_directory,
+            parent_tests=parent_tests,
+        )
+
+    @property
+    def run_all_tests(self) -> bool:
+        """Return whether all tests are being run."""
+        return not any(self.parent_tests + list(self.per_directory.values()))
+
+
+@session(uv_groups=["dev", "nox"])
 def test(session: nox.Session) -> None:
     """Test both the server and the client."""
-    session.run("pytest", *session.posargs)
+    args = TestArguments.from_session(session)
+
+    # Run in the parent dir if a parent dir test was specified, or if no tests
+    # were specified.
+    if args.parent_tests or args.run_all_tests:
+        session.run("pytest", *args.generic, *args.parent_tests)
+
+    # Run in a subdirectory if a test in that subdirectory was specified, or
+    # if no tests were specified.
+    for subdir in _SUBDIRECTORIES:
+        subdir_tests = args.per_directory[subdir]
+        if subdir_tests or args.run_all_tests:
+            with session.chdir(subdir):
+                session.run(
+                    "nox", "-s", "test", "--", *args.generic, *subdir_tests
+                )
 
 
-@session(name="test-coverage", uv_groups=["dev"])
+@session(name="test-coverage", uv_groups=["dev", "nox"])
 def test_coverage(session: nox.Session) -> None:
-    """Test both the server and the client."""
-    session.run(
-        "pytest",
-        "--cov=gafaelfawr",
-        "--cov-branch",
-        "--cov-report=",
-        *session.posargs,
-    )
+    """Test both the server and the client with coverage analysis."""
+    args = TestArguments.from_session(session)
+
+    # Run in the parent dir if a parent dir test was specified, or if no tests
+    # were specified.
+    if args.parent_tests or args.run_all_tests:
+        session.run(
+            "pytest",
+            "--cov=gafaelfawr",
+            "--cov-branch",
+            "--cov-report=",
+            *args.generic,
+            *args.parent_tests,
+        )
+
+    # Run in a subdirectory if a test in that subdirectory was specified, or
+    # if no tests were specified.
+    for subdir in _SUBDIRECTORIES:
+        subdir_tests = args.per_directory[subdir]
+        if subdir_tests or args.run_all_tests:
+            with session.chdir(subdir):
+                session.run(
+                    "nox",
+                    "-s",
+                    "test-coverage",
+                    "--",
+                    *args.generic,
+                    *subdir_tests,
+                )
 
 
-@session(name="test-full", uv_groups=["dev"])
+@session(name="test-full", uv_groups=["dev", "nox"])
 def test_full(session: nox.Session) -> None:
-    """Test both the server and the client."""
-    session.run(
-        "pytest",
-        "--cov=gafaelfawr",
-        "--cov-branch",
-        "--cov-report=",
-        *session.posargs,
-        env={"TEST_KUBERNETES": "1"},
-    )
+    """Test with a real Kubernetes server (DANGEROUS)."""
+    args = TestArguments.from_session(session)
+
+    # Run in the parent dir if a parent dir test was specified, or if no tests
+    # were specified.
+    if args.parent_tests or args.run_all_tests:
+        session.run(
+            "pytest",
+            "--cov=gafaelfawr",
+            "--cov-branch",
+            "--cov-report=",
+            *args.generic,
+            *args.parent_tests,
+            env={"TEST_KUBERNETES": "1"},
+        )
+
+    # Run in a subdirectory if a test in that subdirectory was specified, or
+    # if no tests were specified.
+    for subdir in _SUBDIRECTORIES:
+        subdir_tests = args.per_directory[subdir]
+        if subdir_tests or args.run_all_tests:
+            with session.chdir(subdir):
+                session.run(
+                    "nox",
+                    "-s",
+                    "test-coverage",
+                    "--",
+                    *args.generic,
+                    *subdir_tests,
+                )
 
 
-@session(uv_groups=["dev", "typing"])
+@session(uv_groups=["dev", "nox", "typing"])
 def typing(session: nox.Session) -> None:
     """Run mypy."""
-    session.run("mypy", *session.posargs, "noxfile.py", "src", "tests")
+    session.run(
+        "mypy",
+        *session.posargs,
+        "noxfile.py",
+        "src",
+        "tests",
+    )
+    session.run(
+        "mypy",
+        *session.posargs,
+        "--namespace-packages",
+        "--explicit-package-bases",
+        "client/noxfile.py",
+        "client/src",
+        "client/tests",
+        env={"MYPYPATH": "client/src"},
+    )

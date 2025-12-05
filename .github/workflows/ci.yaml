@@ -48,6 +48,33 @@ jobs:
       - name: Run nox
         run: uv run --only-group=nox nox -s lint typing test-full coverage-report
 
+  # The test job tests everything with the latest Python version. The
+  # Gafaelfawr client may additionally support older Python versions and thus
+  # must be independently tested for those versions using a matrix. Do not
+  # include the latest Python version in this matrix; that will be tested
+  # above.
+  test-client:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      matrix:
+        python:
+          - "3.13"
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python }}
+          version: ${{ env.UV_VERSION }}
+
+      - name: Run nox
+        run: uv run --only-group=nox nox -s typing test
+        working-directory: client
+
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5

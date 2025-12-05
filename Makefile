@@ -16,5 +16,6 @@ update: update-deps init
 .PHONY: update-deps
 update-deps:
 	uv lock --upgrade
+	uv lock --upgrade --directory client
 	uv run --only-group=lint pre-commit autoupdate
 	./scripts/update-uv-version.sh
