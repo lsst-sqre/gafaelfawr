@@ -6,7 +6,7 @@ they may have to handle multiple versions of the server.
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import BaseModel, Field
 
@@ -82,11 +82,22 @@ class GafaelfawrNotebookQuota(BaseModel):
         ),
     ] = True
 
+    def to_logging_context(self) -> dict[str, Any]:
+        """Convert to variables for a structlog logging context."""
+        result = {"cpu": self.cpu, "memory": f"{self.memory} GiB"}
+        if not self.spawn:
+            result["spawn"] = False
+        return result
+
 
 class GafaelfawrTapQuota(BaseModel):
     """TAP quota information for a user."""
 
     concurrent: Annotated[int, Field(title="Concurrent queries", examples=[5])]
+
+    def to_logging_context(self) -> dict[str, Any]:
+        """Convert to variables for a structlog logging context."""
+        return {"concurrent": self.concurrent}
 
 
 class GafaelfawrQuota(BaseModel):
