@@ -11,12 +11,12 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Natural Language :: English",
     "Operating System :: POSIX",
     "Typing :: Typed",
 ]
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dependencies = [
     "alembic[tz]>=1.16",
     "asyncpg",
@@ -156,6 +156,9 @@ warn_untyped_fields = true
 asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "strict"
 filterwarnings = [
+    # dataclases-avroschema hasn't been fully updated for Python 3.14
+    "ignore:.*Core Pydantic V1 functionality.*:UserWarning",
+    "ignore:.*'_UnionGenericAlias' is deprecated.*:DeprecationWarning",
     # testcontainers hasn't updated all of the community modules
     "ignore:.*wait_container_is_ready decorator.*:DeprecationWarning",
 ]
