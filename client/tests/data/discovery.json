@@ -1,0 +1,14 @@
+{
+  "services": {
+    "internal": {
+      "gafaelfawr": {
+        "url": "https://data.example.com/auth/api",
+        "versions": {
+          "v1": {
+            "url": "https://data.example.com/auth/api/v1"
+          }
+        }
+      }
+    }
+  }
+}

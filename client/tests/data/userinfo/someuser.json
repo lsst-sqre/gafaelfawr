@@ -1,0 +1,15 @@
+{
+  "username": "someuser",
+  "name": "Some User",
+  "email": "someuser@example.com",
+  "uid": 2000,
+  "gid": 1045,
+  "groups": [{"id": 1222, "name": "foo"}],
+  "quota": {
+    "tap": {
+      "ssotap": {
+        "concurrent": 2
+      }
+    }
+  }
+}
