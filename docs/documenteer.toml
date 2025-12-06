@@ -69,6 +69,8 @@ nitpick_ignore = [
     ["py:class", "pathlib._local.Path"],
     # Bug in Sphinx with type declarations
     ["py:class", "safir.pydantic._types.TypeAliasType"],
+    # Bug in Sphinx with Python 3.14
+    ["py:data", "typing.Union"]
 ]
 nitpick_ignore_regex = [
     ["py:class", "kubernetes_asyncio\\.client\\.models\\..*"],
@@ -84,7 +86,7 @@ cryptography = "https://cryptography.io/en/latest"
 jwt = "https://pyjwt.readthedocs.io/en/latest"
 kopf = "https://kopf.readthedocs.io/en/stable"
 limits = "https://limits.readthedocs.io/en/stable"
-python = "https://docs.python.org/3.13"
+python = "https://docs.python.org/3"
 safir = "https://safir.lsst.io"
 sqlalchemy = "https://docs.sqlalchemy.org/en/latest"
 structlog = "https://www.structlog.org/en/stable"
