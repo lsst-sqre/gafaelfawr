@@ -1,0 +1,19 @@
+"""Tests for Gafaelfawr client models."""
+
+from __future__ import annotations
+
+from rubin.gafaelfawr import GafaelfawrNotebookQuota, GafaelfawrTapQuota
+
+
+def test_to_logging_context() -> None:
+    notebook = GafaelfawrNotebookQuota(cpu=1.0, memory=4.0)
+    assert notebook.to_logging_context() == {"cpu": 1.0, "memory": "4.0 GiB"}
+    notebook = GafaelfawrNotebookQuota(cpu=1.5, memory=6.5, spawn=False)
+    assert notebook.to_logging_context() == {
+        "cpu": 1.5,
+        "memory": "6.5 GiB",
+        "spawn": False,
+    }
+
+    tap = GafaelfawrTapQuota(concurrent=4)
+    assert tap.to_logging_context() == {"concurrent": 4}
