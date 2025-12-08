@@ -9,14 +9,16 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable
 from enum import Enum
 from functools import wraps
-from typing import Concatenate
+from typing import TYPE_CHECKING, Concatenate
 from urllib.parse import urljoin
 
-import respx
 from httpx import Request, Response
 from rubin.repertoire import DiscoveryClient
 
 from ._models import GafaelfawrTokenData, GafaelfawrUserInfo
+
+if TYPE_CHECKING:
+    import respx
 
 __all__ = [
     "MockGafaelfawr",
