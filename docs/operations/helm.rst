@@ -581,7 +581,7 @@ Quotas
 
 Gafaelfawr supports calculating user quotas based on group membership and providing quota information through its API.
 API quotas are also enforced directly by Gafaelfawr.
-See :doc:`quotas` for more information.
+See :doc:`/user-guide/quotas` for more information.
 
 Setting quotas is optional.
 Omit this setting if you don't want to set user quotas.

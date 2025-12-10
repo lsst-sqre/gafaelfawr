@@ -1,39 +1,58 @@
+:og:description: Authentication and authorization for Phalanx
+
+.. toctree::
+   :hidden:
+
+   User guide <user-guide/index>
+   API <api>
+   Operations <operations/index>
+   Change log <changelog>
+   Contributing <dev/index>
+
 ##########
 Gafaelfawr
 ##########
 
-Gafaelfawr is the authentication and authorization front-end for the Vera C. Rubin Observatory Science Platform.
+Gafaelfawr provides the authentication and authorization infrastructure for Phalanx_ environments, including the Vera C. Rubin Observatory Science Platform.
 
 Its primary purpose is to serve as an NGINX ``auth_request`` backend.
 It also provides a web page where people can create and manage long-lived tokens for use outside of a web browser, and can serve as a simple OpenID Connect server.
-As a component of the Science Platform, it is designed for deployment with Kubernetes using the `Phalanx infrastructure <https://github.com/lsst-sqre/phalanx>`__.
 Gafaelfawr requires the Kubernetes `NGINX ingress controller <https://github.com/kubernetes/ingress-nginx>`__.
 
 Gafaelfawr is developed on `GitHub <https://github.com/lsst-sqre/gafaelfawr>`__.
-It is deployed via Phalanx_.
 
 Gafaelfawr is part of the Rubin Science Platform identity management system.
 Its design is documented in :dmtn:`234`, and its implementation in :dmtn:`224`.
 History and decisions made during its development are documented in :sqr:`069`.
 Read those documents for a more complete picture of how Gafaelfawr fits into a larger identity management system.
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Usage
+.. grid:: 2
 
-   user-guide/index
-   api
+   .. grid-item-card:: User Guide
+      :link: user-guide/index
+      :link-type: doc
 
-.. toctree::
-   :hidden:
+      Learn how to protect services with Gafaelfawr and use the Gafaelfawr client.
 
-   changelog
+   .. grid-item-card:: API
+      :link: api
+      :link-type: doc
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Development
+      See the full API documentation for the Gafaelfawr client.
 
-   dev/index
+.. grid:: 2
+
+   .. grid-item-card:: Operations
+      :link: operations/index
+      :link-type: doc
+
+      Learn how to configure and administer the Gafaelfawr server.
+
+   .. grid-item-card:: Development
+      :link: dev/index
+      :link-type: doc
+
+      Learn how to contribute to the Gafaelfawr codebase.
 
 Gafaelfawr is named for Glewlwyd Gafaelfawr, the knight who challenges King Arthur in *Pa gur yv y porthaur?* and, in later stories, is a member of his court and acts as gatekeeper.
 Gafaelfawr is pronounced (very roughly) gah-VILE-vahwr.

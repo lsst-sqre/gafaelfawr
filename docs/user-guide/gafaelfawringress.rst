@@ -145,8 +145,8 @@ This setting cannot be used with ``config.loginRedirect``; Gafaelfawr can either
 
 .. _ingress-allow-options:
 
-Allowing non-CORS ``OPTIONS`` requests
-======================================
+Allowing non-CORS OPTIONS requests
+==================================
 
 Gafaelfawr by default rejects all ``OPTIONS`` requests other than CORS preflight requests with a 404 error.
 
