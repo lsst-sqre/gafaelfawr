@@ -4,7 +4,7 @@ copyright = "2020-2024 Association of Universities for Research in Astronomy, In
 
 [project.openapi]
 openapi_path = "_static/openapi.json"
-doc_path = "api"
+doc_path = "api/rest"
 
 [project.openapi.generator]
 function = "gafaelfawr.main:create_openapi"
@@ -28,32 +28,14 @@ nitpick_ignore = [
     #
     # These are listed specifically rather than with regexesbecause I've
     # caught documentation bugs by having Sphinx complain about a new symbol.
-    ["py:class", "dataclasses_avroschema.pydantic.main.AvroBaseModel"],
     ["py:class", "dataclasses_avroschema.main.AvroModel"],
+    ["py:class", "dataclasses_avroschema.pydantic.main.AvroBaseModel"],
     ["py:class", "google.api_core.exceptions.GoogleAPICallError"],
     ["py:class", "google.cloud.firestore_v1.async_client.AsyncClient"],
-    ["py:class", "fastapi.applications.FastAPI"],
-    ["py:class", "httpx.AsyncClient"],
-    ["py:class", "kubernetes_asyncio.client.api_client.ApiClient"],
     ["py:class", "redis.asyncio.client.Redis"],
-    ["py:class", "pydantic.main.BaseModel"],
-    ["py:class", "pydantic.networks.UrlConstraints"],
+    ["py:class", "respx.router.Router"],
     ["py:class", "pydantic_core._pydantic_core.Url"],
     ["py:class", "pydantic_core._pydantic_core.ValidationError"],
-    ["py:class", "pydantic_settings.main.BaseSettings"],
-    ["py:class", "pydantic_settings.sources.providers.cli.CliSettingsSource"],
-    ["py:class", "pydantic_settings.sources.base.PydanticBaseSettingsSource"],
-    ["py:class", "starlette.datastructures.URL"],
-    ["py:class", "starlette.middleware.base.BaseHTTPMiddleware"],
-    ["py:class", "starlette.requests.Request"],
-    ["py:class", "starlette.responses.Response"],
-    ["py:class", "starlette.routing.Route"],
-    ["py:class", "starlette.routing.BaseRoute"],
-    ["py:exc", "fastapi.HTTPException"],
-    ["py:exc", "httpx.HTTPError"],
-    ["py:exc", "starlette.exceptions.HTTPException"],
-    ["py:obj", "fastapi.routing.APIRoute"],
-    ["py:obj", "fastapi.Response.set_cookie"],
     # Broken links created by autodoc_pydantic.
     ["py:class", "lambda"],
     ["py:class", "safir.pydantic._validators.normalize_datetime"],
@@ -73,7 +55,6 @@ nitpick_ignore = [
     ["py:data", "typing.Union"]
 ]
 nitpick_ignore_regex = [
-    ["py:class", "kubernetes_asyncio\\.client\\.models\\..*"],
     # Bug in autodoc_pydantic.
     ["py:obj", ".*\\.all fields"],
 ]
@@ -87,6 +68,7 @@ jwt = "https://pyjwt.readthedocs.io/en/latest"
 kopf = "https://kopf.readthedocs.io/en/stable"
 limits = "https://limits.readthedocs.io/en/stable"
 python = "https://docs.python.org/3"
+rubin-repertoire = "https://repertoire.lsst.io"
 safir = "https://safir.lsst.io"
 sqlalchemy = "https://docs.sqlalchemy.org/en/latest"
 structlog = "https://www.structlog.org/en/stable"

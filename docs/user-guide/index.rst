@@ -17,6 +17,13 @@ While there is nothing intrinsic in Gafaelfawr that would prevent it from workin
    openid-connect
 
 .. toctree::
+   :caption: Using the Python client
+   :maxdepth: 1
+
+   client
+   mock
+
+.. toctree::
    :caption: Reference
    :maxdepth: 1
 
