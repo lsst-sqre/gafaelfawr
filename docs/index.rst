@@ -1,10 +1,10 @@
-:og:description: Authentication and authorization for Phalanx
+:og:description: Authentication and authorization for Phalanx.
 
 .. toctree::
    :hidden:
 
    User guide <user-guide/index>
-   API <api>
+   API <api/index>
    Operations <operations/index>
    Change log <changelog>
    Contributing <dev/index>
@@ -35,7 +35,7 @@ Read those documents for a more complete picture of how Gafaelfawr fits into a l
       Learn how to protect services with Gafaelfawr and use the Gafaelfawr client.
 
    .. grid-item-card:: API
-      :link: api
+      :link: api/index
       :link-type: doc
 
       See the full API documentation for the Gafaelfawr client.
