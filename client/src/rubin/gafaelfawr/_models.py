@@ -165,3 +165,8 @@ class GafaelfawrUserInfo(BaseModel):
     ] = []
 
     quota: Annotated[GafaelfawrQuota | None, Field(title="Quota")] = None
+
+    @property
+    def supplemental_groups(self) -> list[int]:
+        """Supplemental GIDs."""
+        return [g.id for g in self.groups]
