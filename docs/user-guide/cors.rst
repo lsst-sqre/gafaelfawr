@@ -27,8 +27,8 @@ The intended effect of this policy is to allow protected applications to control
 
 Anonymous ingresses pass all requests through to the underlying application, including ``OPTIONS`` requests.
 
-Other ``OPTIONS`` requests
-==========================
+Other OPTIONS requests
+======================
 
 All ``OPTIONS`` requests to authenticated ingresses that do not contain an ``Origin`` header are rejected with a 404 error by default.
 
