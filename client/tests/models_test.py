@@ -10,6 +10,11 @@ from rubin.gafaelfawr import (
 )
 
 
+def test_memory_bytes() -> None:
+    quota = GafaelfawrNotebookQuota(cpu=1.0, memory=2.0)
+    assert quota.memory_bytes == 2147483648
+
+
 def test_supplemental_groups() -> None:
     userinfo = GafaelfawrUserInfo(
         username="someone",

@@ -82,6 +82,11 @@ class GafaelfawrNotebookQuota(BaseModel):
         ),
     ] = True
 
+    @property
+    def memory_bytes(self) -> int:
+        """Maximum memory use in bytes."""
+        return int(self.memory * 1024 * 1024 * 1024)
+
     def to_logging_context(self) -> dict[str, Any]:
         """Convert to variables for a structlog logging context."""
         result = {"cpu": self.cpu, "memory": f"{self.memory} GiB"}
