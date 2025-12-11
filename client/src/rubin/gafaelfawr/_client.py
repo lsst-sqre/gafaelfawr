@@ -7,7 +7,7 @@ from datetime import timedelta
 
 import structlog
 from cachetools import TTLCache
-from httpx import AsyncClient, HTTPError, HTTPStatusError
+from httpx import AsyncClient, HTTPError, HTTPStatusError, Timeout
 from pydantic import BaseModel, ValidationError
 from rubin.repertoire import DiscoveryClient
 from structlog.stdlib import BoundLogger
@@ -39,6 +39,9 @@ class GafaelfawrClient:
     logger
         Logger to use. If not given, the default structlog logger will be
         used.
+    timeout
+        Timeout for Gafaelfawr operations. If not given, defaults to the
+        timeout of the underlying HTTPX_ client.
     userinfo_cache_lifetime
         How long to cache user information for a token.
     userinfo_cache_size
@@ -51,6 +54,7 @@ class GafaelfawrClient:
         *,
         discovery_client: DiscoveryClient | None = None,
         logger: BoundLogger | None = None,
+        timeout: timedelta | None = None,
         userinfo_cache_lifetime: timedelta = CACHE_LIFETIME,
         userinfo_cache_size: int = CACHE_SIZE,
     ) -> None:
@@ -63,6 +67,12 @@ class GafaelfawrClient:
         # Whether the HTTP client needs to be explicitly closed because we
         # created it.
         self._close_client = http_client is not None
+
+        # The default timeout is the underlying timeout of the HTTPX client.
+        if timeout is not None:
+            self._timeout: float | Timeout = timeout.total_seconds()
+        else:
+            self._timeout = self._client.timeout
 
         # Maintain two caches of user information, one indexed by token (when
         # requesting user information for the user corresponding to the token)
@@ -192,7 +202,9 @@ class GafaelfawrClient:
         """
         headers = {"Authorization": f"Bearer {token}"}
         try:
-            r = await self._client.get(str(url), headers=headers)
+            r = await self._client.get(
+                str(url), headers=headers, timeout=self._timeout
+            )
             r.raise_for_status()
             return model.model_validate(r.json())
         except HTTPError as e:
