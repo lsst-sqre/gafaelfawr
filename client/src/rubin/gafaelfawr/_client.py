@@ -201,7 +201,7 @@ class GafaelfawrClient:
                     raise GafaelfawrNotFoundError.from_exception(e) from e
             raise GafaelfawrWebError.from_exception(e) from e
         except ValidationError as e:
-            raise GafaelfawrValidationError(str(e)) from e
+            raise GafaelfawrValidationError.from_exception(e) from e
 
     async def _url_for(self, route: str) -> str:
         """Construct the URL for a Gafaelfawr API route.
