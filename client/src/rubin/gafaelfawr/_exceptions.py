@@ -52,7 +52,12 @@ class GafaelfawrValidationError(GafaelfawrError):
 
     def __init__(self, message: str, error: str) -> None:
         super().__init__(message)
+        self._message = message
         self.error = error
+
+    @override
+    def __str__(self) -> str:
+        return f"{self._message}: {self.error}"
 
     @override
     def to_slack(self) -> SlackMessage:

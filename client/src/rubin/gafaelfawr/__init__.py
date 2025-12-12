@@ -18,7 +18,6 @@ from ._models import (
     GafaelfawrNotebookQuota,
     GafaelfawrQuota,
     GafaelfawrTapQuota,
-    GafaelfawrTokenData,
     GafaelfawrUserInfo,
 )
 
@@ -31,7 +30,6 @@ __all__ = [
     "GafaelfawrNotebookQuota",
     "GafaelfawrQuota",
     "GafaelfawrTapQuota",
-    "GafaelfawrTokenData",
     "GafaelfawrUserInfo",
     "GafaelfawrValidationError",
     "GafaelfawrWebError",

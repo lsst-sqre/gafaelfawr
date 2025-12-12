@@ -7,6 +7,7 @@ import os
 import re
 from collections import defaultdict
 from collections.abc import Callable, Iterable
+from datetime import UTC, datetime
 from enum import Enum
 from functools import wraps
 from typing import TYPE_CHECKING, Concatenate
@@ -15,7 +16,7 @@ from urllib.parse import urljoin
 from httpx import Request, Response
 from rubin.repertoire import DiscoveryClient
 
-from ._models import GafaelfawrTokenData, GafaelfawrUserInfo
+from ._models import AdminTokenRequest, GafaelfawrUserInfo, NewToken, TokenData
 
 if TYPE_CHECKING:
     import respx
@@ -30,6 +31,7 @@ __all__ = [
 class MockGafaelfawrAction(Enum):
     """Possible actions that could fail."""
 
+    CREATE_TOKEN = "create_token"
     USER_INFO = "user_info"
 
 
@@ -39,11 +41,15 @@ class MockGafaelfawr:
     def __init__(self) -> None:
         self._fail: defaultdict[str, set[MockGafaelfawrAction]]
         self._fail = defaultdict(set)
-        self._tokens: dict[str, GafaelfawrTokenData] = {}
+        self._tokens: dict[str, TokenData] = {}
         self._user_info: dict[str, GafaelfawrUserInfo | None] = {}
 
     def create_token(
-        self, username: str, *, scopes: Iterable[str] | None = None
+        self,
+        username: str,
+        *,
+        expires: datetime | None = None,
+        scopes: Iterable[str] | None = None,
     ) -> str:
         """Create a token for the given username.
 
@@ -54,6 +60,8 @@ class MockGafaelfawr:
         ----------
         username
             Username the token is for.
+        expires
+            If provided, sets the expiration time of the token.
         scopes
             If provided, list of scopes to assign to the token. This is
             primarily needed if the client will call a privileged API
@@ -67,9 +75,10 @@ class MockGafaelfawr:
         key = base64.urlsafe_b64encode(os.urandom(16)).decode().rstrip("=")
         secret = base64.urlsafe_b64encode(os.urandom(16)).decode().rstrip("=")
         token = f"gt-{key}-{secret}"
-        self._tokens[token] = GafaelfawrTokenData(
+        self._tokens[token] = TokenData(
             token=token,
             username=username,
+            expires=expires,
             scopes=set(scopes) if scopes else set(),
         )
         return token
@@ -110,6 +119,8 @@ class MockGafaelfawr:
         prefix = base_url.rstrip("/") + "/"
         handler = self._handle_user_info
         respx_mock.get(urljoin(prefix, "user-info")).mock(side_effect=handler)
+        handler = self._handle_create_token
+        respx_mock.post(urljoin(prefix, "tokens")).mock(side_effect=handler)
 
         # These routes require regex matching of the username.
         base_regex = re.escape(base_url.rstrip("/"))
@@ -142,8 +153,7 @@ class MockGafaelfawr:
     ) -> Callable[
         [
             Callable[
-                Concatenate[MockGafaelfawr, Request, GafaelfawrTokenData, P],
-                Response,
+                Concatenate[MockGafaelfawr, Request, TokenData, P], Response
             ]
         ],
         Callable[Concatenate[MockGafaelfawr, Request, P], Response],
@@ -170,8 +180,7 @@ class MockGafaelfawr:
 
         def decorator(
             f: Callable[
-                Concatenate[MockGafaelfawr, Request, GafaelfawrTokenData, P],
-                Response,
+                Concatenate[MockGafaelfawr, Request, TokenData, P], Response
             ],
         ) -> Callable[Concatenate[MockGafaelfawr, Request, P], Response]:
             @wraps(f)
@@ -192,17 +201,45 @@ class MockGafaelfawr:
                     return Response(500)
                 if required_scope and required_scope not in token_data.scopes:
                     return Response(403)
+                if token_data.expires:
+                    if token_data.expires <= datetime.now(tz=UTC):
+                        return Response(401)
                 return f(mock, request, token_data, *args, **kwargs)
 
             return wrapper
 
         return decorator
 
+    @_check(
+        fail_on=MockGafaelfawrAction.CREATE_TOKEN, required_scope="admin:token"
+    )
+    def _handle_create_token(
+        self, request: Request, token_data: TokenData
+    ) -> Response:
+        body = AdminTokenRequest.model_validate_json(request.content.decode())
+        if not body.username.startswith("bot-"):
+            return Response(422)
+        token = self.create_token(
+            body.username,
+            expires=body.expires,
+            scopes=body.scopes,
+        )
+        userinfo = GafaelfawrUserInfo(
+            username=body.username,
+            name=body.name,
+            uid=body.uid,
+            gid=body.gid,
+            groups=body.groups or [],
+        )
+        self.set_user_info(body.username, userinfo)
+        response = NewToken(token=token)
+        return Response(200, json=response.model_dump(mode="json"))
+
     @_check(required_scope="admin:userinfo")
     def _handle_user(
         self,
         request: Request,
-        token_data: GafaelfawrTokenData,
+        token_data: TokenData,
         *,
         username: str,
     ) -> Response:
@@ -216,7 +253,7 @@ class MockGafaelfawr:
 
     @_check(fail_on=MockGafaelfawrAction.USER_INFO)
     def _handle_user_info(
-        self, request: Request, token_data: GafaelfawrTokenData
+        self, request: Request, token_data: TokenData
     ) -> Response:
         if user_info := self._user_info.get(token_data.username):
             result = user_info.model_dump(mode="json", exclude_defaults=True)

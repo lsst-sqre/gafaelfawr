@@ -40,9 +40,11 @@ nitpick_ignore = [
     ["py:class", "lambda"],
     ["py:class", "safir.pydantic._validators.normalize_datetime"],
     # Apparently Sphinx is no longer able to resolve references to parent
-    # classes of Pydantic models via intersphinx.
+    # classes of Pydantic models via intersphinx, or generate documentation
+    # correctly when the docstring is inherited.
     ["py:class", "safir.metrics._models.EventPayload"],
     ["py:class", "safir.slack.blockkit.SlackMessage"],
+    ["py:class", "SlackMessage"],
     # asyncio.Lock is documented, and that's what all the code references, but
     # the combination of Sphinx extensions we're using confuse themselves and
     # there doesn't seem to be any way to fix this.

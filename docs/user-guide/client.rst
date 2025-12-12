@@ -85,3 +85,14 @@ The cache parameters can be tuned in the `GafaelfawrClient` constructor.
 There are separate caches for retrieving user information by token and by username (but most applications will only use one or the other call pattern).
 
 To clear the cache and force any subsequent requests to go back to the Gafealfawr API, call `GafaelfawrClient.clear_cache`.
+
+Creating service tokens
+=======================
+
+To create a new service token, call `GafaelfawrClient.create_service_token`.
+The authentication token, passed as the first argument, must have ``admin:token`` scope.
+The username for which the service token is being created must begin with ``bot-``.
+
+The user information provided to the `~GafaelfawrClient.create_service_token` call is stored with the token and overrides other user information sources.
+If these fields (``name``, ``uid``, ``gid``, and ``groups``) are not specified, they will be retrieved from the default configured Gafaelfawr user information source, which may be :ref:`LDAP <ldap-user>` or :ref:`Firestore <firestore>` depending on the configuration.
+In environments without LDAP, or environments where bot users are not present in LDAP (which is common), this information will be blank (`None`) in the user information for that token unless it is provided at token creation time.
