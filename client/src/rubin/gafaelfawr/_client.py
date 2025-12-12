@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import structlog
 from cachetools import TTLCache
@@ -19,7 +19,13 @@ from ._exceptions import (
     GafaelfawrValidationError,
     GafaelfawrWebError,
 )
-from ._models import GafaelfawrUserInfo
+from ._models import (
+    AdminTokenRequest,
+    GafaelfawrGroup,
+    GafaelfawrUserInfo,
+    NewToken,
+    TokenType,
+)
 
 __all__ = ["GafaelfawrClient"]
 
@@ -113,6 +119,75 @@ class GafaelfawrClient:
                 self._userinfo_cache_lifetime.total_seconds(),
             )
 
+    async def create_service_token(
+        self,
+        token: str,
+        username: str,
+        *,
+        scopes: list[str],
+        expires: datetime | None = None,
+        name: str | None = None,
+        uid: int | None = None,
+        gid: int | None = None,
+        groups: list[GafaelfawrGroup] | None = None,
+    ) -> str:
+        """Create a new service token.
+
+        Parameters
+        ----------
+        token
+            Token to use to authenticate to the Gafaelfawr API. This token
+            must have the ``admin:token`` scope.
+        username
+            Username for which to create a token. Must begin with ``bot-``.
+        scopes
+            List of scopes to grant to the new token.
+        expires
+            Expiration date of te new token, or `None` to create a token that
+            never expires.
+        name
+            Full name override. If `None`, the full name will be determined
+            from LDAP if configured, and otherwise not set.
+        uid
+            UID override. If `None`, the UID will be determined from Firestore
+            or LDAP if configured, and otherwise not set.
+        gid
+            Primary GID override. If `None`, the primary GID will be
+            determined from Firestore or LDAP if configured, and otherwise not
+            set.
+        groups
+            Group membership override. If `None`, the group membership will be
+            determined from LDAP if configured, and otherwise not set.
+
+        Returns
+        -------
+        str
+            Newly-created token.
+
+        Raises
+        ------
+        GafaelfawrValidationError
+            Raised if the response from Gafaelfawr is invalid.
+        GafaelfawrWebError
+            Raised if there is some problem talking to the Gafaelfawr API,
+            such as an invalid token or network or service failure.
+        rubin.repertoire.RepertoireError
+            Raised if there was an error talking to service discovery.
+        """
+        url = await self._url_for("tokens")
+        request = AdminTokenRequest(
+            username=username,
+            token_type=TokenType.service,
+            scopes=scopes,
+            expires=expires,
+            name=name,
+            uid=uid,
+            gid=gid,
+            groups=groups,
+        )
+        result = await self._post(url, NewToken, token, body=request)
+        return result.token
+
     async def get_user_info(
         self, token: str, username: str | None = None
     ) -> GafaelfawrUserInfo:
@@ -203,7 +278,7 @@ class GafaelfawrClient:
         headers = {"Authorization": f"Bearer {token}"}
         try:
             r = await self._client.get(
-                str(url), headers=headers, timeout=self._timeout
+                url, headers=headers, timeout=self._timeout
             )
             r.raise_for_status()
             return model.model_validate(r.json())
@@ -211,6 +286,50 @@ class GafaelfawrClient:
             if isinstance(e, HTTPStatusError):
                 if e.response.status_code == 404:
                     raise GafaelfawrNotFoundError.from_exception(e) from e
+            raise GafaelfawrWebError.from_exception(e) from e
+        except ValidationError as e:
+            raise GafaelfawrValidationError.from_exception(e) from e
+
+    async def _post[T: BaseModel](
+        self, url: str, model: type[T], token: str, *, body: BaseModel
+    ) -> T:
+        """Make an HTTP GET request and validate the results.
+
+        Parameters
+        ----------
+        url
+            URL at which to make the request.
+        model
+            Expected type of the response.
+        token
+            Gafaelfawr token used for authentication.
+        body
+            Pydantic model to send as the POST body.
+
+        Returns
+        -------
+        pydantic.BaseModel
+            Validated model of the requested type.
+
+        Raises
+        ------
+        GafaelfawrValidationError
+            Raised if the response from Gafaelfawr is invalid.
+        GafaelfawrWebError
+            Raised if there is some problem talking to the Gafaelfawr API,
+            such as an invalid token or network or service failure.
+        """
+        headers = {"Authorization": f"Bearer {token}"}
+        try:
+            r = await self._client.post(
+                url,
+                headers=headers,
+                json=body.model_dump(mode="json"),
+                timeout=self._timeout,
+            )
+            r.raise_for_status()
+            return model.model_validate(r.json())
+        except HTTPError as e:
             raise GafaelfawrWebError.from_exception(e) from e
         except ValidationError as e:
             raise GafaelfawrValidationError.from_exception(e) from e

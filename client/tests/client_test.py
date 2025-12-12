@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,7 @@ from rubin.repertoire import register_mock_discovery
 from rubin.gafaelfawr import (
     GafaelfawrClient,
     GafaelfawrDiscoveryError,
+    GafaelfawrGroup,
     GafaelfawrNotFoundError,
     GafaelfawrUserInfo,
     GafaelfawrWebError,
@@ -19,6 +21,48 @@ from rubin.gafaelfawr import (
 )
 
 from .support.data import read_test_user_info
+
+
+@pytest.mark.asyncio
+async def test_create_token(mock_gafaelfawr: MockGafaelfawr) -> None:
+    token = mock_gafaelfawr.create_token("admin", scopes=["admin:token"])
+    client = GafaelfawrClient()
+
+    # Create a minimal token with just a username.
+    service_token = await client.create_service_token(
+        token, "bot-service", scopes=[]
+    )
+    userinfo = await client.get_user_info(service_token)
+    assert userinfo == GafaelfawrUserInfo(username="bot-service")
+
+    # This token has no scopes so should not be able to retrieve user
+    # information by username.
+    with pytest.raises(GafaelfawrWebError) as exc_info:
+        await client.get_user_info(service_token, "bot-service")
+    assert exc_info.value.status == 403
+
+    # Create a token with all of the fields set.
+    service_token = await client.create_service_token(
+        token,
+        "bot-service",
+        scopes=["admin:userinfo"],
+        expires=datetime.now(tz=UTC) + timedelta(days=1),
+        name="Some bot user",
+        uid=4000,
+        gid=4001,
+        groups=[GafaelfawrGroup(name="group", id=5000)],
+    )
+    expected = GafaelfawrUserInfo(
+        username="bot-service",
+        name="Some bot user",
+        uid=4000,
+        gid=4001,
+        groups=[GafaelfawrGroup(name="group", id=5000)],
+    )
+    assert await client.get_user_info(service_token) == expected
+
+    # This token has admin:userinfo, so can get user information by username.
+    assert await client.get_user_info(service_token, "bot-service") == expected
 
 
 @pytest.mark.asyncio

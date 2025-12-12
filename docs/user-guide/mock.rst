@@ -84,11 +84,14 @@ Writing tests
 Any test you write that uses the Nublado client should depend on the ``mock_jupyter`` fixture defined above, directly or indirectly, so that the mock will be in place.
 Alternately, you can mark the fixture as `auto-use <https://docs.pytest.org/en/stable/how-to/fixtures.html#autouse-fixtures-fixtures-you-don-t-have-to-request>`__.
 
-Creating tokens
----------------
+Creating test tokens
+--------------------
 
 To create a Gafaelfawr token that will be recognized by the mock, call `MockGafaelfawr.create_token`.
 If you will be using that token to get user information for other users, request the ``admin:userinfo`` scope by passing ``scopes=["admin:userinfo"]`` argument.
+
+You can also create service tokens using `GafaelfawrClient.create_service_token` as usual, but the authentication token for that call must be created with ``admin:token`` scope via `MockGafaelfawr.create_token` first.
+A common pattern for services is to get their admin token via their configuration, so the test suite should use a fixture to pre-create that token with `~MockGafaelfawr.create_token` and inject it into the configuration.
 
 Registering user information
 ----------------------------
@@ -98,6 +101,8 @@ To set the user information returned for a given user, call `MockGafaelfawr.set_
 The same data will be returned for requests via a token for that user and requests for user information for that user using a service token.
 
 To clear the registered information again, call `MockGafaelfawr.set_user_info` with `None` for the user information argument.
+
+Tokens created via `GafaelfawrClient.create_service_token` will automatically have their user information set in the mock to the values provided to that call.
 
 Testing Gafaelfawr errors
 -------------------------
