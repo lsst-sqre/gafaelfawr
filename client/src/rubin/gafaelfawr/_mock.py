@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import base64
-import os
 import re
 from collections import defaultdict
 from collections.abc import Callable, Iterable
@@ -17,6 +15,7 @@ from httpx import Request, Response
 from rubin.repertoire import DiscoveryClient
 
 from ._models import AdminTokenRequest, GafaelfawrUserInfo, NewToken, TokenData
+from ._tokens import create_token
 
 if TYPE_CHECKING:
     import respx
@@ -72,9 +71,7 @@ class MockGafaelfawr:
         str
             New Gafaelfawr token.
         """
-        key = base64.urlsafe_b64encode(os.urandom(16)).decode().rstrip("=")
-        secret = base64.urlsafe_b64encode(os.urandom(16)).decode().rstrip("=")
-        token = f"gt-{key}-{secret}"
+        token = create_token()
         self._tokens[token] = TokenData(
             token=token,
             username=username,

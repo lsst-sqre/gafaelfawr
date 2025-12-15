@@ -20,6 +20,7 @@ from ._models import (
     GafaelfawrTapQuota,
     GafaelfawrUserInfo,
 )
+from ._tokens import create_token
 
 __all__ = [
     "GafaelfawrClient",
@@ -35,5 +36,6 @@ __all__ = [
     "GafaelfawrWebError",
     "MockGafaelfawr",
     "MockGafaelfawrAction",
+    "create_token",
     "register_mock_gafaelfawr",
 ]
