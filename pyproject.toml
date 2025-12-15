@@ -72,6 +72,8 @@ dev = [
     "pytest-cov>=6",
     "pytest-sugar>=1",
     "respx>=0.22",
+    "rubin-gafaelfawr",
+    "rubin-repertoire",
     "testcontainers[postgres,redis]",
 ]
 docs = [
