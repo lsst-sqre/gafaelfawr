@@ -780,11 +780,11 @@ wheels = [
 
 [[package]]
 name = "filelock"
-version = "3.20.0"
+version = "3.20.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/58/46/0028a82567109b5ef6e4d2a1f04a583fb513e6cf9527fcdd09afd817deeb/filelock-3.20.0.tar.gz", hash = "sha256:711e943b4ec6be42e1d4e6690b48dc175c822967466bb31c0c293f34334c13f4", size = 18922, upload-time = "2025-10-08T18:03:50.056Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a7/23/ce7a1126827cedeb958fc043d61745754464eb56c5937c35bbf2b8e26f34/filelock-3.20.1.tar.gz", hash = "sha256:b8360948b351b80f420878d8516519a2204b07aefcdcfd24912a5d33127f188c", size = 19476, upload-time = "2025-12-15T23:54:28.027Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/76/91/7216b27286936c16f5b4d0c530087e4a54eead683e6b0b73dd0c64844af6/filelock-3.20.0-py3-none-any.whl", hash = "sha256:339b4732ffda5cd79b13f4e2711a31b0365ce445d95d243bb996273d072546a2", size = 16054, upload-time = "2025-10-08T18:03:48.35Z" },
+    { url = "https://files.pythonhosted.org/packages/e3/7f/a1a97644e39e7316d850784c642093c99df1290a460df4ede27659056834/filelock-3.20.1-py3-none-any.whl", hash = "sha256:15d9e9a67306188a44baa72f569d2bfd803076269365fdea0934385da4dc361a", size = 16666, upload-time = "2025-12-15T23:54:26.874Z" },
 ]
 
 [[package]]
@@ -1027,16 +1027,16 @@ grpc = [
 
 [[package]]
 name = "google-auth"
-version = "2.44.0"
+version = "2.45.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cachetools" },
     { name = "pyasn1-modules" },
     { name = "rsa" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/95/25/7024457118abde9306bdbbbaf10aaeb777c5351d1ff43be5678db457cf92/google_auth-2.44.0.tar.gz", hash = "sha256:9d84767412e82942d387a404103859628b53687f832a2a10139075002821f50d", size = 305259, upload-time = "2025-12-15T17:57:41.886Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e5/00/3c794502a8b892c404b2dea5b3650eb21bfc7069612fbfd15c7f17c1cb0d/google_auth-2.45.0.tar.gz", hash = "sha256:90d3f41b6b72ea72dd9811e765699ee491ab24139f34ebf1ca2b9cc0c38708f3", size = 320708, upload-time = "2025-12-15T22:58:42.889Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/af/38/0c0e21822a53035cbd631d254f8ef274407d8a66142b4fe329d07f6231d7/google_auth-2.44.0-py2.py3-none-any.whl", hash = "sha256:896c8b3652f9d2878c0aa2ddc2818ecd393b8bcbcec5c7fe83e118f4f104745a", size = 228373, upload-time = "2025-12-15T17:57:40.713Z" },
+    { url = "https://files.pythonhosted.org/packages/c6/97/451d55e05487a5cd6279a01a7e34921858b16f7dc8aa38a2c684743cd2b3/google_auth-2.45.0-py2.py3-none-any.whl", hash = "sha256:82344e86dc00410ef5382d99be677c6043d72e502b625aa4f4afa0bdacca0f36", size = 233312, upload-time = "2025-12-15T22:58:40.777Z" },
 ]
 
 [[package]]
@@ -2517,7 +2517,7 @@ typing = [
 
 [[package]]
 name = "rubin-repertoire"
-version = "0.6.1"
+version = "0.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastapi" },
@@ -2528,9 +2528,9 @@ dependencies = [
     { name = "pyyaml" },
     { name = "safir" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/63/30/d0ac29a480b7c9926aa2eb48063f1cf9df6d5750d7cc894a33507a96c143/rubin_repertoire-0.6.1.tar.gz", hash = "sha256:882839dfe221e0430503693d7c822de8522bd5e8ac86c824bb7adba4c215cef9", size = 15501, upload-time = "2025-12-04T18:18:14.756Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/05/26/6b36c3f231d2808109d017b6e991f3f78b8507b8a48a84bdd162bcf6237c/rubin_repertoire-0.7.0.tar.gz", hash = "sha256:64c5e4fa732cdc59ba843f1eeaea72a9afc0e72a364256592c6909b7f6a29af1", size = 15499, upload-time = "2025-12-16T00:07:28.551Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3e/fc/75c6e635e664a67d027b00fb04e885f683468696624f64c6a609a77f8755/rubin_repertoire-0.6.1-py3-none-any.whl", hash = "sha256:732abc87e576739a3120a5773e269b6e075bf0a83fbed01bdad504d0f3ae84ad", size = 18286, upload-time = "2025-12-04T18:18:13.973Z" },
+    { url = "https://files.pythonhosted.org/packages/b8/91/359d81f789003b0b6f793597fa8ccbe50c6d23682d9bfd6b45b26d2bb973/rubin_repertoire-0.7.0-py3-none-any.whl", hash = "sha256:2a3373a82d3097c67a24979905dc9fc9822212682f6a494b8b163c2551ee1502", size = 18287, upload-time = "2025-12-16T00:07:27.447Z" },
 ]
 
 [[package]]

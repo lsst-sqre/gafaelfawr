@@ -10,6 +10,13 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-15.1.0'></a>
+## 15.1.0 (2025-12-15)
+
+### New features
+
+- Provide a Python client for the Gafaelfawr API as the `rubin-gafaelfawr` PyPI module. The initial version of this client supports obtaining user information from a token or (with a privileged token) for a specific user, and creating a new service token using a privileged token. The module includes a mock for tests.
+
 <a id='changelog-15.0.0'></a>
 ## 15.0.0 (2025-12-03)
 
