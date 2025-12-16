@@ -106,7 +106,7 @@ jobs:
   pypi:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [test-client, docs]
+    needs: [test, test-client]
 
     steps:
       - uses: actions/checkout@v6
