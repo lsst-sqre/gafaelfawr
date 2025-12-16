@@ -188,3 +188,51 @@ jobs:
       || (github.event_name != 'merge_group'
           && (startsWith(github.head_ref, 'tickets/')
               || startsWith(github.head_ref, 't/')))
+
+  test-packaging:
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    needs: [test]
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # full history for setuptools_scm
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Build the package
+        run: uv build --no-sources
+        working-directory: client
+
+  pypi:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [test, test-client, docs, test-packaging]
+    environment:
+      name: pypi
+      url: https://pypi.org/p/rubin-gafaelfawr
+    permissions:
+      id-token: write
+    if: github.event_name == 'release' && github.event.action == 'published'
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # full history for setuptools_scm
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Build the package
+        run: uv build --no-sources
+        working-directory: client
+
+      - name: Publish
+        run: uv publish
+        working-directory: client
