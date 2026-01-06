@@ -17,15 +17,48 @@ This library is available from PyPI and can be declared as a dependency or insta
 
    pip install rubin-gafaelfawr
 
-Consumers in other languages, such as JavaScript, can use the Repertoire server API directly.
+Consumers in other languages, such as JavaScript, can use the Gafaelfawr server API directly.
 
 Creating a client
 =================
 
-Most users can create a Gafaelfawr client by calling the `GafaelfawrClient` constructor with no parameters.
+Use the FastAPI dependency
+--------------------------
+
+If the client is a FastAPI application, it's usually easiest to use the provided FastAPI dependency.
+This maintains a singleton process-global Gafaelfawr client that shares an HTTP connection pool with the Safir `~safir.dependencies.http_client.http_client_dependency` and a Repertoire client with `~rubin.repertoire.discovery_dependency`.
+
+To use this dependency, no initialization is required.
+Simply import it and include it in the parameters to whatever route needs to make Gafaelfawr client calls:
+
+.. code-block:: python
+
+   from fastapi import Depends, Header
+   from rubin.gafaelfawr import GafaelfawrClient, gafaelfawr_dependency
+   from typing import Annotated
+
+
+   @router.get("/something")
+   async def handle_something(
+       dataset: str,
+       *,
+       gafaelfawr: Annotated[GafaelfawrClient, Depends(gafaelfawr_dependency)],
+       x_auth_request_token: Annotated[str, Header()],
+   ) -> SomeModel:
+       userinfo = await gafaelfawr.get_user_info(x_auth_request_token)
+       # ...do something with the information...
+
+This dependency uses `~safir.dependencies.http_client.http_client_dependency` under the hood, so you should insert a call to ``http_client_depnedency.aclose()`` in the cleanup portion of your application's FastAPI lifespan callback.
+See `the Safir documentation <https://safir.lsst.io/user-guide/http-client.html>`__ for more details.
+
+Manually creating a client
+--------------------------
+
+Other users can create a Gafaelfawr client by calling the `GafaelfawrClient` constructor.
+Normally, no parameters are needed.
+Call `GafaelfawrClient.aclose` to shut down its internal HTTPX_ connection pool when the client is no longer used.
+
 If the application has an existing HTTPX_ connection pool, that ``httpx.AsyncClient`` object can be passed in as the first argument and the Gafaelfawr client will use that.
-Otherwise, it will create its own connection pool.
-Call `GafaelfawrClient.aclose` to shut down that pool when the client is no longer used.
 
 The Gafaelfawr client uses Repertoire_ under the hood to discover the location of Gafaelfawr.
 This means that Repertoire must also be configured, which normally means that the ``REPERTOIRE_BASE_URL`` environment variable must be set.

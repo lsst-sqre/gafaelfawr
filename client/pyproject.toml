@@ -21,10 +21,12 @@ classifiers = [
 requires-python = ">=3.13"
 dependencies = [
     "cachetools>=6.1,<7",
+    "fastapi>=0.100,<1",
     "httpx>=0.28,<1",
     "pydantic>=2.10,<3",
     "pydantic-settings>=2.6,<3",
     "rubin-repertoire>=0.6,<1",
+    "safir>=4,<15",
     "structlog>24",
 ]
 dynamic = ["version"]
@@ -45,6 +47,7 @@ build-backend = "setuptools.build_meta"
 
 [dependency-groups]
 dev = [
+    "asgi-lifespan",
     "coverage[toml]",
     "pytest>=8.3",
     "pytest-asyncio>=0.25",

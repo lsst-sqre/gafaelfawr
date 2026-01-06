@@ -1,6 +1,7 @@
 """Client for Gafaelfawr."""
 
 from ._client import GafaelfawrClient
+from ._dependencies import GafaelfawrDependency, gafaelfawr_dependency
 from ._exceptions import (
     GafaelfawrDiscoveryError,
     GafaelfawrError,
@@ -24,6 +25,7 @@ from ._tokens import create_token
 
 __all__ = [
     "GafaelfawrClient",
+    "GafaelfawrDependency",
     "GafaelfawrDiscoveryError",
     "GafaelfawrError",
     "GafaelfawrGroup",
@@ -37,5 +39,6 @@ __all__ = [
     "MockGafaelfawr",
     "MockGafaelfawrAction",
     "create_token",
+    "gafaelfawr_dependency",
     "register_mock_gafaelfawr",
 ]
