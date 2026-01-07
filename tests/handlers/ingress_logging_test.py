@@ -49,6 +49,7 @@ async def test_success(
             ),
             "remoteIp": "192.0.2.1",
         },
+        "lifetime_seconds": ANY,
         "required_scopes": ["exec:admin"],
         "satisfy": "all",
         "scopes": ["exec:admin"],
@@ -58,9 +59,11 @@ async def test_success(
         "token_source": "bearer",
         "user": token_data.username,
     }
-    assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
-        expected_log
-    ]
+    seen = parse_log_tuples("gafaelfawr", caplog.record_tuples)
+    assert seen == [expected_log]
+    assert token_data.expires
+    lifetime = (token_data.expires - datetime.now(tz=UTC)).total_seconds()
+    assert lifetime - 2 <= seen[0]["lifetime_seconds"] <= lifetime
 
     # Successful request with HTTP Basic authentication in the username, using
     # a service without a quota.
@@ -170,6 +173,7 @@ async def test_authz_failed(
                 ),
                 "remoteIp": "127.0.0.1",
             },
+            "lifetime_seconds": ANY,
             "required_scopes": ["exec:test"],
             "satisfy": "any",
             "scopes": ["exec:admin"],
@@ -209,6 +213,7 @@ async def test_original_url(
             ),
             "remoteIp": "127.0.0.1",
         },
+        "lifetime_seconds": ANY,
         "required_scopes": ["exec:admin"],
         "satisfy": "all",
         "scopes": ["user:token"],
@@ -254,6 +259,7 @@ async def test_x_forwarded(
                 ),
                 "remoteIp": "2001:db8:85a3:8d3:1319:8a2e:370:734",
             },
+            "lifetime_seconds": ANY,
             "required_scopes": ["exec:admin"],
             "satisfy": "all",
             "scopes": ["user:token"],
@@ -332,6 +338,7 @@ async def test_notebook(
                 "requestUrl": ANY,
                 "remoteIp": "127.0.0.1",
             },
+            "lifetime_seconds": ANY,
             "required_scopes": ["exec:admin"],
             "satisfy": "all",
             "scopes": ["exec:admin", "read:all"],
@@ -358,6 +365,7 @@ async def test_notebook(
                 "requestUrl": ANY,
                 "remoteIp": "127.0.0.1",
             },
+            "lifetime_seconds": ANY,
             "required_scopes": ["exec:admin"],
             "satisfy": "all",
             "scopes": ["exec:admin", "read:all"],
@@ -404,6 +412,7 @@ async def test_internal(
                 "requestUrl": ANY,
                 "remoteIp": "127.0.0.1",
             },
+            "lifetime_seconds": ANY,
             "required_scopes": ["exec:admin"],
             "satisfy": "all",
             "scopes": ["exec:admin", "read:all"],
@@ -432,6 +441,7 @@ async def test_internal(
                 "requestUrl": ANY,
                 "remoteIp": "127.0.0.1",
             },
+            "lifetime_seconds": ANY,
             "required_scopes": ["exec:admin"],
             "satisfy": "all",
             "scopes": ["exec:admin", "read:all"],
@@ -482,6 +492,7 @@ async def test_rate_limit_events(
                 ),
                 "remoteIp": "192.0.2.1",
             },
+            "lifetime_seconds": ANY,
             "quota": {
                 "limit": 1,
                 "reset": ANY,

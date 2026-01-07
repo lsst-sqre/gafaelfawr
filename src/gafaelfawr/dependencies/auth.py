@@ -1,5 +1,6 @@
 """Authentication dependencies for FastAPI."""
 
+from datetime import UTC, datetime
 from typing import Annotated
 from urllib.parse import urlencode, urlparse
 
@@ -140,10 +141,15 @@ class Authenticate:
             exc = InvalidTokenError("Token is not valid")
             raise generate_challenge(context, self.auth_type, exc)
 
+        lifetime_seconds = None
+        if data.expires:
+            lifetime = data.expires - datetime.now(tz=UTC)
+            lifetime_seconds = int(lifetime.total_seconds())
         context.rebind_logger(
             token=token.key,
             user=data.username,
             scopes=sorted(data.scopes),
+            lifetime_seconds=lifetime_seconds,
         )
 
         if self.require_scope and self.require_scope not in data.scopes:
