@@ -1,7 +1,5 @@
 """Tests for the /ingress routes."""
 
-from __future__ import annotations
-
 import base64
 from datetime import timedelta
 from unittest.mock import ANY

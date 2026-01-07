@@ -1,7 +1,5 @@
 """Test RSA keypair handling."""
 
-from __future__ import annotations
-
 import pytest
 from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.backends import default_backend

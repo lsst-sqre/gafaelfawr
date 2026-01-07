@@ -1,7 +1,5 @@
 """Storage layer for quota overrides."""
 
-from __future__ import annotations
-
 from safir.redis import DeserializeError, PydanticRedisStorage
 from safir.sentry import report_exception
 from safir.slack.webhook import SlackWebhookClient

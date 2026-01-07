@@ -1,7 +1,5 @@
 """Tests for web application startup."""
 
-from __future__ import annotations
-
 import pytest
 from asgi_lifespan import LifespanManager
 from safir.database import drop_database

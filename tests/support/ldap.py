@@ -1,7 +1,5 @@
 """Mock bonsai LDAP API for testing."""
 
-from __future__ import annotations
-
 import re
 from collections import defaultdict
 from collections.abc import AsyncIterator, Iterator

@@ -1,7 +1,5 @@
 """Tests for the ``/logout`` route."""
 
-from __future__ import annotations
-
 import pytest
 import respx
 from httpx import AsyncClient

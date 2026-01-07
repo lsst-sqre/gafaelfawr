@@ -1,7 +1,6 @@
 """Storage for tokens."""
 
-from __future__ import annotations
-
+import builtins
 from datetime import datetime
 from typing import cast
 
@@ -605,7 +604,7 @@ class TokenRedisStore:
         """
         return await self._storage.get(key)
 
-    async def list(self) -> list[str]:
+    async def list(self) -> builtins.list[str]:
         """List all token keys stored in Redis.
 
         Returns

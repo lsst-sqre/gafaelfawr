@@ -1,7 +1,5 @@
 """Storage for OpenID Connect authorizations."""
 
-from __future__ import annotations
-
 from safir.redis import EncryptedPydanticRedisStorage
 
 from ..constants import OIDC_AUTHORIZATION_LIFETIME

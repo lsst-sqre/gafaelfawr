@@ -6,8 +6,6 @@ This is in a separate module primarily so that it can be used by the
 configuration parsing code.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 from ..util import group_name_for_github_team

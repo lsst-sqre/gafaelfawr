@@ -1,7 +1,5 @@
 """Storage for change and authentication history."""
 
-from __future__ import annotations
-
 from datetime import datetime
 
 from safir.database import (

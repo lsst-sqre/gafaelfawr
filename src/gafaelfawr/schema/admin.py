@@ -4,8 +4,6 @@ This is a stopgap representation of admins until we have a group system and a
 group-based authorization system up and running.
 """
 
-from __future__ import annotations
-
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
 

@@ -4,8 +4,6 @@ This is a stopgap representation of changes to the admin table until we have a
 group system and a group-based authorization system up and running.
 """
 
-from __future__ import annotations
-
 from datetime import datetime
 
 from sqlalchemy import Index, String

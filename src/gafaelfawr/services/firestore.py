@@ -1,7 +1,5 @@
 """UID/GID assignment using Firestore."""
 
-from __future__ import annotations
-
 import sentry_sdk
 from structlog.stdlib import BoundLogger
 

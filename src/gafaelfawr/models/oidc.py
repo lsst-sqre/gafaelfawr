@@ -1,7 +1,5 @@
 """Representation of data for OpenID Connect support."""
 
-from __future__ import annotations
-
 from collections.abc import Sequence
 from contextlib import suppress
 from enum import StrEnum

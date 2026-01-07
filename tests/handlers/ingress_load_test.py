@@ -5,8 +5,6 @@ deadlocking when processing numerous requests that require subtokens or some
 other potentially expensive or coordinated action.
 """
 
-from __future__ import annotations
-
 import asyncio
 
 import pytest

@@ -1,7 +1,5 @@
 """RSA key pair handling."""
 
-from __future__ import annotations
-
 from typing import Self
 
 from cryptography.exceptions import UnsupportedAlgorithm

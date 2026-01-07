@@ -1,7 +1,5 @@
 """OpenID Connect authentication provider."""
 
-from __future__ import annotations
-
 import re
 from typing import override
 from urllib.parse import urlencode

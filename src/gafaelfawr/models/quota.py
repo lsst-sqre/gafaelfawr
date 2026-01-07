@@ -1,7 +1,5 @@
 """Models for user quotas."""
 
-from __future__ import annotations
-
 from typing import Self
 
 from pydantic import BaseModel, ConfigDict, Field

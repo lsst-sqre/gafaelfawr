@@ -1,7 +1,5 @@
 """Service layer for user metadata."""
 
-from __future__ import annotations
-
 from structlog.stdlib import BoundLogger
 
 from ..config import Config

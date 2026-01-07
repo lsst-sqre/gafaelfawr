@@ -5,8 +5,6 @@ used by the `~gafaelfawr.middleware.state.StateMiddleware` middleware.  It
 holds the data that Gafaelfawr stores in a session cookie.
 """
 
-from __future__ import annotations
-
 from typing import Annotated, Self, override
 
 from cryptography.fernet import Fernet

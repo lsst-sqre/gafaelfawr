@@ -1,7 +1,5 @@
 """Tests for API rate limiting."""
 
-from __future__ import annotations
-
 import json
 from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime

@@ -1,7 +1,5 @@
 """Tests for Gafaelfawr client FastAPI dependencies."""
 
-from __future__ import annotations
-
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Annotated

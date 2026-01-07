@@ -1,7 +1,5 @@
 """Tests for Gafaelfawr client models."""
 
-from __future__ import annotations
-
 from rubin.gafaelfawr import (
     GafaelfawrGroup,
     GafaelfawrNotebookQuota,

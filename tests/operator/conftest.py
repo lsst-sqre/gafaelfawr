@@ -5,8 +5,6 @@ generic names that would only make sense in the Kubernetes context, without
 risking confusion in other contexts.
 """
 
-from __future__ import annotations
-
 from collections.abc import AsyncIterator
 
 import pytest_asyncio

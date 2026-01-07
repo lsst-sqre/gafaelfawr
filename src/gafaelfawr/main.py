@@ -1,7 +1,5 @@
 """Application definition for Gafaelfawr."""
 
-from __future__ import annotations
-
 import json
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager

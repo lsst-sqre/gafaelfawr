@@ -1,7 +1,5 @@
 """Cache for internal and notebook tokens."""
 
-from __future__ import annotations
-
 from datetime import datetime, timedelta
 
 import sentry_sdk

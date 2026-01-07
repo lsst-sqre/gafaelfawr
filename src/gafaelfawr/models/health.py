@@ -1,7 +1,5 @@
 """Models for health checks."""
 
-from __future__ import annotations
-
 from enum import Enum
 from typing import Annotated
 

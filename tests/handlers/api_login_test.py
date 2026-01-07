@@ -1,7 +1,5 @@
 """Tests for the ``/auth/api/v1/login`` route."""
 
-from __future__ import annotations
-
 import json
 from unittest.mock import ANY
 

@@ -1,7 +1,5 @@
 """Representation of authentication-related data."""
 
-from __future__ import annotations
-
 import re
 from dataclasses import dataclass
 from enum import Enum

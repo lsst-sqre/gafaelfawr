@@ -1,7 +1,5 @@
 """Tests for the ``/auth/api/v1/admins`` routes."""
 
-from __future__ import annotations
-
 import pytest
 from httpx import AsyncClient
 from safir.testing.slack import MockSlackWebhook

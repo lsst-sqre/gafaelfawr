@@ -7,8 +7,6 @@ objects in order to define pagination cursors, but ORM objects often refer to
 enums for column definitions.
 """
 
-from __future__ import annotations
-
 from enum import Enum
 
 __all__ = [

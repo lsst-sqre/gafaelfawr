@@ -1,7 +1,5 @@
 """Tests for token functions."""
 
-from __future__ import annotations
-
 from rubin.gafaelfawr import create_token
 
 

@@ -1,7 +1,5 @@
 """LDAP storage layer for Gafaelfawr."""
 
-from __future__ import annotations
-
 import re
 from collections.abc import AsyncIterator
 

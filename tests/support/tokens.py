@@ -1,7 +1,5 @@
 """Create tokens for testing."""
 
-from __future__ import annotations
-
 from datetime import timedelta
 
 from safir.datetime import current_datetime

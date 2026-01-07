@@ -6,8 +6,6 @@ tests can therefore be async, and should instead run coroutines by creating
 their own event loop.
 """
 
-from __future__ import annotations
-
 import asyncio
 import json
 import os

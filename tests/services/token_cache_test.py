@@ -1,7 +1,5 @@
 """Tests for the token cache dependency."""
 
-from __future__ import annotations
-
 from datetime import timedelta
 
 import pytest

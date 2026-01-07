@@ -1,7 +1,5 @@
 """Create Gafaelfawr components."""
 
-from __future__ import annotations
-
 from collections.abc import AsyncIterator
 from contextlib import aclosing, asynccontextmanager
 from dataclasses import dataclass

@@ -17,8 +17,6 @@ settings here since some settings are only injected via environment variables
 and cannot be set in the config.
 """
 
-from __future__ import annotations
-
 import re
 from collections import defaultdict
 from datetime import timedelta

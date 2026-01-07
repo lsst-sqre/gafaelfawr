@@ -1,7 +1,5 @@
 """Models for Kubernetes operators."""
 
-from __future__ import annotations
-
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum

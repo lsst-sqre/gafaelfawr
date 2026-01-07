@@ -6,8 +6,6 @@ Kubernetes ``Ingress`` and instead should be accessed using cluster-internal
 URLs.
 """
 
-from __future__ import annotations
-
 import json
 from contextlib import suppress
 from dataclasses import dataclass

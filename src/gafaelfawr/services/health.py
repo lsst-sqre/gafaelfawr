@@ -1,7 +1,5 @@
 """Health check for the Gafaelfawr service."""
 
-from __future__ import annotations
-
 from random import SystemRandom
 
 from sqlalchemy.ext.asyncio import async_scoped_session

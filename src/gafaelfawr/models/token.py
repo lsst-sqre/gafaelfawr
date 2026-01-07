@@ -1,7 +1,5 @@
 """Representation of an authentication token and associated data."""
 
-from __future__ import annotations
-
 from typing import Any, Self, override
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator

@@ -1,7 +1,5 @@
 """Kubernetes storage layer for Gafaelfawr."""
 
-from __future__ import annotations
-
 from base64 import b64encode
 from collections.abc import Callable, Coroutine
 from functools import wraps

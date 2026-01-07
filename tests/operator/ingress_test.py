@@ -1,7 +1,5 @@
 """Tests for Kubernetes ingress management."""
 
-from __future__ import annotations
-
 import asyncio
 from unittest.mock import ANY
 
