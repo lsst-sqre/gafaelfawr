@@ -1,7 +1,5 @@
 """Firestore storage layer for Gafaelfawr."""
 
-from __future__ import annotations
-
 from collections.abc import Callable, Coroutine
 from functools import wraps
 

@@ -1,7 +1,5 @@
 """Manage the configured token administrators."""
 
-from __future__ import annotations
-
 from collections.abc import Iterable
 
 from safir.datetime import current_datetime

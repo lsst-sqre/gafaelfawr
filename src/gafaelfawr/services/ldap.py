@@ -1,7 +1,5 @@
 """LDAP lookups for user information."""
 
-from __future__ import annotations
-
 import sentry_sdk
 from structlog.stdlib import BoundLogger
 

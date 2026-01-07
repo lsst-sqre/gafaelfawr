@@ -1,7 +1,5 @@
 """Utility functions for tests."""
 
-from __future__ import annotations
-
 from datetime import datetime, timedelta
 
 from safir.datetime import current_datetime

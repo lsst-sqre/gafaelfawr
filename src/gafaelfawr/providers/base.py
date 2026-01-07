@@ -1,7 +1,5 @@
 """Base class for authentication providers."""
 
-from __future__ import annotations
-
 from abc import ABCMeta, abstractmethod
 
 from ..models.state import State

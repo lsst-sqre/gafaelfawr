@@ -1,7 +1,5 @@
 """Tests for the ``/auth/api/v1/users/*/tokens`` and related routes."""
 
-from __future__ import annotations
-
 import time
 from datetime import UTC, datetime, timedelta
 from unittest.mock import ANY

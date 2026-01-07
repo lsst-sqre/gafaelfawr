@@ -1,7 +1,5 @@
 """Tests for the gafaelfawr.util package."""
 
-from __future__ import annotations
-
 from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.util import (
     add_padding,

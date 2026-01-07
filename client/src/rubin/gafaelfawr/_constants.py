@@ -1,7 +1,5 @@
 """Constants for the Gafaelfawr client."""
 
-from __future__ import annotations
-
 from datetime import timedelta
 
 __all__ = ["CACHE_LIFETIME", "CACHE_SIZE"]

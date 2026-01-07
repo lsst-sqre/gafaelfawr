@@ -1,7 +1,5 @@
 """Tests for Kubernetes secret management."""
 
-from __future__ import annotations
-
 import asyncio
 from base64 import b64decode, b64encode
 from datetime import timedelta

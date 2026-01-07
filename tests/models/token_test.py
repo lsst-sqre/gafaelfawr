@@ -1,7 +1,5 @@
 """Tests for the gafaelfawr.session package."""
 
-from __future__ import annotations
-
 import pytest
 from pydantic import ValidationError
 

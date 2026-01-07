@@ -1,7 +1,5 @@
 """Manage tokens."""
 
-from __future__ import annotations
-
 import ipaddress
 import re
 from collections.abc import Iterable

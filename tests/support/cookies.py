@@ -1,7 +1,5 @@
 """Helper functions for managing test cookies."""
 
-from __future__ import annotations
-
 from httpx import AsyncClient
 
 from gafaelfawr.constants import COOKIE_NAME

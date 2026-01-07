@@ -1,7 +1,6 @@
 """Storage for token administrators."""
 
-from __future__ import annotations
-
+import builtins
 from typing import cast
 
 from sqlalchemy import CursorResult, delete, select
@@ -57,7 +56,7 @@ class AdminStore:
         result = cast("CursorResult", await self._session.execute(stmt))
         return result.rowcount > 0
 
-    async def list(self) -> list[Admin]:
+    async def list(self) -> builtins.list[Admin]:
         """Return a list of current administrators.
 
         Returns

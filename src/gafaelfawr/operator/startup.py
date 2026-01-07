@@ -1,7 +1,5 @@
 """Kubernetes operator startup and shutdown."""
 
-from __future__ import annotations
-
 from typing import Any
 
 import kopf

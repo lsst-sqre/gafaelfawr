@@ -1,7 +1,5 @@
 """Handler for minimalist OpenID Connect (``/auth/openid``)."""
 
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Annotated, Any
 from urllib.parse import parse_qsl, urlencode, urlparse

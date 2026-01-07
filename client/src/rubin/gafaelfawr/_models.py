@@ -6,8 +6,6 @@ compared to the server models, and only the ones starting with ``Gafaelfawr``
 are exposed to users of the module.
 """
 
-from __future__ import annotations
-
 from datetime import datetime
 from enum import Enum
 from typing import Annotated, Any

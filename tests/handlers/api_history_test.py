@@ -1,7 +1,5 @@
 """Tests for paginated retrieval of history."""
 
-from __future__ import annotations
-
 import json
 from collections.abc import Callable, Sequence
 from datetime import timedelta

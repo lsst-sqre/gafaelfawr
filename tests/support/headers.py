@@ -1,7 +1,5 @@
 """Test helper functions to parse HTTP headers."""
 
-from __future__ import annotations
-
 import re
 from urllib.parse import parse_qs, urlparse
 

@@ -1,7 +1,5 @@
 """Tests for the Gafaelfawr database schema."""
 
-from __future__ import annotations
-
 import os
 import subprocess
 

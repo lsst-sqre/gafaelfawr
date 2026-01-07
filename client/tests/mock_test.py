@@ -5,8 +5,6 @@ but test a few additional behaviors that the client tests didn't need or that
 are specific to the mock.
 """
 
-from __future__ import annotations
-
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 

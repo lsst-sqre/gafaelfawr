@@ -1,7 +1,5 @@
 """Tests for the OpenID Connect server."""
 
-from __future__ import annotations
-
 import json
 import os
 import time

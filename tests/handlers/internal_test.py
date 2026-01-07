@@ -1,7 +1,5 @@
 """Tests for the checkerboard.handlers.internal.index module and routes."""
 
-from __future__ import annotations
-
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient

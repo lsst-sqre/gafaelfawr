@@ -1,7 +1,5 @@
 """All database schema objects."""
 
-from __future__ import annotations
-
 from .admin import Admin
 from .admin_history import AdminHistory
 from .base import SchemaBase

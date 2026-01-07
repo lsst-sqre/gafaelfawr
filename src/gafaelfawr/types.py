@@ -1,7 +1,5 @@
 """Pydantic data types for Gafaelfawr models."""
 
-from __future__ import annotations
-
 from collections.abc import Iterable
 from ipaddress import IPv4Address, IPv6Address
 from typing import Annotated

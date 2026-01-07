@@ -1,7 +1,5 @@
 """Metrics implementation for Gafaelfawr."""
 
-from __future__ import annotations
-
 from typing import override
 
 from pydantic import Field

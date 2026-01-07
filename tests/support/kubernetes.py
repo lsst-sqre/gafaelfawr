@@ -1,7 +1,5 @@
 """Support functions for Kubernetes operator testing."""
 
-from __future__ import annotations
-
 import asyncio
 import os
 from collections.abc import AsyncIterator, Iterable, Iterator, Mapping

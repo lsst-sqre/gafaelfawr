@@ -1,7 +1,5 @@
 """Tests for logging and metrics in the ``/ingress/auth`` route."""
 
-from __future__ import annotations
-
 import base64
 from datetime import UTC, datetime, timedelta
 from typing import Any

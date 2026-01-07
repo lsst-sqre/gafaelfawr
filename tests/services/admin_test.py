@@ -1,7 +1,5 @@
 """Tests for the service that handles token administrators."""
 
-from __future__ import annotations
-
 import pytest
 
 from gafaelfawr.exceptions import PermissionDeniedError

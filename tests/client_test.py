@@ -4,8 +4,6 @@ These tests access the Gafaelfawr API via the Gafaelfawr client to test
 interoperability between the client and the server.
 """
 
-from __future__ import annotations
-
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import ANY

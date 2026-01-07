@@ -1,7 +1,5 @@
 """Tests for verification of upstream OpenID Connect token verification."""
 
-from __future__ import annotations
-
 from datetime import timedelta
 from typing import Any
 from urllib.parse import urljoin

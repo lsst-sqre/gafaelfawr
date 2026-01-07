@@ -1,7 +1,5 @@
 """Exceptions for the Gafaelfawr client."""
 
-from __future__ import annotations
-
 from typing import Self, override
 
 from pydantic import ValidationError

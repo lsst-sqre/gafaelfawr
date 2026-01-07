@@ -1,7 +1,5 @@
 """Test fixtures."""
 
-from __future__ import annotations
-
 import os
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path

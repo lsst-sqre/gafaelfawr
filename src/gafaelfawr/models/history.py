@@ -1,7 +1,5 @@
 """Representation of a token or admin history event."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Any, Self, override
 

@@ -1,7 +1,5 @@
 """OpenID Connect provider mocks for testing."""
 
-from __future__ import annotations
-
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urljoin, urlparse
 

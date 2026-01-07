@@ -1,7 +1,5 @@
 """Exceptions for Gafaelfawr."""
 
-from __future__ import annotations
-
 from typing import ClassVar, Self, override
 
 import kopf

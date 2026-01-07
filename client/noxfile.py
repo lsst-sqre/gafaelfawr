@@ -6,8 +6,6 @@ independent from the top-level directory. The top-level noxfile recurses into
 this one as needed.
 """
 
-from __future__ import annotations
-
 import nox
 from nox_uv import session
 

@@ -1,7 +1,5 @@
 """The token_auth_history database table."""
 
-from __future__ import annotations
-
 from datetime import datetime
 
 from sqlalchemy import Index, String
