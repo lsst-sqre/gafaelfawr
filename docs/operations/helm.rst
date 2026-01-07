@@ -114,7 +114,7 @@ Cloud SQL
 
 If the PostgreSQL database that Gafaelfawr should use is a Google Cloud SQL database, Gafaelfawr supports using the Cloud SQL Auth Proxy via Workload Identity.
 
-First, follow the `normal setup instructions for Cloud SQL Auth Proxy using Workload Identity <https://cloud.google.com/sql/docs/postgres/connect-kubernetes-engine>`__.
+First, follow the `normal setup instructions for Cloud SQL Auth Proxy using Workload Identity <https://docs.cloud.google.com/sql/docs/postgres/connect-kubernetes-engine>`__.
 You do not need to create the Kubernetes service account; two service accounts will be created by the Gafaelfawr Helm chart.
 The names of those service accounts are ``gafaelfawr`` and ``gafaelfawr-operator``, both in Gafaelfawr's Kubernetes namespace (by default, ``gafaelfawr``).
 
