@@ -17,6 +17,9 @@ If this message indicates an error with supplemental information, the additional
 Gafaelfawr will add some consistent attributes to log messages, in addition to the default attributes `added by Safir <https://safir.lsst.io/user-guide/logging.html>`__.
 All authenticated routes add the following attributes once the user's token has been located and verified:
 
+``lifetime_seconds``
+    Remaining lifetime of the authentication token in seconds.
+
 ``scopes``
     The scopes of the authentication token.
 
