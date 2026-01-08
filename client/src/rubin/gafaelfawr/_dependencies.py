@@ -21,6 +21,7 @@ class GafaelfawrDependency:
     """
 
     def __init__(self) -> None:
+        self._http_client: AsyncClient | None = None
         self._client: GafaelfawrClient | None = None
 
     async def __call__(
@@ -28,10 +29,11 @@ class GafaelfawrDependency:
         discovery: Annotated[DiscoveryClient, Depends(discovery_dependency)],
         http_client: Annotated[AsyncClient, Depends(http_client_dependency)],
     ) -> GafaelfawrClient:
-        if not self._client:
+        if not self._client or self._http_client != http_client:
             self._client = GafaelfawrClient(
                 http_client, discovery_client=discovery
             )
+            self._http_client = http_client
         return self._client
 
 

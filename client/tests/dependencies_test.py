@@ -53,3 +53,16 @@ async def test_dependency(mock_gafaelfawr: MockGafaelfawr) -> None:
             assert r.status_code == 200
             r = await client.get("/", headers={"X-Auth-Request-Token": token})
             assert r.status_code == 200
+
+    # When the HTTPX client dependency is shut down and recreated, this should
+    # result in a new Gafaelfawr client. Otherwise, the Gafaelfawr client
+    # would try to use the closed HTTPX client.
+    old_client = cached_client
+    cached_client = None
+    async with LifespanManager(app):
+        async with AsyncClient(
+            base_url="https://example.com/", transport=ASGITransport(app=app)
+        ) as client:
+            r = await client.get("/", headers={"X-Auth-Request-Token": token})
+            assert r.status_code == 200
+            assert cached_client != old_client
