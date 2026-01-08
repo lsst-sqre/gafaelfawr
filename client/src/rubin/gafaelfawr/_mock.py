@@ -1,5 +1,7 @@
 """Mock for the parts of the Gafaelfawr API used by the client."""
 
+# Required for now because Ruff removes explicitly quoted types and mypy
+# otherwise gets confused about the type of the internal check decorator.
 from __future__ import annotations
 
 import re
@@ -19,6 +21,16 @@ from ._tokens import create_token
 
 if TYPE_CHECKING:
     import respx
+
+type _GafaelfawrMockPublic[**P] = Callable[
+    Concatenate[MockGafaelfawr, Request, P], Response
+]
+"""External type exposed as a side effect method."""
+
+type _GafaelfawrMockInternal[**P] = Callable[
+    Concatenate[MockGafaelfawr, Request, TokenData, P], Response
+]
+"""Internal type for the implementation of a side effect method."""
 
 __all__ = [
     "MockGafaelfawr",
@@ -138,7 +150,7 @@ class MockGafaelfawr:
             404 error.
         """
         assert user_info is None or user_info.username == username, (
-            f"User info for wrong user ({user_info.username} != {username}"
+            f"User info for wrong user ({user_info.username} != {username})"
         )
         self._user_info[username] = user_info
 
@@ -147,14 +159,7 @@ class MockGafaelfawr:
         *,
         fail_on: MockGafaelfawrAction | None = None,
         required_scope: str | None = None,
-    ) -> Callable[
-        [
-            Callable[
-                Concatenate[MockGafaelfawr, Request, TokenData, P], Response
-            ]
-        ],
-        Callable[Concatenate[MockGafaelfawr, Request, P], Response],
-    ]:
+    ) -> Callable[[_GafaelfawrMockInternal[P]], _GafaelfawrMockPublic[P]]:
         """Wrap `MockGafaelfawr` methods to perform common checks.
 
         There are various common checks that should be performed for every
@@ -176,10 +181,8 @@ class MockGafaelfawr:
         """
 
         def decorator(
-            f: Callable[
-                Concatenate[MockGafaelfawr, Request, TokenData, P], Response
-            ],
-        ) -> Callable[Concatenate[MockGafaelfawr, Request, P], Response]:
+            f: _GafaelfawrMockInternal[P],
+        ) -> _GafaelfawrMockPublic[P]:
             @wraps(f)
             def wrapper(
                 mock: MockGafaelfawr,
