@@ -28,6 +28,30 @@ Then, add a fixture (usually to :file:`tests/conftest.py`) that calls `register_
    async def mock_gafaelfawr(respx_mock: respx.Router) -> MockGafaelfawr:
        return await register_mock_gafaelfawr(respx_mock)
 
+Enabling assertion rewriting
+----------------------------
+
+For better error reports in pytest_ if an assertion fails inside the mock, tell pytest to rewrite assertions in :py:mod:`rubin.gafaelfawr` and :py:mod:`rubin.repertoire` by putting the following at the top of :file:`tests/conftest.py`:
+
+.. code-block:: yaml
+
+   import pytest
+
+   pytest.register_assert_rewrite("rubin.gafaelfawr", "rubin.repertoire")
+
+Add any other test support modules that may call assert to the list.
+These lines must occur before any imports of the listed modules, either direct or indirect.
+
+Unfortunately, Ruff doesn't understand this pattern and will try to rewrite the file in a way that will break it.
+You will therefore also need to add the following to your :file:`pyproject.toml`:
+
+.. code-block:: toml
+
+   [tool.ruff.lint.extend-per-file-ignores]
+   "tests/conftest.py" = [
+       "E402",   # pytest.register_assert_rewrite precedes relevant imports
+   ]
+
 Overriding service discovery
 ----------------------------
 
