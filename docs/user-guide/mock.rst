@@ -31,13 +31,13 @@ Then, add a fixture (usually to :file:`tests/conftest.py`) that calls `register_
 Enabling assertion rewriting
 ----------------------------
 
-For better error reports in pytest_ if an assertion fails inside the mock, tell pytest to rewrite assertions in :py:mod:`rubin.gafaelfawr` and :py:mod:`rubin.repertoire` by putting the following at the top of :file:`tests/conftest.py`:
+For better error reports in pytest_ if an assertion fails inside the mock, tell pytest to rewrite assertions in :py:mod:`rubin.gafaelfawr` by putting the following at the top of :file:`tests/conftest.py`:
 
 .. code-block:: yaml
 
    import pytest
 
-   pytest.register_assert_rewrite("rubin.gafaelfawr", "rubin.repertoire")
+   pytest.register_assert_rewrite("rubin.gafaelfawr")
 
 Add any other test support modules that may call assert to the list.
 These lines must occur before any imports of the listed modules, either direct or indirect.
