@@ -10,6 +10,17 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-15.2.0'></a>
+## 15.2.0 (2026-01-12)
+
+### New features
+
+- Add `gafaelfawr_dependency` to the Gafaelfawr client. This is a FastAPI dependency that provides a Gafaelfawr client that reuses the HTTPX connection pool provided by the Safir dependency and the Repertoire client provided by the Repertoire dependency. FastAPI applications can use this rather than managing the client directly.
+
+### Other changes
+
+- Include the remaining token lifetime in authentication log messages.
+
 <a id='changelog-15.1.0'></a>
 ## 15.1.0 (2025-12-15)
 
