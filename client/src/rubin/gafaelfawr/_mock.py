@@ -277,6 +277,7 @@ async def register_mock_gafaelfawr(respx_mock: respx.Router) -> MockGafaelfawr:
     """
     discovery_client = DiscoveryClient()
     url = await discovery_client.url_for_internal("gafaelfawr", version="v1")
+    await discovery_client.aclose()
     assert url, "Service gafaelfawr (v1) not found in Repertoire"
     mock = MockGafaelfawr()
     mock.install_routes(respx_mock, url)
