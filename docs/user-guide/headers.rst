@@ -17,7 +17,7 @@ Rate limit headers
 
 ``X-RateLimit-Limit``
     This request is subject to a rate limit.
-    The value of this header is the total number of requests permitted in each time window, which currently is always fifteen minutes.
+    The value of this header is the total number of requests permitted in each time window, which currently is always one minute.
     See ``X-RateLimit-Remaining`` for the number of requests left in that interval.
 
 ``X-RateLimit-Remaining``

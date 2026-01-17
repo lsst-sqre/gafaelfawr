@@ -53,7 +53,7 @@ async def test_rate_limit(client: AsyncClient, factory: Factory) -> None:
     assert expected.timestamp() <= reset <= expected.timestamp() + 5
 
     # The third request should be rejected due to rate limiting, with a
-    # Retry-After header set to approximately fifteen minutes from now.
+    # Retry-After header set to approximately one minute from now.
     r = await client.get(
         "/ingress/auth",
         params={"scope": "read:all", "service": "test"},
