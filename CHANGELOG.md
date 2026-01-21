@@ -10,6 +10,14 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-15.2.1'></a>
+## 15.2.1 (2026-01-21)
+
+### Bug fixes
+
+- Fix an incompatibility between faststream and the latest aiokafka by downgrading aiokafka to a compatible version.
+- Don't leak an HTTPX client pool in `register_mock_gafaelfawr` in the Gafaelfawr client library.
+
 <a id='changelog-15.2.0'></a>
 ## 15.2.0 (2026-01-12)
 
