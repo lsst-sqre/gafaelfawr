@@ -553,11 +553,11 @@ wheels = [
 
 [[package]]
 name = "packaging"
-version = "25.0"
+version = "26.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/a1/d4/1fc4078c65507b51b96ca8f8c3ba19e6a61c8253c72794544580a7b6c24d/packaging-25.0.tar.gz", hash = "sha256:d443872c98d677bf60f6a1f2f8c1cb748e8fe762d2bf9d3148b5599295b0fc4f", size = 165727, upload-time = "2025-04-19T11:48:59.673Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/65/ee/299d360cdc32edc7d2cf530f3accf79c4fca01e96ffc950d8a52213bd8e4/packaging-26.0.tar.gz", hash = "sha256:00243ae351a257117b6a241061796684b084ed1c516a08c48a3f7e147a9d80b4", size = 143416, upload-time = "2026-01-21T20:50:39.064Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/20/12/38679034af332785aac8774540895e234f4d07f7545804097de4b666afd8/packaging-25.0-py3-none-any.whl", hash = "sha256:29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484", size = 66469, upload-time = "2025-04-19T11:48:57.875Z" },
+    { url = "https://files.pythonhosted.org/packages/b7/b9/c538f279a4e237a006a2c98387d081e9eb060d203d8ed34467cc0f0b9b53/packaging-26.0-py3-none-any.whl", hash = "sha256:b36f1fef9334a5588b4166f8bcd26a14e521f2b55e6b9de3aaa80d3ff7a37529", size = 74366, upload-time = "2026-01-21T20:50:37.788Z" },
 ]
 
 [[package]]
@@ -589,11 +589,11 @@ wheels = [
 
 [[package]]
 name = "pycparser"
-version = "2.23"
+version = "3.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/fe/cf/d2d3b9f5699fb1e4615c8e32ff220203e43b248e1dfcc6736ad9057731ca/pycparser-2.23.tar.gz", hash = "sha256:78816d4f24add8f10a06d6f05b4d424ad9e96cfebf68a4ddc99c65c0720d00c2", size = 173734, upload-time = "2025-09-09T13:23:47.91Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1b/7d/92392ff7815c21062bea51aa7b87d45576f649f16458d78b7cf94b9ab2e6/pycparser-3.0.tar.gz", hash = "sha256:600f49d217304a5902ac3c37e1281c9fe94e4d0489de643a9504c5cdfdfc6b29", size = 103492, upload-time = "2026-01-21T14:26:51.89Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a0/e3/59cd50310fc9b59512193629e1984c1f95e5c8ae6e5d8c69532ccc65a7fe/pycparser-2.23-py3-none-any.whl", hash = "sha256:e5c6e8d3fbad53479cab09ac03729e0a9faf2bee3db8208a550daf5af81a5934", size = 118140, upload-time = "2025-09-09T13:23:46.651Z" },
+    { url = "https://files.pythonhosted.org/packages/0c/c3/44f3fbbfa403ea2a7c779186dc20772604442dde72947e7d01069cbe98e3/pycparser-3.0-py3-none-any.whl", hash = "sha256:b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992", size = 48172, upload-time = "2026-01-21T14:26:50.693Z" },
 ]
 
 [[package]]
@@ -897,7 +897,7 @@ wheels = [
 
 [[package]]
 name = "safir"
-version = "14.1.2"
+version = "14.1.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -913,34 +913,34 @@ dependencies = [
     { name = "starlette" },
     { name = "structlog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/04/35/5704a791b293eb0dea9b2c98376bdafbd4454992b4726b27de9c291a45a0/safir-14.1.2.tar.gz", hash = "sha256:98c55d8e4be9b72c0d241c6e0410854578ab3511a076c9597e9b7777d05dfcbc", size = 532134, upload-time = "2025-12-02T20:29:16.111Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/66/ab/900e1a0211eb70d511f69504437e00f8a66cce60625bb1dbb4b120a864ae/safir-14.1.3.tar.gz", hash = "sha256:8a0ed5688bad7f9d405a1a60ed0eec8d602ec883be170d90edf4799fc2862ae0", size = 532388, upload-time = "2026-01-21T16:17:37.579Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2b/65/870c1564bf32870926a4aff07d960e534202ac7bf762c0063a808090921b/safir-14.1.2-py3-none-any.whl", hash = "sha256:235e1a5917744a1ae3be09ca12df9e98c7470a5a488e2d9b95cfde51cf071806", size = 177783, upload-time = "2025-12-02T20:29:20.423Z" },
+    { url = "https://files.pythonhosted.org/packages/33/42/49a20c5037f7ec2837d23a010d2ce46d6fa8df8543a2e35e4b920fd63490/safir-14.1.3-py3-none-any.whl", hash = "sha256:22d43376405357ea58673752c475459c6f9be5cea49032a77fcd1f153d8f9c48", size = 177789, upload-time = "2026-01-21T16:17:31.007Z" },
 ]
 
 [[package]]
 name = "safir-logging"
-version = "14.1.2"
+version = "14.1.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "structlog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/04/b3/8fac22a37463ab4f1f22070633d6357263273e998e85a79b4c3412f72a70/safir_logging-14.1.2.tar.gz", hash = "sha256:76dd52822536a7bd1ba73dac74b31bf4a113be7f6e8cec107659c776cd44105f", size = 8409, upload-time = "2025-12-02T20:29:19.509Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/fe/84/1d3c098990bd677870c4f4d90b8cd07152482c26fedaa171b854df95fb7d/safir_logging-14.1.3.tar.gz", hash = "sha256:8caebf094e00d32440de25eec5edcf6df726a5b3d09211b4f382fa5195c44e9d", size = 8421, upload-time = "2026-01-21T16:17:36.88Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a5/fc/ddca4191e23796561e498501c51f7e5040b9c6c643be16af3374179fd38c/safir_logging-14.1.2-py3-none-any.whl", hash = "sha256:262393e7945f13d3264ee01a4f83b6ea2da7a792565c8066032db6de7ed9946e", size = 10470, upload-time = "2025-12-02T20:29:18.711Z" },
+    { url = "https://files.pythonhosted.org/packages/9c/4e/16151f1fa22f054f20c291dd4c06cede6ec4115cd5bd89ee8516d790149c/safir_logging-14.1.3-py3-none-any.whl", hash = "sha256:54c6db6509967530347592c84b30136b3f67a821404d6d0a60d39e7017f7e63a", size = 10469, upload-time = "2026-01-21T16:17:32.191Z" },
 ]
 
 [[package]]
 name = "sentry-sdk"
-version = "2.49.0"
+version = "2.50.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/02/94/23ac26616a883f492428d9ee9ad6eee391612125326b784dbfc30e1e7bab/sentry_sdk-2.49.0.tar.gz", hash = "sha256:c1878599cde410d481c04ef50ee3aedd4f600e4d0d253f4763041e468b332c30", size = 387228, upload-time = "2026-01-08T09:56:25.642Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/15/8a/3c4f53d32c21012e9870913544e56bfa9e931aede080779a0f177513f534/sentry_sdk-2.50.0.tar.gz", hash = "sha256:873437a989ee1b8b25579847bae8384515bf18cfed231b06c591b735c1781fe3", size = 401233, upload-time = "2026-01-20T12:53:16.244Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/88/43/1c586f9f413765201234541857cb82fda076f4b0f7bad4a0ec248da39cf3/sentry_sdk-2.49.0-py2.py3-none-any.whl", hash = "sha256:6ea78499133874445a20fe9c826c9e960070abeb7ae0cdf930314ab16bb97aa0", size = 415693, upload-time = "2026-01-08T09:56:21.872Z" },
+    { url = "https://files.pythonhosted.org/packages/4e/5b/cbc2bb9569f03c8e15d928357e7e6179e5cfab45544a3bbac8aec4caf9be/sentry_sdk-2.50.0-py2.py3-none-any.whl", hash = "sha256:0ef0ed7168657ceb5a0be081f4102d92042a125462d1d1a29277992e344e749e", size = 424961, upload-time = "2026-01-20T12:53:14.826Z" },
 ]
 
 [[package]]
