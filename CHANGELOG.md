@@ -10,6 +10,13 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-15.2.2'></a>
+## 15.2.2 (2026-02-10)
+
+### Bug fixes
+
+- Batch deletion of expired tokens from the database to avoid SQL expression length errors when expiring large numbers of tokens.
+
 <a id='changelog-15.2.1'></a>
 ## 15.2.1 (2026-01-21)
 

@@ -120,7 +120,7 @@ async def is_database_initialized(
                 async with engine.begin() as connection:
                     await connection.execute(statement)
                     return True
-            except (ConnectionRefusedError, OperationalError, OSError):
+            except ConnectionRefusedError, OperationalError, OSError:
                 if logger:
                     logger.info("database not ready, waiting two seconds")
                 await asyncio.sleep(2)

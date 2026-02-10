@@ -971,7 +971,7 @@ class TokenService:
             token=key,
             username=info.username,
             token_type=TokenType.user,
-            token_name=token_name if token_name else info.token_name,
+            token_name=token_name or info.token_name,
             scopes=scopes if scopes is not None else info.scopes,
             expires=info.expires if not (expires or no_expire) else expires,
             actor=auth_data.username,

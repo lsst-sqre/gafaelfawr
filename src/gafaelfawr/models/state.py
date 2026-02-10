@@ -35,7 +35,7 @@ class State(BaseState, BaseModel):
         BeforeValidator(
             lambda t: Token.from_str(t) if isinstance(t, str) else t
         ),
-        PlainSerializer(lambda t: str(t)),
+        PlainSerializer(str),
         Field(title="Token", description="Token if the user is authenticated"),
     ] = None
 

@@ -71,9 +71,7 @@ def _normalize_scopes(v: str | Iterable[str]) -> set[str]:
 type Scopes = Annotated[
     set[str],
     PlainValidator(_normalize_scopes),
-    PlainSerializer(
-        lambda s: sorted(s), return_type=list[str], when_used="json"
-    ),
+    PlainSerializer(sorted, return_type=list[str], when_used="json"),
 ]
 """Type for a list of scopes.
 
