@@ -2,6 +2,7 @@
 
 import builtins
 from datetime import datetime
+from itertools import batched
 from typing import cast
 
 from safir.database import datetime_to_db
@@ -168,14 +169,17 @@ class TokenDatabaseStore:
             info.parent = parent
             deleted.append(info)
 
-        # Delete the tokens.  In the (broken) case that there is a child token
-        # with an expiration ahead of its parent token, this orphans the child
-        # token rather than deleting it.  (In other words, it doesn't
-        # implement cascading delete semantics.)  These anomalies will be
-        # caught by a separate audit pass.
-        to_delete = [d.token for d in deleted]
-        delete_stmt = delete(SQLToken).where(SQLToken.token.in_(to_delete))
-        await self._session.execute(delete_stmt)
+        # Delete the tokens. Use a batched iterator because otherwise the SQL
+        # statement may have too many parameters if numerous tokens are being
+        # deleted.
+        #
+        # In the (broken) case where there is a child token with an expiration
+        # ahead of its parent token, this orphans the child token rather than
+        # deleting it. (In other words, it doesn't implement cascading delete
+        # semantics.) These anomalies will be caught by a separate audit pass.
+        for batch in batched((d.token for d in deleted), 1000, strict=False):
+            delete_stmt = delete(SQLToken).where(SQLToken.token.in_(batch))
+            await self._session.execute(delete_stmt)
 
         # Return the info for the deleted tokens.
         return deleted
