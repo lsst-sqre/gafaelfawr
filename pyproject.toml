@@ -86,7 +86,7 @@ docs = [
 lint = [
     "pre-commit",
     "pre-commit-uv",
-    "ruff>=0.9",
+    "ruff>=0.15",
 ]
 nox = [
     "nox",
@@ -188,6 +188,8 @@ extend = "ruff-shared.toml"
 ]
 "client/src/rubin/gafaelfawr/_mock.py" = [
     "S101",    # test support functions are allowed to use assert
+    "SLF001",  # used in a private decorator
+    "UP037",   # appears to be a Ruff 0.15 bug, the quotes are required
 ]
 "tests/cli_test.py" = [
     "ASYNC221", # useful to run subprocess in async tests for Alembic

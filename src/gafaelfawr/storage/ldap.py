@@ -381,7 +381,7 @@ class LDAPStorage:
                             attrlist=attrlist,
                             timeout=LDAP_TIMEOUT,
                         )
-                    except (TimeoutError, bonsai.ConnectionError):
+                    except TimeoutError, bonsai.ConnectionError:
                         logger.debug("Reopening LDAP connection after timeout")
                         conn.close()
         except bonsai.LDAPError as e:

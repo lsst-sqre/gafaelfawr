@@ -1,9 +1,5 @@
 """Mock for the parts of the Gafaelfawr API used by the client."""
 
-# Required for now because Ruff removes explicitly quoted types and mypy
-# otherwise gets confused about the type of the internal check decorator.
-from __future__ import annotations
-
 import re
 from collections import defaultdict
 from collections.abc import Callable, Iterable
@@ -23,12 +19,12 @@ if TYPE_CHECKING:
     import respx
 
 type _GafaelfawrMockPublic[**P] = Callable[
-    Concatenate[MockGafaelfawr, Request, P], Response
+    Concatenate["MockGafaelfawr", Request, P], Response
 ]
 """External type exposed as a side effect method."""
 
 type _GafaelfawrMockInternal[**P] = Callable[
-    Concatenate[MockGafaelfawr, Request, TokenData, P], Response
+    Concatenate["MockGafaelfawr", Request, TokenData, P], Response
 ]
 """Internal type for the implementation of a side effect method."""
 
@@ -115,7 +111,9 @@ class MockGafaelfawr:
         else:
             self._fail[username] = set(actions)
 
-    def install_routes(self, respx_mock: respx.Router, base_url: str) -> None:
+    def install_routes(
+        self, respx_mock: "respx.Router", base_url: str
+    ) -> None:
         """Install the mock routes for the Gafaelfawr API.
 
         Parameters
@@ -185,7 +183,7 @@ class MockGafaelfawr:
         ) -> _GafaelfawrMockPublic[P]:
             @wraps(f)
             def wrapper(
-                mock: MockGafaelfawr,
+                mock: "MockGafaelfawr",
                 request: Request,
                 *args: P.args,
                 **kwargs: P.kwargs,
@@ -262,7 +260,9 @@ class MockGafaelfawr:
             return Response(404)
 
 
-async def register_mock_gafaelfawr(respx_mock: respx.Router) -> MockGafaelfawr:
+async def register_mock_gafaelfawr(
+    respx_mock: "respx.Router",
+) -> MockGafaelfawr:
     """Mock out Gafaelfawr.
 
     Parameters

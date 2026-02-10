@@ -10,6 +10,13 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-15.2.2'></a>
+## 15.2.2 (2026-02-10)
+
+### Bug fixes
+
+- Batch deletion of expired tokens from the database to avoid SQL expression length errors when expiring large numbers of tokens.
+
 <a id='changelog-15.2.1'></a>
 ## 15.2.1 (2026-01-21)
 
@@ -564,7 +571,7 @@ Upgrading to this version requires a [database schema migration](https://phalanx
 
 ### Backwards-incompatible changes
 
-- Creation of `Secret` resources in Kubernetes from `GafaelfawrServiceToken` objects is now done with the [Kopf](https://kopf.readthedocs.io/en/stable/) framework. Sync status is now stored in Kubernetes attributes, and the `status` field of `GafaelfawrServiceToken` objects uses a different format.
+- Creation of `Secret` resources in Kubernetes from `GafaelfawrServiceToken` objects is now done with the [Kopf](https://docs.kopf.dev/en/stable/) framework. Sync status is now stored in Kubernetes attributes, and the `status` field of `GafaelfawrServiceToken` objects uses a different format.
 - The `gafaelfawr kubernetes-controller` and `gafaelfawr update-service-tokens` commands to manage Kubernetes `Secret` resources containing service tokens have been dropped.
 
 ### New features
