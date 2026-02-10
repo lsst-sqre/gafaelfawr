@@ -571,7 +571,7 @@ Upgrading to this version requires a [database schema migration](https://phalanx
 
 ### Backwards-incompatible changes
 
-- Creation of `Secret` resources in Kubernetes from `GafaelfawrServiceToken` objects is now done with the [Kopf](https://kopf.readthedocs.io/en/stable/) framework. Sync status is now stored in Kubernetes attributes, and the `status` field of `GafaelfawrServiceToken` objects uses a different format.
+- Creation of `Secret` resources in Kubernetes from `GafaelfawrServiceToken` objects is now done with the [Kopf](https://docs.kopf.dev/en/stable/) framework. Sync status is now stored in Kubernetes attributes, and the `status` field of `GafaelfawrServiceToken` objects uses a different format.
 - The `gafaelfawr kubernetes-controller` and `gafaelfawr update-service-tokens` commands to manage Kubernetes `Secret` resources containing service tokens have been dropped.
 
 ### New features

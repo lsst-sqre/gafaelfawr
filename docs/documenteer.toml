@@ -82,4 +82,6 @@ ignore = [
     '^https://github\.com/.*/issues/new$',
     # Dreamwidth blocks link checkers (probably for load reasons)
     '^https://mjg59\.dreamwidth\.org/59353\.html$',
+    # Aggressive blocking of linkcheck requests
+    '^https://developer\.hashicorp\.com/vault',
 ]
