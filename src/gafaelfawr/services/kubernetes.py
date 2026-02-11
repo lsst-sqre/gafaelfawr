@@ -396,7 +396,7 @@ class KubernetesTokenService:
         )
 
     async def _update_secret(
-        self, parent: GafaelfawrServiceToken, secret: V1Secret
+        self, parent: GafaelfawrServiceToken, secret: V1Secret | None
     ) -> KubernetesResourceStatus | None:
         """Update a service token stored in Kubernetes if necessary.
 
@@ -412,7 +412,7 @@ class KubernetesTokenService:
             status update is required.
         """
         storage = self._storage
-        if not await self._secret_needs_update(parent, secret):
+        if secret and not await self._secret_needs_update(parent, secret):
             if self._secret_needs_metadata_update(parent, secret):
                 try:
                     await storage.update_secret_metadata(parent)
