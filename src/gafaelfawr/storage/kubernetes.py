@@ -155,7 +155,7 @@ class KubernetesIngressStorage:
 
     def _add_owner(
         self, ingress: V1Ingress, parent: GafaelfawrIngress
-    ) -> V1Ingress:
+    ) -> None:
         """Add ownership information to an ingress object.
 
         Parameters

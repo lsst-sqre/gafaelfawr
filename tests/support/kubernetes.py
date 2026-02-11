@@ -213,13 +213,14 @@ async def assert_resources_match(
         namespace = expected["metadata"]["namespace"]
         if kind == "Secret":
             core_api = CoreV1Api(api_client)
-            seen = await core_api.read_namespaced_secret(name, namespace)
+            secret = await core_api.read_namespaced_secret(name, namespace)
+            assert api_client.sanitize_for_serialization(secret) == expected
         elif kind == "Ingress":
             net_api = NetworkingV1Api(api_client)
-            seen = await net_api.read_namespaced_ingress(name, namespace)
+            ingress = await net_api.read_namespaced_ingress(name, namespace)
+            assert api_client.sanitize_for_serialization(ingress) == expected
         else:
             pytest.fail(f"Unknown object kind {kind}")
-        assert api_client.sanitize_for_serialization(seen) == expected
         checked.add(name)
 
     if kind == "Secret":
