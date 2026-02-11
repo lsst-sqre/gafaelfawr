@@ -1,5 +1,12 @@
 """Client for Gafaelfawr."""
 
+try:
+    import pytest
+
+    pytest.register_assert_rewrite("rubin.gafaelfawr.client._mock")
+except ImportError:
+    pass
+
 from ._client import GafaelfawrClient
 from ._dependencies import GafaelfawrDependency, gafaelfawr_dependency
 from ._exceptions import (
