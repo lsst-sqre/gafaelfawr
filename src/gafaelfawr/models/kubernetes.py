@@ -342,6 +342,9 @@ class GafaelfawrIngressConfig(BaseModel):
     JupyterLab pods.
     """
 
+    vinyl_auth_cache_enabled: bool = False
+    """Whether Gafaelfawr authorization results should be cached by Vinyl."""
+
     username: str | None = None
     """Restrict access to the given user."""
 

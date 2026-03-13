@@ -10,6 +10,7 @@ logLevel: "WARNING"
 # Dummy base URLs.
 baseUrl: "https://example.org/"
 baseInternalUrl: "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080"
+baseCachingInternalUrl: "http://gafaelfawr-vinyl-cache.gafaelfawr.svc.cluster.local:8080"
 
 # Dummy secrets so that Gafaelfawr will start.
 bootstrapToken: "gt-HJQLhg7DQT7lXDL3BDFjgw.kRGKrVPcQBsNHszvZN9Qjw"

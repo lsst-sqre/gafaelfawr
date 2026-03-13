@@ -265,3 +265,29 @@ template:
       - hosts:
           - "*.nb.example.com"
         secretName: "tls-secret"
+---
+apiVersion: gafaelfawr.lsst.io/v1alpha1
+kind: GafaelfawrIngress
+metadata:
+  name: vinyl-ingress
+  namespace: {namespace}
+config:
+  scopes:
+    all: ["read:all"]
+  service: tap
+  vinylAuthCacheEnabled: true
+template:
+  metadata:
+    name: vinyl
+  spec:
+    rules:
+      - host: example.com
+        http:
+          paths:
+            - path: /foo
+              pathType: Prefix
+              backend:
+                service:
+                  name: something
+                  port:
+                    name: http

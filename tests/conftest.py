@@ -49,6 +49,10 @@ def environment(monkeypatch: pytest.MonkeyPatch) -> None:
         "GAFAELFAWR_BASE_INTERNAL_URL",
         "http://gafaelfawr.gafaelfawr.svc.cluster.local:8080",
     )
+    monkeypatch.setenv(
+        "GAFAELFAWR_BASE_CACHING_INTERNAL_URL",
+        "http://gafaelfawr-vinyl-cache.gafaelfawr.svc.cluster.local:8080",
+    )
 
 
 @pytest_asyncio.fixture

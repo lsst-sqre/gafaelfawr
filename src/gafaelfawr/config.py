@@ -753,6 +753,18 @@ class Config(EnvFirstSettings):
         ),
     )
 
+    base_caching_internal_url: HttpUrl = Field(
+        ...,
+        title="Internal caching base URL",
+        description=(
+            "Base URL for internal-only routes such as ``/ingress/auth`` where"
+            " all responses will be cached."
+        ),
+        validation_alias=AliasChoices(
+            "GAFAELFAWR_BASE_CACHING_INTERNAL_URL", "baseCachingInternalUrl"
+        ),
+    )
+
     bootstrap_token: SecretStr = Field(
         ...,
         title="Bootstrap token",

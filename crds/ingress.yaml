@@ -212,6 +212,17 @@ spec:
                     other users, regardless of their scopes, will receive 403
                     errors. The user's token must still satisfy any scope
                     constraints.
+                vinylAuthCacheEnabled:
+                  type: boolean
+                  description: >-
+                    Whether Gafaelfawr authorization results should be cached
+                    by Vinyl. The Vinyl cache is configured to cache results
+                    for five minutes. The cache is invalidated if the `Cookie`
+                    or `Authorization` HTTP headers change.
+              not:
+                required:
+                  - authCacheDuration
+                  - vinylAuthCacheEnabled
             template:
               type: object
               description: "The template used to create the ingress."

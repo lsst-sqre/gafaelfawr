@@ -106,8 +106,12 @@ class KubernetesIngressService:
 
     def _build_annotations(self, ingress: GafaelfawrIngress) -> dict[str, str]:
         """Build annotations for an ``Ingress``."""
+        if ingress.config.vinyl_auth_cache_enabled:
+            base_url = self._config.base_caching_internal_url
+        else:
+            base_url = self._config.base_internal_url
         auth_url = (
-            str(self._config.base_internal_url).rstrip("/")
+            str(base_url).rstrip("/")
             + "/ingress/auth?"
             + urlencode(ingress.config.to_auth_query(), safe=":/")
         )
