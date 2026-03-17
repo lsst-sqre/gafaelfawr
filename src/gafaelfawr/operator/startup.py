@@ -46,7 +46,7 @@ async def startup(
 
     # Only run at most five workers at a time. Nothing the Gafaelfawr operator
     # does will be that urgent and we don't want to overwhelm the API server.
-    settings.batching.worker_limit = 5
+    settings.queueing.worker_limit = 5
 
     config = await config_dependency()
     await initialize_kubernetes()

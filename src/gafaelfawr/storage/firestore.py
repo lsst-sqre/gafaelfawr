@@ -249,7 +249,7 @@ async def _get_or_assign_gid(
 
 @firestore.async_transactional
 async def _get_or_assign_uid(
-    transaction: firestore.Transaction,
+    transaction: firestore.AsyncTransaction,
     *,
     username: str,
     user_ref: firestore.AsyncDocumentReference,
@@ -309,7 +309,7 @@ async def _get_or_assign_uid(
 
 @firestore.async_transactional
 async def _initialize_in_transaction(
-    transaction: firestore.Transaction,
+    transaction: firestore.AsyncTransaction,
     counter_refs: dict[str, firestore.AsyncDocumentReference],
     logger: BoundLogger,
 ) -> None:
