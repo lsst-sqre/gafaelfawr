@@ -103,7 +103,6 @@ typing = [
 
 [tool.black]
 line-length = 79
-target-version = ["py313"]
 
 [tool.coverage.run]
 parallel = true
@@ -202,7 +201,6 @@ known-first-party = [
     "tests",
 ]
 known-third-party = ["alembic"]
-split-on-trailing-comma = false
 
 [tool.scriv]
 categories = [
