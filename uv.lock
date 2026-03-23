@@ -974,7 +974,7 @@ requires-dist = [
     { name = "python-multipart" },
     { name = "pyyaml" },
     { name = "redis", specifier = ">=4.2.0" },
-    { name = "safir", extras = ["db", "kafka", "kubernetes"], specifier = ">=14.1.3" },
+    { name = "safir", extras = ["db", "kafka", "kubernetes"], specifier = ">=14.3" },
     { name = "sentry-sdk", extras = ["fastapi"] },
     { name = "sqlalchemy", specifier = ">=2" },
     { name = "starlette" },
