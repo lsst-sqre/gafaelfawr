@@ -869,7 +869,7 @@ async def test_well_known_oidc(
 
     base_url = str(config.oidc_server.issuer).rstrip("/")
     assert r.json() == {
-        "issuer": base_url,
+        "issuer": str(config.oidc_server.issuer),
         "authorization_endpoint": base_url + "/auth/openid/login",
         "token_endpoint": base_url + "/auth/openid/token",
         "userinfo_endpoint": base_url + "/auth/openid/userinfo",
