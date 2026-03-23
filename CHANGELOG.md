@@ -10,6 +10,13 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-15.2.3'></a>
+## 15.2.3 (2026-03-23)
+
+### Bug fixes
+
+- Do not strip trailing slashes from the issuer string when constructing the response to `/.well-known/openid-configuration` requests. Removing a trailing slash was causing mismatches with the `iss` claim inside ID tokens.
+
 <a id='changelog-15.2.2'></a>
 ## 15.2.2 (2026-02-10)
 
