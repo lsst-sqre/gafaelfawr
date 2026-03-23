@@ -13,6 +13,7 @@ from cryptography.fernet import Fernet
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from safir.database import create_database_engine, stamp_database_async
+from safir.testing.data import Data
 from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
 from sqlalchemy.ext.asyncio import AsyncEngine
 from testcontainers.postgres import PostgresContainer
@@ -123,6 +124,11 @@ def config(
     monkeypatch.setenv("GAFAELFAWR_SLACK_WEBHOOK", slack_webhook)
 
     return configure("github")
+
+
+@pytest.fixture
+def data() -> Data:
+    return Data(Path(__file__).parent / "data")
 
 
 @pytest_asyncio.fixture

@@ -5,7 +5,6 @@ interoperability between the client and the server.
 """
 
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from unittest.mock import ANY
 
 import pytest
@@ -16,6 +15,7 @@ from rubin.repertoire import (
     DiscoveryClient,
     register_mock_discovery,
 )
+from safir.testing.data import Data
 
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.token import Token, TokenUserInfo
@@ -33,11 +33,10 @@ from .support.ldap import MockLDAP
 
 @pytest.fixture
 def mock_discovery(
-    respx_mock: respx.Router, monkeypatch: pytest.MonkeyPatch
+    data: Data, respx_mock: respx.Router, monkeypatch: pytest.MonkeyPatch
 ) -> Discovery:
     monkeypatch.setenv("REPERTOIRE_BASE_URL", "https://example.com/repertoire")
-    path = Path(__file__).parent / "data" / "discovery.json"
-    return register_mock_discovery(respx_mock, path)
+    return register_mock_discovery(respx_mock, data.path("discovery.json"))
 
 
 @pytest.fixture

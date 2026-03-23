@@ -1,7 +1,6 @@
 """Support code for testing database handling."""
 
-from pathlib import Path
-
+from safir.testing.data import Data
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -12,7 +11,7 @@ __all__ = ["create_old_database"]
 
 
 async def create_old_database(
-    config: Config, engine: AsyncEngine, version: str
+    config: Config, data: Data, engine: AsyncEngine, *, version: str
 ) -> None:
     """Initialize the database from an old schema.
 
@@ -29,7 +28,7 @@ async def create_old_database(
     version
         Version of schema to load.
     """
-    old_schema = Path(__file__).parent.parent / "data" / "schemas" / version
+    old_schema = data.path(f"schemas/{version}")
     async with Factory.standalone(config, engine) as factory:
         async with factory.session.begin():
             with old_schema.open() as f:

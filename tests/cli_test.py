@@ -19,6 +19,7 @@ from click.testing import CliRunner
 from cryptography.fernet import Fernet
 from safir.database import drop_database, initialize_database
 from safir.datetime import current_datetime
+from safir.testing.data import Data
 from safir.testing.slack import MockSlackWebhook
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -353,7 +354,9 @@ def test_update_schema(engine: AsyncEngine, config: Config) -> None:
     # Updating via Alembic migrations is tested in test_validate_schema
 
 
-def test_validate_schema(config: Config, engine: AsyncEngine) -> None:
+def test_validate_schema(
+    config: Config, data: Data, engine: AsyncEngine
+) -> None:
     event_loop = asyncio.new_event_loop()
     runner = CliRunner()
 
@@ -368,7 +371,9 @@ def test_validate_schema(config: Config, engine: AsyncEngine) -> None:
     # Initialize the database from an old schema. This was the database schema
     # before Alembic was introduced, so it has to be stamped with the version
     # of the Alembic database migration that includes the original schema.
-    event_loop.run_until_complete(create_old_database(config, engine, "9.6.1"))
+    event_loop.run_until_complete(
+        create_old_database(config, data, engine, version="9.6.1")
+    )
     env = {
         **os.environ,
         "GAFAELFAWR_CONFIG_PATH": str(config_dependency.config_path),
