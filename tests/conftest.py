@@ -21,12 +21,12 @@ from testcontainers.redis import RedisContainer
 
 from gafaelfawr.config import Config
 from gafaelfawr.database import initialize_gafaelfawr_database
+from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import Factory
 from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.main import create_app
 from gafaelfawr.models.token import Token
 
-from .support.config import configure
 from .support.constants import REDIS_IMAGE, TEST_HOSTNAME
 from .support.firestore import MockFirestore, patch_firestore
 from .support.ldap import MockLDAP, patch_ldap
@@ -80,11 +80,14 @@ async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
         yield client
 
 
-@pytest.fixture
+@pytest.fixture(params=["github"])
 def config(
+    *,
+    data: Data,
     monkeypatch: pytest.MonkeyPatch,
     postgres: PostgresContainer,
     redis: RedisContainer,
+    request: pytest.FixtureRequest,
 ) -> Config:
     """Set up and return the default test configuration.
 
@@ -92,6 +95,16 @@ def config(
     sets up the environment variables with secrets for other providers and
     user information sources so that the test case can switch later. Metrics
     are always disabled.
+
+    Examples
+    --------
+    Add the following mark before tests that should use a different
+    configuration file for the application.
+
+    .. code-block:: python
+
+       @pytest.mark.parametrize("config", ["oidc"], indirect=True)
+       def test_something() -> None: ...
 
     Notes
     -----
@@ -123,7 +136,9 @@ def config(
     monkeypatch.setenv("GAFAELFAWR_SESSION_SECRET", session_secret)
     monkeypatch.setenv("GAFAELFAWR_SLACK_WEBHOOK", slack_webhook)
 
-    return configure("github")
+    config_path = data.path(f"config/{request.param}.yaml")
+    config_dependency.set_config_path(config_path)
+    return config_dependency.config()
 
 
 @pytest.fixture
@@ -133,17 +148,7 @@ def data() -> Data:
 
 @pytest_asyncio.fixture
 async def empty_database(engine: AsyncEngine, config: Config) -> None:
-    """Empty the database before a test.
-
-    Notes
-    -----
-    This always uses a configuration file configured for GitHub authentication
-    for the database initialization and initial app configuration.  Use
-    `tests.support.config.configure` after the test has started to change this
-    if needed for a given test, or avoid this fixture and any that depend on
-    it if control over the configuration prior to database initialization is
-    required.
-    """
+    """Empty the database before a test."""
     logger = structlog.get_logger(__name__)
     await initialize_gafaelfawr_database(config, logger, engine, reset=True)
     async with Factory.standalone(config, engine) as factory:
@@ -172,22 +177,18 @@ def engine(config: Config) -> AsyncEngine:
 async def factory(
     empty_database: None, config: Config, engine: AsyncEngine
 ) -> AsyncIterator[Factory]:
-    """Return a component factory.
-
-    Note that this creates a separate SQLAlchemy async_scoped_session from any
-    that may be created by the FastAPI app.
-    """
+    """Return a component factory."""
     async with Factory.standalone(config, engine) as factory:
         yield factory
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def mock_firestore(tmp_path: Path) -> Iterator[MockFirestore]:
     """Configure Firestore UID/GID assignment and mock the Firestore API."""
     yield from patch_firestore()
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def mock_ldap() -> Iterator[MockLDAP]:
     """Replace the bonsai LDAP API with a mock class."""
     yield from patch_ldap()

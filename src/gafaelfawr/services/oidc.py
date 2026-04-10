@@ -2,13 +2,12 @@
 
 import time
 from collections.abc import Sequence
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urlparse
 
 import jwt
 from pydantic import HttpUrl
-from safir.datetime import current_datetime
 from safir.redis import DeserializeError
 from safir.sentry import report_exception
 from safir.slack.webhook import SlackWebhookClient
@@ -215,7 +214,7 @@ class OIDCService:
         # Build a payload of every claim we support, and then filter it by the
         # list of claims that were requested via either claims or scopes and
         # by dropping any claims that were None.
-        now = current_datetime()
+        now = datetime.now(tz=UTC).replace(microsecond=0)
         expires = token_data.expires or now + self._token_lifetime
         payload: dict[str, Any] = {
             "aud": authorization.client_id,

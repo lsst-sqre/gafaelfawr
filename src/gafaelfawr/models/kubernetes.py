@@ -2,6 +2,7 @@
 
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Literal, Self, override
 
@@ -22,7 +23,6 @@ from pydantic import (
     model_validator,
 )
 from pydantic.alias_generators import to_camel
-from safir.datetime import current_datetime
 from safir.pydantic import (
     SecondsTimedelta,
     UtcDatetime,
@@ -662,7 +662,9 @@ class KubernetesResourceStatus:
     reason: StatusReason
     """Reason for the status update."""
 
-    timestamp: UtcDatetime = field(default_factory=current_datetime)
+    timestamp: UtcDatetime = field(
+        default_factory=lambda: datetime.now(tz=UTC).replace(microsecond=0)
+    )
     """Time of the status event."""
 
     @classmethod

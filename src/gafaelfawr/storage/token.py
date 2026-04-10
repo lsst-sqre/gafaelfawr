@@ -1,17 +1,16 @@
 """Storage for tokens."""
 
 import builtins
-from datetime import datetime
+from datetime import UTC, datetime
 from itertools import batched
 from typing import cast
 
 from safir.database import datetime_to_db
-from safir.datetime import current_datetime
 from safir.redis import DeserializeError, EncryptedPydanticRedisStorage
 from safir.sentry import report_exception
 from safir.slack.webhook import SlackWebhookClient
 from sqlalchemy import CursorResult, delete, distinct, func, or_, select
-from sqlalchemy.ext.asyncio import async_scoped_session
+from sqlalchemy.ext.asyncio import AsyncSession
 from structlog.stdlib import BoundLogger
 
 from ..exceptions import DuplicateTokenNameError
@@ -38,7 +37,7 @@ class TokenDatabaseStore:
         The database session proxy.
     """
 
-    def __init__(self, session: async_scoped_session) -> None:
+    def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
     async def add(
@@ -92,8 +91,9 @@ class TokenDatabaseStore:
         int
             Count of users.
         """
+        now = datetime.now(tz=UTC).replace(microsecond=0)
         stmt = select(func.count(distinct(SQLToken.username))).where(
-            SQLToken.expires > datetime_to_db(current_datetime())
+            SQLToken.expires > datetime_to_db(now)
         )
         result = await self._session.execute(stmt)
         return result.scalar_one()
@@ -106,15 +106,13 @@ class TokenDatabaseStore:
         int
             Count of user tokens.
         """
+        now = datetime_to_db(datetime.now(tz=UTC).replace(microsecond=0))
         stmt = (
             select(func.count())
             .select_from(SQLToken)
             .where(
                 SQLToken.token_type == TokenType.user,
-                or_(
-                    SQLToken.expires.is_(None),
-                    SQLToken.expires > datetime_to_db(current_datetime()),
-                ),
+                or_(SQLToken.expires.is_(None), SQLToken.expires > now),
             )
         )
         result = await self._session.execute(stmt)
@@ -148,7 +146,7 @@ class TokenDatabaseStore:
         list of TokenInfo
             The deleted tokens.
         """
-        now = datetime_to_db(current_datetime())
+        now = datetime_to_db(datetime.now(tz=UTC).replace(microsecond=0))
 
         # Start by finding all tokens that have expired and gather their
         # information, which in turn will be used to construct history entries
@@ -628,6 +626,6 @@ class TokenRedisStore:
         """
         lifetime = None
         if data.expires:
-            now = current_datetime()
+            now = datetime.now(tz=UTC).replace(microsecond=0)
             lifetime = int((data.expires - now).total_seconds())
         await self._storage.store(data.token.key, data, lifetime)

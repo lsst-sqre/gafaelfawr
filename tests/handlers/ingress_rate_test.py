@@ -10,14 +10,13 @@ from httpx import AsyncClient
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.auth import AuthError, AuthErrorChallenge
 
-from ..support.config import reconfigure
 from ..support.headers import parse_www_authenticate
 from ..support.tokens import create_session_token
 
 
+@pytest.mark.parametrize("config", ["github-quota"], indirect=True)
 @pytest.mark.asyncio
 async def test_rate_limit(client: AsyncClient, factory: Factory) -> None:
-    await reconfigure("github-quota", factory)
     token_data = await create_session_token(
         factory, group_names=["foo"], scopes={"read:all"}
     )
@@ -100,11 +99,11 @@ async def test_rate_limit(client: AsyncClient, factory: Factory) -> None:
     assert expected.timestamp() <= reset <= expected.timestamp() + 5
 
 
+@pytest.mark.parametrize("config", ["github-quota"], indirect=True)
 @pytest.mark.asyncio
 async def test_rate_limit_bypass(
     client: AsyncClient, factory: Factory
 ) -> None:
-    await reconfigure("github-quota", factory)
     token_data = await create_session_token(
         factory, group_names=["admin"], scopes={"read:all"}
     )

@@ -1,10 +1,9 @@
 """Tests for the token cache dependency."""
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 import structlog
-from safir.datetime import current_datetime
 from safir.redis import EncryptedPydanticRedisStorage
 
 from gafaelfawr.config import Config
@@ -92,7 +91,7 @@ async def test_expiration(config: Config, factory: Factory) -> None:
     """The cache is valid until half the lifetime of the child token."""
     token_data = await create_session_token(factory, scopes={"read:all"})
     lifetime = config.token_lifetime
-    now = current_datetime()
+    now = datetime.now(tz=UTC).replace(microsecond=0)
     logger = structlog.get_logger("gafaelfawr")
     storage = EncryptedPydanticRedisStorage(
         datatype=TokenData,

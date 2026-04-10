@@ -1,8 +1,6 @@
 """Tests for the OIDC models."""
 
-from datetime import timedelta
-
-from safir.datetime import current_datetime
+from datetime import UTC, datetime, timedelta
 
 from gafaelfawr.constants import OIDC_AUTHORIZATION_LIFETIME
 from gafaelfawr.models.oidc import OIDCAuthorization
@@ -19,7 +17,8 @@ def test_authorization_lifetime() -> None:
     assert authorization.lifetime >= OIDC_AUTHORIZATION_LIFETIME - 2
 
     lifetime = timedelta(seconds=OIDC_AUTHORIZATION_LIFETIME)
-    authorization.created_at = current_datetime() - lifetime
+    now = datetime.now(tz=UTC).replace(microsecond=0)
+    authorization.created_at = now - lifetime
     assert authorization.lifetime == 0
 
     authorization.created_at = authorization.created_at - timedelta(days=7)

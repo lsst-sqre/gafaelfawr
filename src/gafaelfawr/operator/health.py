@@ -1,10 +1,13 @@
 """Kubernetes operator health checks."""
 
+from contextlib import aclosing
 from typing import Any
 
 import kopf
+from sqlalchemy.ext.asyncio import AsyncEngine
 
-from ..factory import Factory
+from ..config import Config
+from ..factory import Factory, ProcessContext
 from ..models.health import HealthCheck, HealthStatus
 
 __all__ = ["get_health"]
@@ -22,9 +25,12 @@ async def get_health(memo: kopf.Memo, **_: Any) -> dict[str, Any]:
     memo
         Holds global state.
     """
-    factory: Factory = memo.factory
+    config: Config = memo.config
+    context: ProcessContext = memo.context
+    engine: AsyncEngine = memo.engine
 
-    health_check_service = factory.create_health_check_service()
-    await health_check_service.check(check_user_info=False)
-    await factory.session.remove()
+    factory = await Factory.create(config, context, engine)
+    async with aclosing(factory):
+        health_check_service = factory.create_health_check_service()
+        await health_check_service.check(check_user_info=False)
     return HealthCheck(status=HealthStatus.HEALTHY).model_dump(mode="json")

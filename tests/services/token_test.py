@@ -1,13 +1,12 @@
 """Tests for the token service class."""
 
 import json
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import ANY
 
 import pytest
 from cryptography.fernet import Fernet
 from pydantic import ValidationError
-from safir.datetime import current_datetime
 from safir.metrics import MockEventPublisher
 from safir.testing.slack import MockSlackWebhook
 
@@ -130,7 +129,7 @@ async def test_user_token(factory: Factory) -> None:
     )
     data = await token_service.get_data(session_token)
     assert data
-    expires = current_datetime() + timedelta(days=2)
+    expires = datetime.now(tz=UTC).replace(microsecond=0) + timedelta(days=2)
 
     user_token = await token_service.create_user_token(
         data,
@@ -413,13 +412,13 @@ async def test_internal_token(config: Config, factory: Factory) -> None:
     ]
 
     # It's possible we'll have a race condition where two workers both create
-    # an internal token at the same time with the same parameters.  Gafaelfawr
+    # an internal token at the same time with the same parameters. Gafaelfawr
     # 3.0.2 had a regression where, once that had happened, it could not
     # retrieve the internal token because it didn't expect multiple results
-    # from the query.  Simulate this and make sure it's handled properly.  The
+    # from the query. Simulate this and make sure it's handled properly. The
     # easiest way to do this is to use the internals of the token service.
     second_internal_token = Token()
-    created = current_datetime()
+    created = datetime.now(tz=UTC).replace(microsecond=0)
     expires = created + config.token_lifetime
     internal_token_data = TokenData(
         token=second_internal_token,
@@ -502,7 +501,7 @@ async def test_child_token_lifetime(config: Config, factory: Factory) -> None:
     # doesn't expire.
     token_lifetime_minutes = config.token_lifetime.total_seconds() / 60
     delta = timedelta(minutes=(token_lifetime_minutes / 2) - 5)
-    expires = current_datetime() + delta
+    expires = datetime.now(tz=UTC).replace(microsecond=0) + delta
     user_token = await token_service.create_user_token(
         session_token_data,
         session_token_data.username,
@@ -541,7 +540,7 @@ async def test_child_token_lifetime(config: Config, factory: Factory) -> None:
     # Change the expiration of the user token to longer than the maximum
     # internal token lifetime.
     new_delta = timedelta(minutes=token_lifetime_minutes * 2)
-    expires = current_datetime() + new_delta
+    expires = datetime.now(tz=UTC).replace(microsecond=0) + new_delta
     assert await token_service.modify_token(
         user_token.key,
         session_token_data,
@@ -607,7 +606,7 @@ async def test_token_from_admin_request(factory: Factory) -> None:
     )
     data = await token_service.get_data(token)
     assert data
-    expires = current_datetime() + timedelta(days=2)
+    expires = datetime.now(tz=UTC).replace(microsecond=0) + timedelta(days=2)
     request = AdminTokenRequest(
         username="otheruser",
         token_type=TokenType.user,
@@ -640,7 +639,7 @@ async def test_token_from_admin_request(factory: Factory) -> None:
             request, admin_data, ip_address="127.0.0.1"
         )
     request.scopes = {"read:all"}
-    request.expires = current_datetime()
+    request.expires = datetime.now(tz=UTC).replace(microsecond=0)
     with pytest.raises(InvalidExpiresError):
         await token_service.create_token_from_admin_request(
             request, admin_data, ip_address="127.0.0.1"
@@ -795,7 +794,7 @@ async def test_modify(factory: Factory) -> None:
         ip_address="127.0.0.1",
     )
 
-    expires = current_datetime() + timedelta(days=50)
+    expires = datetime.now(tz=UTC).replace(microsecond=0) + timedelta(days=50)
     await token_service.modify_token(
         user_token.key,
         data,
@@ -1198,12 +1197,13 @@ async def test_invalid(
     assert await token_service.get_data(token) is None
 
     # Mismatched token.
+    now = datetime.now(tz=UTC).replace(microsecond=0)
     data = TokenData(
         token=Token(),
         username="example",
         token_type=TokenType.session,
         scopes=set(),
-        created=current_datetime(),
+        created=now,
         name="Some User",
         uid=12345,
     )
@@ -1221,7 +1221,7 @@ async def test_invalid(
         },
         "token_type": "session",
         "scopes": [],
-        "created": int(current_datetime().timestamp()),
+        "created": int(now.timestamp()),
         "name": "Some User",
     }
     raw_data = fernet.encrypt(json.dumps(json_data).encode())
@@ -1436,7 +1436,7 @@ async def test_invalid_username(factory: Factory) -> None:
 @pytest.mark.asyncio
 async def test_expire_tokens(factory: Factory) -> None:
     """Test periodic cleanup of expired tokens."""
-    now = current_datetime()
+    now = datetime.now(tz=UTC).replace(microsecond=0)
     session_token_data = TokenData(
         token=Token(),
         username="some-user",
@@ -1571,7 +1571,7 @@ async def test_expire_tokens(factory: Factory) -> None:
 @pytest.mark.asyncio
 async def test_truncate_history(factory: Factory) -> None:
     """Test periodic truncation of history."""
-    now = current_datetime()
+    now = datetime.now(tz=UTC).replace(microsecond=0)
     token_service = factory.create_token_service()
     session_token_data = await create_session_token(
         factory, scopes={"admin:token"}
@@ -1620,7 +1620,7 @@ async def test_audit(
     token_service = factory.create_token_service()
     token_db_store = token_service._token_db_store
     token_redis_store = token_service._token_redis_store
-    now = current_datetime()
+    now = datetime.now(tz=UTC).replace(microsecond=0)
 
     # Add token to the database that isn't in Redis.
     db_session_token_data = TokenData(

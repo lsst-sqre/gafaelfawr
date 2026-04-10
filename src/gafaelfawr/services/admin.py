@@ -1,9 +1,9 @@
 """Manage the configured token administrators."""
 
 from collections.abc import Iterable
+from datetime import UTC, datetime
 
-from safir.datetime import current_datetime
-from sqlalchemy.ext.asyncio import async_scoped_session
+from sqlalchemy.ext.asyncio import AsyncSession
 from structlog.stdlib import BoundLogger
 
 from ..exceptions import DuplicateAdminError, PermissionDeniedError
@@ -36,7 +36,7 @@ class AdminService:
         *,
         admin_store: AdminStore,
         admin_history_store: AdminHistoryStore,
-        session: async_scoped_session,
+        session: AsyncSession,
         logger: BoundLogger,
     ) -> None:
         self._admin_store = admin_store
@@ -77,7 +77,7 @@ class AdminService:
             action=AdminChange.add,
             actor=actor,
             ip_address=ip_address,
-            event_time=current_datetime(),
+            event_time=datetime.now(tz=UTC).replace(microsecond=0),
         )
 
         async with self._session.begin():
@@ -135,7 +135,6 @@ class AdminService:
             action=AdminChange.remove,
             actor=actor,
             ip_address=ip_address,
-            event_time=current_datetime(),
         )
         admins = await self.get_admins()
         if actor != "<bootstrap>":

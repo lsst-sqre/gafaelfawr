@@ -1,8 +1,6 @@
 """Utility functions for tests."""
 
-from datetime import datetime, timedelta
-
-from safir.datetime import current_datetime
+from datetime import UTC, datetime, timedelta
 
 
 def assert_is_now(date: datetime) -> None:
@@ -13,5 +11,5 @@ def assert_is_now(date: datetime) -> None:
     date
         Datetime to check.
     """
-    now = current_datetime()
+    now = datetime.now(tz=UTC).replace(microsecond=0)
     assert now - timedelta(seconds=5) <= date <= now

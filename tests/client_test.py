@@ -27,7 +27,6 @@ from rubin.gafaelfawr import (
     create_token,
 )
 
-from .support.config import reconfigure
 from .support.ldap import MockLDAP
 
 
@@ -78,6 +77,7 @@ async def test_get_user_info(
     assert user_info == expected
 
 
+@pytest.mark.parametrize("config", ["oidc"], indirect=True)
 @pytest.mark.asyncio
 async def test_get_user_info_ldap(
     client: AsyncClient,
@@ -85,7 +85,6 @@ async def test_get_user_info_ldap(
     gafaelfawr_client: GafaelfawrClient,
     mock_ldap: MockLDAP,
 ) -> None:
-    await reconfigure("oidc", factory)
     token_service = factory.create_token_service()
     token = await token_service.create_session_token(
         TokenUserInfo(username="example"),

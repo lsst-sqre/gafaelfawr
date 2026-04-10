@@ -1,9 +1,9 @@
 """Representation of an authentication token and associated data."""
 
+from datetime import UTC, datetime
 from typing import Any, Self, override
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
-from safir.datetime import current_datetime
 from safir.pydantic import UtcDatetime
 
 from ..constants import USERNAME_REGEX
@@ -147,7 +147,7 @@ class TokenBase(BaseModel):
     )
 
     created: Timestamp = Field(
-        default_factory=current_datetime,
+        default_factory=lambda: datetime.now(tz=UTC).replace(microsecond=0),
         title="Creation time",
         description="Creation timestamp of the token in seconds since epoch",
         examples=[1614986130],

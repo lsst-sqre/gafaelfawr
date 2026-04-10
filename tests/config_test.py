@@ -6,11 +6,10 @@ import pytest
 import yaml
 from cryptography.fernet import Fernet
 from pydantic import SecretStr, ValidationError
+from safir.testing.data import Data
 
 from gafaelfawr.config import Config, OIDCConfig
 from gafaelfawr.models.token import Token
-
-from .support.config import config_path
 
 
 @pytest.fixture(autouse=True)
@@ -27,6 +26,24 @@ def _environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GAFAELFAWR_REDIS_PASSWORD", "password")
     monkeypatch.setenv("GAFAELFAWR_REDIS_PERSISTENT_URL", redis_persistent_url)
     monkeypatch.setenv("GAFAELFAWR_SESSION_SECRET", session_secret)
+
+
+def config_path(data: Data, path: str) -> Path:
+    """Return the path to a test configuration file.
+
+    Parameters
+    ----------
+    data
+        Test data manager.
+    path
+        The base name of a test configuration file or template.
+
+    Returns
+    -------
+    Path
+        The path to that file.
+    """
+    return data.path(f"config/{path}.yaml")
 
 
 def parse_config(path: Path) -> Config:
@@ -52,62 +69,66 @@ def test_config_alembic(monkeypatch: pytest.MonkeyPatch) -> None:
     parse_config(path)
 
 
-def test_config_no_provider() -> None:
+def test_config_no_provider(data: Data) -> None:
     with pytest.raises(ValidationError, match="No authentication provider"):
-        parse_config(config_path("no-provider"))
+        parse_config(config_path(data, "no-provider"))
 
 
-def test_config_both_providers(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_config_both_providers(
+    data: Data, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("GAFAELFAWR_OIDC_CLIENT_SECRET", "oidc-secret")
     with pytest.raises(ValidationError, match=r"Only one of .* may be used"):
-        parse_config(config_path("both-providers"))
+        parse_config(config_path(data, "both-providers"))
 
 
-def test_config_invalid_admin() -> None:
+def test_config_invalid_admin(data: Data) -> None:
     with pytest.raises(ValidationError, match="invalid username"):
-        parse_config(config_path("bad-admin"))
+        parse_config(config_path(data, "bad-admin"))
 
 
-def test_config_invalid_log_level() -> None:
+def test_config_invalid_log_level(data: Data) -> None:
     with pytest.raises(ValidationError, match="logLevel"):
-        parse_config(config_path("bad-log-level"))
+        parse_config(config_path(data, "bad-log-level"))
 
 
-def test_config_invalid_scope() -> None:
+def test_config_invalid_scope(data: Data) -> None:
     with pytest.raises(ValidationError, match="invalid scope"):
-        parse_config(config_path("bad-scope"))
+        parse_config(config_path(data, "bad-scope"))
 
 
-def test_config_missing_scope() -> None:
+def test_config_missing_scope(data: Data) -> None:
     with pytest.raises(ValidationError, match=r"required scope .* missing"):
-        parse_config(config_path("missing-scope"))
+        parse_config(config_path(data, "missing-scope"))
 
 
-def test_config_invalid_token(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_config_invalid_token(
+    data: Data, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("GAFAELFAWR_BOOTSTRAP_TOKEN", "bad-token")
     with pytest.raises(ValidationError, match="Token does not start with gt-"):
-        parse_config(config_path("github"))
+        parse_config(config_path(data, "github"))
 
 
-def test_config_invalid_lifetime() -> None:
+def test_config_invalid_lifetime(data: Data) -> None:
     with pytest.raises(ValidationError, match=r"must be longer than"):
-        parse_config(config_path("bad-lifetime"))
+        parse_config(config_path(data, "bad-lifetime"))
 
 
-def test_config_bad_groups() -> None:
+def test_config_bad_groups(data: Data) -> None:
     with pytest.raises(ValidationError, match="Input should be a valid list"):
-        parse_config(config_path("bad-groups"))
+        parse_config(config_path(data, "bad-groups"))
 
 
-def test_config_scope_mismatch() -> None:
+def test_config_scope_mismatch(data: Data) -> None:
     with pytest.raises(ValidationError, match=r"Scope .* assigned but not in"):
-        parse_config(config_path("scope-mismatch"))
+        parse_config(config_path(data, "scope-mismatch"))
 
 
-def test_config_cilogon(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_config_cilogon(data: Data, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GAFAELFAWR_CILOGON_CLIENT_SECRET", "some-secret")
     monkeypatch.setenv("GAFAELFAWR_REDIRECT_URL", "https://example.com/login")
-    config = parse_config(config_path("cilogon"))
+    config = parse_config(config_path(data, "cilogon"))
     assert config.oidc == OIDCConfig.model_validate(
         {
             "client_id": "some-cilogon-client-id",
@@ -124,10 +145,12 @@ def test_config_cilogon(monkeypatch: pytest.MonkeyPatch) -> None:
     assert str(config.oidc.redirect_url) == "https://example.com/login"
 
 
-def test_config_cilogon_test(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_config_cilogon_test(
+    data: Data, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("GAFAELFAWR_CILOGON_CLIENT_SECRET", "some-secret")
     monkeypatch.setenv("GAFAELFAWR_REDIRECT_URL", "https://example.com/login")
-    config = parse_config(config_path("cilogon-test"))
+    config = parse_config(config_path(data, "cilogon-test"))
     assert config.oidc == OIDCConfig.model_validate(
         {
             "client_id": "some-cilogon-client-id",
@@ -145,13 +168,15 @@ def test_config_cilogon_test(monkeypatch: pytest.MonkeyPatch) -> None:
     assert str(config.oidc.redirect_url) == "https://example.com/login"
 
 
-def test_redis_rate_limit_url(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_redis_rate_limit_url(
+    data: Data, monkeypatch: pytest.MonkeyPatch
+) -> None:
     ephemeral = "redis://gafaelfawr-redis-ephemeral.gafaelfawr:6370/1"
     persistent = "redis://gafaelfawr-redis.gafaelfawr:6370/0"
     monkeypatch.setenv("GAFAELFAWR_REDIS_EPHEMERAL_URL", ephemeral)
     monkeypatch.setenv("GAFAELFAWR_REDIS_PERSISTENT_URL", persistent)
     monkeypatch.setenv("GAFAELFAWR_REDIS_PASSWORD", "f:b/b@c")
-    config = parse_config(config_path("github"))
+    config = parse_config(config_path(data, "github"))
     assert str(config.redis_ephemeral_url) == ephemeral
     assert str(config.redis_persistent_url) == persistent
     assert config.redis_rate_limit_url == (

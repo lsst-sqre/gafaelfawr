@@ -625,7 +625,7 @@ class OIDCServerConfig(EnvFirstSettings):
     )
 
     clients: list[OIDCClient] = Field(
-        ...,
+        [],
         title="OpenID Connect clients",
         description="Registered OpenID Connect clients",
         validation_alias="GAFAELFAWR_OIDC_SERVER_CLIENTS",

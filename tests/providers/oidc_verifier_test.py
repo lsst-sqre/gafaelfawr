@@ -1,6 +1,6 @@
 """Tests for verification of upstream OpenID Connect token verification."""
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urljoin
 
@@ -8,8 +8,8 @@ import jwt
 import pytest
 import respx
 from jwt.exceptions import InvalidIssuerError
-from safir.datetime import current_datetime
 
+from gafaelfawr.config import Config
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.exceptions import (
     FetchKeysError,
@@ -21,7 +21,6 @@ from gafaelfawr.factory import Factory
 from gafaelfawr.keypair import RSAKeyPair
 from gafaelfawr.models.oidc import OIDCToken
 
-from ..support.config import reconfigure
 from ..support.constants import TEST_KEYPAIR
 from ..support.jwt import create_upstream_oidc_jwt
 from ..support.oidc import mock_oidc_provider_config
@@ -43,15 +42,15 @@ def encode_token(
     return OIDCToken(encoded=encoded)
 
 
+@pytest.mark.parametrize("config", ["oidc"], indirect=True)
 @pytest.mark.asyncio
 async def test_verify_token(
-    respx_mock: respx.Router, factory: Factory
+    config: Config, factory: Factory, respx_mock: respx.Router
 ) -> None:
-    config = await reconfigure("oidc", factory)
     assert config.oidc
     verifier = factory.create_oidc_token_verifier()
 
-    now = current_datetime()
+    now = datetime.now(tz=UTC).replace(microsecond=0)
     exp = now + timedelta(days=24)
     payload: dict[str, Any] = {
         "aud": config.oidc.audience,
@@ -80,16 +79,16 @@ async def test_verify_token(
     assert str(excinfo.value) == "Unknown issuer: https://bogus.example.com/"
 
 
+@pytest.mark.parametrize("config", ["oidc"], indirect=True)
 @pytest.mark.asyncio
 async def test_verify_missing_kid(
-    respx_mock: respx.Router, factory: Factory
+    config: Config, factory: Factory, respx_mock: respx.Router
 ) -> None:
-    config = await reconfigure("oidc", factory)
     assert config.oidc
     verifier = factory.create_oidc_token_verifier()
     await mock_oidc_provider_config(respx_mock, "kid")
 
-    now = current_datetime()
+    now = datetime.now(tz=UTC).replace(microsecond=0)
     exp = now + timedelta(days=24)
     payload: dict[str, Any] = {
         "aud": config.oidc.audience,
@@ -104,11 +103,11 @@ async def test_verify_missing_kid(
     assert str(excinfo.value) == expected
 
 
+@pytest.mark.parametrize("config", ["oidc"], indirect=True)
 @pytest.mark.asyncio
 async def test_key_retrieval(
-    respx_mock: respx.Router, factory: Factory
+    config: Config, factory: Factory, respx_mock: respx.Router
 ) -> None:
-    config = await reconfigure("oidc", factory)
     assert config.oidc
     verifier = factory.create_oidc_token_verifier()
 
@@ -166,11 +165,11 @@ async def test_key_retrieval(
     assert await verifier.verify_token(token)
 
 
+@pytest.mark.parametrize("config", ["oidc-subdomain"], indirect=True)
 @pytest.mark.asyncio
 async def test_issuer_with_path(
-    respx_mock: respx.Router, factory: Factory
+    config: Config, factory: Factory, respx_mock: respx.Router
 ) -> None:
-    config = await reconfigure("oidc-subdomain", factory)
     assert config.oidc
     verifier = factory.create_oidc_token_verifier()
 

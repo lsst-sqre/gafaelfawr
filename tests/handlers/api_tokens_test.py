@@ -6,7 +6,7 @@ from unittest.mock import ANY
 
 import pytest
 from httpx import AsyncClient
-from safir.datetime import current_datetime, format_datetime_for_logging
+from safir.datetime import format_datetime_for_logging
 from safir.testing.logging import parse_log_tuples
 from safir.testing.slack import MockSlackWebhook
 
@@ -17,7 +17,6 @@ from gafaelfawr.models.state import State
 from gafaelfawr.models.token import Token, TokenUserInfo
 from gafaelfawr.models.userinfo import Group, UserInfo
 
-from ..support.config import reconfigure
 from ..support.constants import TEST_HOSTNAME
 from ..support.cookies import clear_session_cookie, set_session_cookie
 from ..support.firestore import MockFirestore
@@ -29,6 +28,7 @@ from ..support.tokens import create_session_token
 async def test_create_delete_modify(
     client: AsyncClient, factory: Factory, caplog: pytest.LogCaptureFixture
 ) -> None:
+    now = datetime.now(tz=UTC).replace(microsecond=0)
     user_info = TokenUserInfo(
         username="example",
         name="Example Person",
@@ -45,7 +45,7 @@ async def test_create_delete_modify(
     csrf = await set_session_cookie(client, session_token)
 
     caplog.clear()
-    expires = current_datetime() + timedelta(days=100)
+    expires = now + timedelta(days=100)
     r = await client.post(
         "/auth/api/v1/users/example/tokens",
         headers={"X-CSRF-Token": csrf},
@@ -141,7 +141,7 @@ async def test_create_delete_modify(
     }
 
     # Modifying a user token fails with permission denied.
-    new_expires = current_datetime() + timedelta(days=200)
+    new_expires = now + timedelta(days=200)
     r = await client.patch(
         token_url,
         headers={"X-CSRF-Token": csrf},
@@ -162,7 +162,7 @@ async def test_create_delete_modify(
 
     # Change the name, scope, and expiration of the token.
     caplog.clear()
-    new_expires = current_datetime() + timedelta(days=200)
+    new_expires = now + timedelta(days=200)
     r = await client.patch(
         token_url,
         headers={"X-CSRF-Token": csrf},
@@ -322,7 +322,7 @@ async def test_token_info(
         "created": ANY,
         "expires": ANY,
     }
-    now = current_datetime()
+    now = datetime.now(tz=UTC).replace(microsecond=0)
     created = datetime.fromtimestamp(data["created"], tz=UTC)
     assert now - timedelta(seconds=5) <= created <= now
     expires = created + config.token_lifetime
@@ -742,7 +742,7 @@ async def test_no_expires(client: AsyncClient, factory: Factory) -> None:
     assert "expires" not in r.json()
 
     # Create a user token with an expiration and then adjust it to not expire.
-    now = current_datetime()
+    now = datetime.now(tz=UTC).replace(microsecond=0)
     expires = now + timedelta(days=2)
     r = await client.post(
         f"/auth/api/v1/users/{token_data.username}/tokens",
@@ -1042,6 +1042,7 @@ async def test_create_admin(
         json={"username": "a-user", "token_type": "user"},
     )
     assert r.status_code == 422
+    now = datetime.now(tz=UTC).replace(microsecond=0)
     r = await client.post(
         "/auth/api/v1/tokens",
         headers={"Authorization": f"bearer {service_token!s}"},
@@ -1049,7 +1050,7 @@ async def test_create_admin(
             "username": "a-user",
             "token_type": "user",
             "token_name": "some token",
-            "expires": int(current_datetime().timestamp()),
+            "expires": int(now.timestamp()),
         },
     )
     assert r.status_code == 422
@@ -1162,12 +1163,12 @@ async def test_create_admin(
     assert r.status_code == 201
 
 
+@pytest.mark.parametrize("config", ["oidc"], indirect=True)
 @pytest.mark.asyncio
 async def test_create_admin_ldap(
     client: AsyncClient, factory: Factory, mock_ldap: MockLDAP
 ) -> None:
     """Create a token through the admin interface with LDAP user data."""
-    await reconfigure("oidc", factory)
     token_data = await create_session_token(factory, scopes={"admin:token"})
     csrf = await set_session_cookie(client, token_data.token)
     mock_ldap.add_test_user(
@@ -1183,7 +1184,7 @@ async def test_create_admin_ldap(
     )
 
     # Create a new service token with no user metadata.
-    now = current_datetime()
+    now = datetime.now(tz=UTC).replace(microsecond=0)
     expires = int((now + timedelta(days=2)).timestamp())
     r = await client.post(
         "/auth/api/v1/tokens",
@@ -1275,6 +1276,7 @@ async def test_create_admin_ldap(
     assert r.json() == {"username": "other-user", "groups": []}
 
 
+@pytest.mark.parametrize("config", ["oidc-firestore"], indirect=True)
 @pytest.mark.asyncio
 async def test_create_admin_firestore(
     client: AsyncClient,
@@ -1283,15 +1285,13 @@ async def test_create_admin_firestore(
     mock_ldap: MockLDAP,
 ) -> None:
     """Create a token through the admin interface with Firestore enabled."""
-    await reconfigure("oidc-firestore", factory)
     firestore_storage = factory.create_firestore_storage()
     await firestore_storage.initialize()
     token_data = await create_session_token(factory, scopes={"admin:token"})
     csrf = await set_session_cookie(client, token_data.token)
 
     # Create a new service token with no user metadata.
-    now = current_datetime()
-    expires = int((now + timedelta(days=2)).timestamp())
+    expires = int((datetime.now(tz=UTC) + timedelta(days=2)).timestamp())
     r = await client.post(
         "/auth/api/v1/tokens",
         headers={"X-CSRF-Token": csrf},
@@ -1351,7 +1351,7 @@ async def test_no_form_post(
     )
     csrf = await set_session_cookie(client, session_token)
 
-    expires = current_datetime() + timedelta(days=100)
+    expires = datetime.now(tz=UTC) + timedelta(days=100)
     r = await client.post(
         "/auth/api/v1/users/example/tokens",
         headers={"X-CSRF-Token": csrf},
@@ -1393,7 +1393,7 @@ async def test_scope_modify(
     )
     csrf = await set_session_cookie(client, session_token)
 
-    expires = current_datetime() + timedelta(days=100)
+    expires = datetime.now(tz=UTC) + timedelta(days=100)
     r = await client.post(
         "/auth/api/v1/users/example/tokens",
         headers={"X-CSRF-Token": csrf},
@@ -1469,14 +1469,16 @@ async def test_scope_modify(
     assert r.status_code == 200
 
 
+@pytest.mark.parametrize("config", ["oidc"], indirect=True)
 @pytest.mark.asyncio
 async def test_ldap_error(
+    *,
+    config: Config,
     client: AsyncClient,
     factory: Factory,
     mock_ldap: MockLDAP,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    config = await reconfigure("oidc", factory)
     assert config.ldap
     mock_ldap.add_entries_for_test(
         config.ldap.user_base_dn,

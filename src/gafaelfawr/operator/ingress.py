@@ -1,13 +1,17 @@
 """Kubernetes operator handlers for GafaelfawrIngress."""
 
+from contextlib import aclosing
 from typing import Any
 
 import kopf
+from kubernetes_asyncio.client import ApiClient
 from pydantic import ValidationError
+from sqlalchemy.ext.asyncio import AsyncEngine
 
+from ..config import Config
 from ..exceptions import KubernetesObjectError
+from ..factory import Factory, ProcessContext
 from ..models.kubernetes import GafaelfawrIngress
-from ..services.kubernetes import KubernetesIngressService
 
 __all__ = ["create"]
 
@@ -42,21 +46,29 @@ async def create(
         Status information to record in the object, or `None` if no changes
         were made.
     """
-    ingress_service: KubernetesIngressService = memo.ingress_service
-
     # These cases are probably not possible given how the handlers are
     # invoked, but unconfuse mypy.
     if not name or not namespace:
         return None
 
-    # Parse the GafaelafwrIngress resource.
-    try:
-        ingress = GafaelfawrIngress.model_validate(body)
-    except ValidationError as e:
-        raise KubernetesObjectError(
-            "GafaelfawrIngress", name, namespace, e
-        ) from e
+    api_client: ApiClient = memo.api_client
+    config: Config = memo.config
+    context: ProcessContext = memo.context
+    engine: AsyncEngine = memo.engine
 
-    # Update the corresponding Ingress and return the new status information.
-    status = await ingress_service.update(ingress)
-    return status.to_dict() if status else None
+    factory = await Factory.create(config, context, engine)
+    async with aclosing(factory):
+        ingress_service = factory.create_kubernetes_ingress_service(api_client)
+
+        # Parse the GafaelafwrIngress resource.
+        try:
+            ingress = GafaelfawrIngress.model_validate(body)
+        except ValidationError as e:
+            raise KubernetesObjectError(
+                "GafaelfawrIngress", name, namespace, e
+            ) from e
+
+        # Update the corresponding Ingress and return the new status
+        # information.
+        status = await ingress_service.update(ingress)
+        return status.to_dict() if status else None

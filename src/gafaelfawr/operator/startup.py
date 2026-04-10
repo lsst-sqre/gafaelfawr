@@ -11,7 +11,7 @@ from safir.kubernetes import initialize_kubernetes
 from ..constants import KUBERNETES_WATCH_TIMEOUT
 from ..dependencies.config import config_dependency
 from ..exceptions import DatabaseSchemaError
-from ..factory import Factory
+from ..factory import ProcessContext
 
 __all__ = ["shutdown", "startup"]
 
@@ -50,6 +50,7 @@ async def startup(
 
     config = await config_dependency()
     await initialize_kubernetes()
+    context = await ProcessContext.from_config(config)
 
     engine = create_database_engine(
         config.database_url, config.database_password
@@ -57,17 +58,13 @@ async def startup(
     logger = structlog.get_logger("gafaelfawr")
     if not await is_database_current(engine, logger):
         raise DatabaseSchemaError("Database schema is not current")
-    factory = await Factory.create(config, engine, check_db=True)
     api_client = ApiClient()
-    ingress_service = factory.create_kubernetes_ingress_service(api_client)
-    token_service = factory.create_kubernetes_token_service(api_client)
 
     memo.api_client = api_client
+    memo.config = config
+    memo.context = context
     memo.engine = engine
-    memo.factory = factory
-    memo.ingress_service = ingress_service
     memo.logger = logger
-    memo.token_service = token_service
 
 
 @kopf.on.cleanup()
@@ -81,5 +78,5 @@ async def shutdown(memo: kopf.Memo, **_: Any) -> None:
         other state that needs to be freed cleanly during shutdown.
     """
     await memo.api_client.close()
-    await memo.factory.aclose()
+    await memo.context.aclose()
     await memo.engine.dispose()

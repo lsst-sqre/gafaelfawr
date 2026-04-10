@@ -3,13 +3,13 @@
 import json
 import os
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import pytest
 from httpx import AsyncClient, BasicAuth
-from safir.datetime import current_datetime, format_datetime_for_logging
+from safir.datetime import format_datetime_for_logging
 from safir.testing.logging import parse_log_tuples
 from safir.testing.slack import MockSlackWebhook
 
@@ -27,7 +27,7 @@ from gafaelfawr.models.oidc import (
 from gafaelfawr.models.token import Token
 from gafaelfawr.util import number_to_base64
 
-from ..support.config import build_oidc_client, reconfigure
+from ..support.config import build_oidc_client
 from ..support.constants import TEST_HOSTNAME
 from ..support.cookies import clear_session_cookie, set_session_cookie
 from ..support.headers import (
@@ -126,7 +126,8 @@ async def authenticate(
         ),
     }
     assert isinstance(data["expires_in"], int)
-    exp_seconds = (expires - current_datetime()).total_seconds()
+    now = datetime.now(tz=UTC).replace(microsecond=0)
+    exp_seconds = (expires - now).total_seconds()
     assert exp_seconds - 1 <= data["expires_in"] <= exp_seconds + 5
     assert Token.is_token(data["access_token"])
 
@@ -134,30 +135,30 @@ async def authenticate(
     oidc_service = factory.create_oidc_service()
     token = oidc_service.verify_token(OIDCToken(encoded=data["id_token"]))
     assert token.claims["jti"] == OIDCAuthorizationCode.from_str(code).key
-    now = time.time()
-    assert now - 5 <= token.claims["iat"] <= now
+    now_seconds = time.time()
+    assert now_seconds - 5 <= token.claims["iat"] <= now_seconds
 
     # Return the reply as an OIDCTokenReply.
     return OIDCTokenReply.model_validate(data)
 
 
+@pytest.mark.parametrize("config", ["github-oidc-server"], indirect=True)
 @pytest.mark.asyncio
 async def test_login(
+    *,
+    config: Config,
     client: AsyncClient,
     factory: Factory,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     redirect_uri = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
-    clients = [
+    assert config.oidc_server
+    config.oidc_server.clients = [
         build_oidc_client(
             "some-id", "some-secret", f"https://{TEST_HOSTNAME}:4444/foo"
         )
     ]
-    config = await reconfigure(
-        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
-    )
-    assert config.oidc_server
     token_data = await create_session_token(factory)
     assert token_data.expires
     await set_session_cookie(client, token_data.token)
@@ -296,21 +297,22 @@ async def test_login(
     ]
 
 
+@pytest.mark.parametrize("config", ["github-oidc-server"], indirect=True)
 @pytest.mark.asyncio
 async def test_unauthenticated(
+    *,
+    config: Config,
     client: AsyncClient,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     return_url = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
-    clients = [
+    assert config.oidc_server
+    config.oidc_server.clients = [
         build_oidc_client(
             "some-id", "some-secret", f"https://{TEST_HOSTNAME}:4444/foo"
         )
     ]
-    await reconfigure(
-        "github-oidc-server", monkeypatch=monkeypatch, oidc_clients=clients
-    )
     login_params = {
         "response_type": "code",
         "scope": "openid",
@@ -344,22 +346,23 @@ async def test_unauthenticated(
     ]
 
 
+@pytest.mark.parametrize("config", ["github-oidc-server"], indirect=True)
 @pytest.mark.asyncio
 async def test_login_errors(
+    *,
+    config: Config,
     client: AsyncClient,
     factory: Factory,
     mock_slack: MockSlackWebhook,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    clients = [
+    assert config.oidc_server
+    config.oidc_server.clients = [
         build_oidc_client(
             "some-id", "some-secret", f"https://{TEST_HOSTNAME}/app"
         )
     ]
-    await reconfigure(
-        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
-    )
     token_data = await create_session_token(factory)
     await set_session_cookie(client, token_data.token)
 
@@ -484,8 +487,11 @@ async def test_login_errors(
     assert mock_slack.messages == []
 
 
+@pytest.mark.parametrize("config", ["github-oidc-server"], indirect=True)
 @pytest.mark.asyncio
 async def test_token_errors(
+    *,
+    config: Config,
     client: AsyncClient,
     factory: Factory,
     mock_slack: MockSlackWebhook,
@@ -493,13 +499,11 @@ async def test_token_errors(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     redirect_uri = f"https://{TEST_HOSTNAME}/app"
-    clients = [
+    assert config.oidc_server
+    config.oidc_server.clients = [
         build_oidc_client("some-id", "some-secret", redirect_uri),
         build_oidc_client("other-id", "other-secret", redirect_uri),
     ]
-    await reconfigure(
-        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
-    )
     token_data = await create_session_token(factory)
     token = token_data.token
     oidc_service = factory.create_oidc_service()
@@ -688,8 +692,11 @@ async def test_no_auth(
     assert mock_slack.messages == []
 
 
+@pytest.mark.parametrize("config", ["github-oidc-server"], indirect=True)
 @pytest.mark.asyncio
 async def test_invalid(
+    *,
+    config: Config,
     client: AsyncClient,
     factory: Factory,
     mock_slack: MockSlackWebhook,
@@ -697,10 +704,9 @@ async def test_invalid(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     redirect_uri = "https://example.com/"
+    assert config.oidc_server
     clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
-    config = await reconfigure(
-        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
-    )
+    config.oidc_server.clients = clients
     token_data = await create_session_token(factory)
     oidc_service = factory.create_oidc_service()
     authorization = OIDCAuthorization(
@@ -816,19 +822,17 @@ async def test_invalid(
     assert mock_slack.messages == []
 
 
+@pytest.mark.parametrize("config", ["github-oidc-server"], indirect=True)
 @pytest.mark.asyncio
 async def test_well_known_jwks(
-    client: AsyncClient,
     config: Config,
+    client: AsyncClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    clients = [
+    assert config.oidc_server
+    config.oidc_server.clients = [
         build_oidc_client("some-id", "some-secret", "https://example.com/")
     ]
-    config = await reconfigure(
-        "github-oidc-server", monkeypatch=monkeypatch, oidc_clients=clients
-    )
-    assert config.oidc_server
     r = await client.get("/.well-known/jwks.json")
     assert r.status_code == 200
     result = r.json()
@@ -853,17 +857,15 @@ async def test_well_known_jwks(
     assert "=" not in result["keys"][0]["e"]
 
 
+@pytest.mark.parametrize("config", ["github-oidc-server"], indirect=True)
 @pytest.mark.asyncio
 async def test_well_known_oidc(
-    client: AsyncClient, config: Config, monkeypatch: pytest.MonkeyPatch
+    config: Config, client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    clients = [
+    assert config.oidc_server
+    config.oidc_server.clients = [
         build_oidc_client("some-id", "some-secret", "https://example.com/")
     ]
-    config = await reconfigure(
-        "github-oidc-server", monkeypatch=monkeypatch, oidc_clients=clients
-    )
-    assert config.oidc_server
     r = await client.get("/.well-known/openid-configuration")
     assert r.status_code == 200
 
@@ -887,16 +889,19 @@ async def test_well_known_oidc(
     }
 
 
+@pytest.mark.parametrize("config", ["github-oidc-server"], indirect=True)
 @pytest.mark.asyncio
 async def test_nonce(
-    client: AsyncClient, factory: Factory, monkeypatch: pytest.MonkeyPatch
+    *,
+    config: Config,
+    client: AsyncClient,
+    factory: Factory,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     redirect_uri = "https://example.org/"
     clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
-    config = await reconfigure(
-        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
-    )
     assert config.oidc_server
+    config.oidc_server.clients = clients
     token_data = await create_session_token(factory)
     assert token_data.expires
     await set_session_cookie(client, token_data.token)
@@ -988,16 +993,19 @@ async def assert_data_rights_for_groups(
     assert r.json() == expected_userinfo
 
 
+@pytest.mark.parametrize("config", ["github-oidc-server"], indirect=True)
 @pytest.mark.asyncio
 async def test_data_rights(
-    client: AsyncClient, factory: Factory, monkeypatch: pytest.MonkeyPatch
+    *,
+    config: Config,
+    client: AsyncClient,
+    factory: Factory,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     redirect_uri = "https://www.example.org/"
-    clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
-    config = await reconfigure(
-        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
-    )
     assert config.oidc_server
+    clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
+    config.oidc_server.clients = clients
 
     await assert_data_rights_for_groups(
         config, client, factory, groups=["foo"], data_rights="dp0.2 dp0.3"
@@ -1017,16 +1025,19 @@ async def test_data_rights(
     )
 
 
+@pytest.mark.parametrize("config", ["github-oidc-server"], indirect=True)
 @pytest.mark.asyncio
 async def test_basic_auth(
-    client: AsyncClient, factory: Factory, monkeypatch: pytest.MonkeyPatch
+    *,
+    config: Config,
+    client: AsyncClient,
+    factory: Factory,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     redirect_uri = "https://example.org/"
-    clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
-    config = await reconfigure(
-        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
-    )
     assert config.oidc_server
+    clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
+    config.oidc_server.clients = clients
     token_data = await create_session_token(factory)
     assert token_data.expires
     await set_session_cookie(client, token_data.token)
@@ -1058,16 +1069,20 @@ async def test_basic_auth(
     }
 
 
+@pytest.mark.parametrize("config", ["github-oidc-server"], indirect=True)
 @pytest.mark.asyncio
 async def test_userinfo_internal(
-    client: AsyncClient, factory: Factory, monkeypatch: pytest.MonkeyPatch
+    *,
+    config: Config,
+    client: AsyncClient,
+    factory: Factory,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test passing internal tokens to the userinfo endpoint."""
     redirect_uri = "https://example.org/"
+    assert config.oidc_server
     clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
-    await reconfigure(
-        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
-    )
+    config.oidc_server.clients = clients
     token_data = await create_session_token(factory, scopes={"read:all"})
     token_service = factory.create_token_service()
     internal_token = await token_service.get_internal_token(

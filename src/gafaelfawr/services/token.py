@@ -3,12 +3,12 @@
 import ipaddress
 import re
 from collections.abc import Iterable
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from safir.database import CountedPaginatedList
-from safir.datetime import current_datetime, format_datetime_for_logging
+from safir.datetime import format_datetime_for_logging
 from safir.redis import DeserializeError
-from sqlalchemy.ext.asyncio import async_scoped_session
+from sqlalchemy.ext.asyncio import AsyncSession
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
@@ -82,7 +82,7 @@ class TokenService:
         token_redis_store: TokenRedisStore,
         token_change_store: TokenChangeHistoryStore,
         admin_store: AdminStore,
-        session: async_scoped_session,
+        session: AsyncSession,
         logger: BoundLogger,
     ) -> None:
         self._config = config
@@ -115,7 +115,7 @@ class TokenService:
         malformed_redis = []
         redis = self._token_redis_store
         database = self._token_db_store
-        now = current_datetime()
+        now = datetime.now(tz=UTC).replace(microsecond=0)
 
         async with self._session.begin():
             db_tokens = {
@@ -197,7 +197,7 @@ class TokenService:
         """
         self._validate_username(user_info.username)
         token = Token()
-        created = current_datetime()
+        created = datetime.now(tz=UTC).replace(microsecond=0)
         expires = created + self._config.token_lifetime
         async with self._session.begin():
             admins = await self._admin_store.list()
@@ -268,7 +268,7 @@ class TokenService:
             Raised if the underlying authentication token has expired.
         """
         token = Token()
-        created = current_datetime()
+        created = datetime.now(tz=UTC).replace(microsecond=0)
         expires = auth_data.expires or created + self._config.token_lifetime
         data = TokenData(
             token=token,
@@ -375,7 +375,7 @@ class TokenService:
             expires = expires.replace(microsecond=0)
 
         token = Token()
-        created = current_datetime()
+        created = datetime.now(tz=UTC).replace(microsecond=0)
         data = TokenData(
             token=token,
             username=username,
@@ -472,7 +472,7 @@ class TokenService:
                 raise PermissionDeniedError(msg)
 
         token = Token()
-        created = current_datetime()
+        created = datetime.now(tz=UTC).replace(microsecond=0)
         data = TokenData(
             token=token,
             username=request.username,
@@ -1030,7 +1030,8 @@ class TokenService:
         This method is meant to be run periodically, outside of any given user
         request.
         """
-        cutoff = current_datetime() - CHANGE_HISTORY_RETENTION
+        now = datetime.now(tz=UTC).replace(microsecond=0)
+        cutoff = now - CHANGE_HISTORY_RETENTION
         async with self._session.begin():
             await self._token_change_store.delete(older_than=cutoff)
 
@@ -1459,7 +1460,8 @@ class TokenService:
         """
         if not expires:
             return
-        if expires < current_datetime() + MINIMUM_LIFETIME:
+        now = datetime.now(tz=UTC).replace(microsecond=0)
+        if expires < now + MINIMUM_LIFETIME:
             msg = "Token must be valid for at least five minutes"
             raise InvalidExpiresError(msg)
 
