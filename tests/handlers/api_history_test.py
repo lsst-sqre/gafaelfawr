@@ -1,6 +1,7 @@
 """Tests for paginated retrieval of history."""
 
 import json
+import sys
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 from ipaddress import ip_address, ip_network
@@ -154,6 +155,9 @@ async def build_history(factory: Factory) -> list[TokenChangeHistoryRecord]:
                 event_time += timedelta(seconds=5)
 
     history = await token_service.get_change_history(service_token_data)
+    if history.count != 20:
+        json_history = [e.model_dump(mode="json") for e in history.entries]
+        sys.stdout.write(json.dumps(json_history, indent=2))
     assert history.count == 20
     assert len(history.entries) == 20
     return history.entries
