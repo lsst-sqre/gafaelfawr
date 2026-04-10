@@ -26,3 +26,10 @@ repos:
     rev: 0.11.6
     hooks:
       - id: uv-lock
+        files: \.toml$
+        types: [pyproject]
+      - id: uv-lock
+        alias: uv-lock-client
+        name: uv-lock (client)
+        files: client/pyproject.toml
+        args: [--project, client]

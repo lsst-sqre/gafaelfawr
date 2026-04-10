@@ -3,7 +3,7 @@
 .. _HTTPX: https://www.python-httpx.org/
 .. _ingress-nginx: https://kubernetes.github.io/ingress-nginx/
 .. _Keycloak: https://www.keycloak.org/
-.. _Kopf: https://kopf.readthedocs.io/en/stable/
+.. _Kopf: https://docs.kopf.dev/en/stable/
 .. _limits: https://limits.readthedocs.io/en/stable/
 .. _mypy: https://mypy.readthedocs.io/en/stable/
 .. _nox: https://nox.thea.codes/en/stable/index.html
