@@ -2,15 +2,12 @@
 
 import base64
 import os
-from collections.abc import AsyncIterator
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
 
 import pytest
-import pytest_asyncio
 import respx
-from asgi_lifespan import LifespanManager
-from httpx import ASGITransport, AsyncClient, Response
+from httpx import AsyncClient, Response
 from safir.metrics import NOT_NONE, MockEventPublisher
 from safir.testing.logging import parse_log_tuples
 from safir.testing.slack import MockSlackWebhook
@@ -20,12 +17,10 @@ from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.context import context_dependency
 from gafaelfawr.factory import Factory
-from gafaelfawr.main import create_app
 from gafaelfawr.models.github import GitHubTeam, GitHubUserInfo
 from gafaelfawr.models.state import State
 from gafaelfawr.providers.github import GitHubProvider
 
-from ..support.config import reconfigure
 from ..support.constants import TEST_HOSTNAME
 from ..support.github import mock_github
 
@@ -632,28 +627,10 @@ async def test_invalid_state(
     assert r.headers["Location"] == str(config.after_logout_url)
 
 
-@pytest_asyncio.fixture
-async def subdomain_client(empty_database: None) -> AsyncIterator[AsyncClient]:
-    """Create an application configured to support subdomains.
-
-    Because middleware is configured when the application is created,
-    testing a different cookie policy unfortunately requires ignoring the
-    fixtures and making our own application.
-    """
-    await reconfigure("github-subdomain")
-    app = create_app(validate_schema=False)
-    async with LifespanManager(app):
-        async with AsyncClient(
-            base_url=f"https://{TEST_HOSTNAME}",
-            headers={"X-Original-URL": "https://foo.example.com/bar"},
-            transport=ASGITransport(app=app),
-        ) as client:
-            yield client
-
-
+@pytest.mark.parametrize("config", ["github-subdomain"], indirect=True)
 @pytest.mark.asyncio
 async def test_subdomain(
-    subdomain_client: AsyncClient, respx_mock: respx.Router
+    client: AsyncClient, respx_mock: respx.Router
 ) -> None:
     user_info = GitHubUserInfo(
         name="GitHub User",
@@ -670,7 +647,7 @@ async def test_subdomain(
         f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz",
     ):
         r = await simulate_github_login(
-            subdomain_client, respx_mock, user_info, return_url=return_url
+            client, respx_mock, user_info, return_url=return_url
         )
         assert r.status_code == 307
 

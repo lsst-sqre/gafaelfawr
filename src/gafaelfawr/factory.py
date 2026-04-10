@@ -21,7 +21,7 @@ from safir.dependencies.http_client import http_client_dependency
 from safir.redis import EncryptedPydanticRedisStorage, PydanticRedisStorage
 from safir.slack.webhook import SlackWebhookClient
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncEngine, async_scoped_session
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from structlog.stdlib import BoundLogger
 
 from .cache import IdCache, InternalTokenCache, LDAPCache, NotebookTokenCache
@@ -247,16 +247,19 @@ class Factory:
 
     @classmethod
     async def create(
-        cls, config: Config, engine: AsyncEngine, *, check_db: bool = False
+        cls,
+        config: Config,
+        context: ProcessContext,
+        engine: AsyncEngine,
+        *,
+        check_db: bool = False,
     ) -> Self:
         """Create a component factory outside of a request.
 
         Intended for long-running daemons other than the FastAPI web
-        application, such as the Kubernetes operator.  This class method
-        should only be used in situations where an async context manager
-        cannot be used.  Do not use this factory inside the web application or
-        anywhere that may use the default `Factory`, since they will interfere
-        with each other's Redis pools.
+        application, such as the Kubernetes operator. This method should be
+        called for each unit of work, such as one Kopf event, using a shared
+        `~gafaelfawr.factory.ProcessContext` object.
 
         If an async context manager can be used, call `standalone` rather than
         this method.
@@ -265,6 +268,8 @@ class Factory:
         ----------
         config
             Gafaelfawr configuration.
+        context
+            Shared process context.
         engine
             Database engine to use for connections.
         check_db
@@ -274,17 +279,13 @@ class Factory:
         Returns
         -------
         Factory
-            Newly-created factory.  The caller must call `aclose` on the
+            Newly-created factory. The caller must call `aclose` on the
             returned object during shutdown.
         """
         logger = structlog.get_logger("gafaelfawr")
         statement = select(SQLAdmin) if check_db else None
         session = await create_async_session(engine, statement=statement)
-        try:
-            context = await ProcessContext.from_config(config)
-            return cls(context, session, logger)
-        finally:
-            await session.remove()
+        return cls(context, session, logger)
 
     @classmethod
     @asynccontextmanager
@@ -293,8 +294,8 @@ class Factory:
     ) -> AsyncIterator[Self]:
         """Async context manager for Gafaelfawr components.
 
-        Intended for background jobs.  Uses the non-request default values for
-        the dependencies of `Factory`.  Do not use this factory inside the web
+        Intended for background jobs. Uses the non-request default values for
+        the dependencies of `Factory`. Do not use this factory inside the web
         application or anywhere that may use the default `Factory`, since they
         will interfere with each other's Redis pools.
 
@@ -311,7 +312,7 @@ class Factory:
         Yields
         ------
         Factory
-            The factory.  Must be used as an async context manager.
+            The factory. Must be used as an async context manager.
 
         Examples
         --------
@@ -321,14 +322,18 @@ class Factory:
                token_service = factory.create_token_service()
                alerts = await token_service.audit(fix=fix)
         """
-        factory = await cls.create(config, engine, check_db=check_db)
-        async with aclosing(factory):
-            yield factory
+        context = await ProcessContext.from_config(config)
+        async with aclosing(context):
+            factory = await cls.create(
+                config, context, engine, check_db=check_db
+            )
+            async with aclosing(factory):
+                yield factory
 
     def __init__(
         self,
         context: ProcessContext,
-        session: async_scoped_session,
+        session: AsyncSession,
         logger: BoundLogger,
     ) -> None:
         self.session = session
@@ -351,10 +356,7 @@ class Factory:
         After this method is called, the factory object is no longer valid and
         must not be used.
         """
-        try:
-            await self._context.aclose()
-        finally:
-            await self.session.remove()
+        await self.session.close()
 
     def create_admin_service(self) -> AdminService:
         """Create a new manager object for token administrators.
@@ -676,19 +678,6 @@ class Factory:
             quota_overrides_store=quota_overrides_store,
             logger=self._logger,
         )
-
-    def set_context(self, context: ProcessContext) -> None:
-        """Replace the process context.
-
-        Used by the test suite when it reconfigures Gafaelfawr on the fly
-        after a factory was already created.
-
-        Parameters
-        ----------
-        context
-            New process context.
-        """
-        self._context = context
 
     def set_logger(self, logger: BoundLogger) -> None:
         """Replace the internal logger.

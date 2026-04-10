@@ -1,12 +1,11 @@
 """Tests for the /ingress routes."""
 
 import base64
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import ANY
 
 import pytest
 from httpx import AsyncClient
-from safir.datetime import current_datetime
 from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config
@@ -15,7 +14,6 @@ from gafaelfawr.factory import Factory
 from gafaelfawr.models.auth import AuthError, AuthErrorChallenge, AuthType
 from gafaelfawr.models.token import Token, TokenUserInfo
 
-from ..support.config import reconfigure
 from ..support.constants import TEST_HOSTNAME
 from ..support.cookies import clear_session_cookie, set_session_cookie
 from ..support.headers import (
@@ -671,7 +669,7 @@ async def test_minimum_lifetime(
     assert r.json()["detail"][0]["type"] == "invalid_minimum_lifetime"
 
     # Create a user token with a short lifetime.
-    expires = current_datetime() + timedelta(hours=1)
+    expires = datetime.now(tz=UTC).replace(microsecond=0) + timedelta(hours=1)
     token = await token_service.create_user_token(
         token_data,
         "user",
@@ -746,7 +744,8 @@ async def test_default_minimum_lifetime(
     )
     token_data = await token_service.get_data(token)
     assert token_data
-    token_data.expires = current_datetime() + timedelta(minutes=1)
+    now = datetime.now(tz=UTC).replace(microsecond=0)
+    token_data.expires = now + timedelta(minutes=1)
     await token_service._token_redis_store.store_data(token_data)
 
     # Check that one can authenticate with this token.
@@ -1018,14 +1017,16 @@ async def test_anonymous(client: AsyncClient, factory: Factory) -> None:
     ]
 
 
+@pytest.mark.parametrize("config", ["oidc"], indirect=True)
 @pytest.mark.asyncio
 async def test_ldap_error(
+    *,
+    config: Config,
     client: AsyncClient,
     factory: Factory,
     mock_ldap: MockLDAP,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    config = await reconfigure("oidc", factory)
     assert config.ldap
     mock_ldap.add_entries_for_test(
         config.ldap.user_base_dn,
@@ -1169,9 +1170,11 @@ async def test_allow_cookies(client: AsyncClient, factory: Factory) -> None:
     assert authenticate.auth_type == AuthType.Bearer
 
 
+@pytest.mark.parametrize("config", ["github-subdomain"], indirect=True)
 @pytest.mark.asyncio
-async def test_user_domain(client: AsyncClient, factory: Factory) -> None:
-    config = await reconfigure("github-subdomain")
+async def test_user_domain(
+    config: Config, client: AsyncClient, factory: Factory
+) -> None:
     token_data = await create_session_token(
         factory, group_names=["admin"], scopes={"read:all"}
     )
@@ -1302,26 +1305,6 @@ async def test_options(client: AsyncClient, factory: Factory) -> None:
         assert r.status_code == 403, f"Origin: {origin}"
         assert r.headers["X-Error-Status"] == "403"
 
-    # Enable subdomain support. Now, an OPTIONS request for the domain or
-    # supported subdomain should always be allowed.
-    await reconfigure("github-subdomain")
-    for origin in (
-        "https://example.com",
-        "https://foo.example.com",
-        "https://user.nb.example.com",
-    ):
-        r = await client.get(
-            "/ingress/auth",
-            params={"scope": "read:all"},
-            headers={
-                "Access-Control-Request-Method": "POST",
-                "Origin": origin,
-                "X-Original-Method": "OPTIONS",
-                "X-Original-URL": "https://example.com/foo",
-            },
-        )
-        assert r.status_code == 200, f"Origin: {origin}"
-
     # If credentials are included, they should be stripped.
     await set_session_cookie(client, token_data.token)
     client.cookies.set("_other", "somevalue", domain=TEST_HOSTNAME)
@@ -1340,3 +1323,25 @@ async def test_options(client: AsyncClient, factory: Factory) -> None:
     assert r.status_code == 200
     assert r.headers["Authorization"] == "token some-other-token"
     assert r.headers["Cookie"] == "_other=somevalue"
+
+
+@pytest.mark.parametrize("config", ["github-subdomain"], indirect=True)
+@pytest.mark.asyncio
+async def test_options_subdomain(client: AsyncClient) -> None:
+    """An OPTIONS request for the domain or subdomain should be allowed."""
+    for origin in (
+        "https://example.com",
+        "https://foo.example.com",
+        "https://user.nb.example.com",
+    ):
+        r = await client.get(
+            "/ingress/auth",
+            params={"scope": "read:all"},
+            headers={
+                "Access-Control-Request-Method": "POST",
+                "Origin": origin,
+                "X-Original-Method": "OPTIONS",
+                "X-Original-URL": "https://example.com/foo",
+            },
+        )
+        assert r.status_code == 200, f"Origin: {origin}"

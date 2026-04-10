@@ -3,21 +3,25 @@
 import pytest
 from httpx import AsyncClient
 
+from gafaelfawr.config import Config
 from gafaelfawr.constants import GID_MIN, UID_USER_MIN
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.userinfo import Group, UserInfo
 
-from ..support.config import reconfigure
 from ..support.firestore import MockFirestore
 from ..support.ldap import MockLDAP
 from ..support.tokens import create_session_token
 
 
+@pytest.mark.parametrize("config", ["oidc"], indirect=True)
 @pytest.mark.asyncio
 async def test_userinfo_basic(
-    client: AsyncClient, factory: Factory, mock_ldap: MockLDAP
+    *,
+    config: Config,
+    client: AsyncClient,
+    factory: Factory,
+    mock_ldap: MockLDAP,
 ) -> None:
-    config = await reconfigure("oidc")
     assert config.ldap
     token_data = await create_session_token(
         factory, username="admin", scopes={"admin:userinfo"}
@@ -49,14 +53,16 @@ async def test_userinfo_basic(
     assert r.json() == {"username": "admin"}
 
 
+@pytest.mark.parametrize("config", ["oidc-firestore"], indirect=True)
 @pytest.mark.asyncio
 async def test_userinfo_firestore(
+    *,
+    config: Config,
     client: AsyncClient,
     factory: Factory,
     mock_ldap: MockLDAP,
     mock_firestore: MockFirestore,
 ) -> None:
-    config = await reconfigure("oidc-firestore", factory)
     assert config.ldap
     firestore_storage = factory.create_firestore_storage()
     await firestore_storage.initialize()

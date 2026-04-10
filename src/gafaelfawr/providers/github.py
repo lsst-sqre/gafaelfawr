@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 
 from httpx import AsyncClient, HTTPError
 from pydantic import ValidationError
-from safir.database import PaginationLinkData
+from safir.http import PaginationLinkData
 from structlog.stdlib import BoundLogger
 
 from ..config import GitHubConfig

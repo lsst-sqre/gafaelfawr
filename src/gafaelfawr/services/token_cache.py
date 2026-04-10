@@ -1,10 +1,10 @@
 """Cache for internal and notebook tokens."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import sentry_sdk
-from safir.datetime import current_datetime, format_datetime_for_logging
-from sqlalchemy.ext.asyncio import async_scoped_session
+from safir.datetime import format_datetime_for_logging
+from sqlalchemy.ext.asyncio import AsyncSession
 from structlog.stdlib import BoundLogger
 
 from ..cache import InternalTokenCache, NotebookTokenCache
@@ -73,7 +73,7 @@ class TokenCacheService:
         token_redis_store: TokenRedisStore,
         token_db_store: TokenDatabaseStore,
         token_change_store: TokenChangeHistoryStore,
-        session: async_scoped_session,
+        session: AsyncSession,
         logger: BoundLogger,
     ) -> None:
         self._config = config
@@ -240,7 +240,7 @@ class TokenCacheService:
 
         # There is not, so we need to create a new one.
         token = Token()
-        created = current_datetime()
+        created = datetime.now(tz=UTC).replace(microsecond=0)
         expires = created + self._config.token_lifetime
         if token_data.expires and token_data.expires < expires:
             expires = token_data.expires
@@ -328,7 +328,7 @@ class TokenCacheService:
 
         # There is not, so we need to create a new one.
         token = Token()
-        created = current_datetime()
+        created = datetime.now(tz=UTC).replace(microsecond=0)
         expires = created + self._config.token_lifetime
         if token_data.expires and token_data.expires < expires:
             expires = token_data.expires
@@ -417,7 +417,8 @@ class TokenCacheService:
                 required = minimum_lifetime.total_seconds()
             else:
                 required = (data.expires - data.created).total_seconds() / 2
-            remaining = data.expires - current_datetime()
+            now = datetime.now(tz=UTC).replace(microsecond=0)
+            remaining = data.expires - now
             if remaining.total_seconds() < required:
                 return False
         return True
@@ -440,16 +441,16 @@ class TokenCacheService:
         Returns
         -------
         datetime
-            The minimum acceptable expiration time for the child token.  If
+            The minimum acceptable expiration time for the child token. If
             no child tokens with at least this expiration time exist, a new
             child token should be created.
         """
+        now = datetime.now(tz=UTC).replace(microsecond=0)
         if minimum_lifetime:
-            min_expires = current_datetime() + minimum_lifetime
+            min_expires = now + minimum_lifetime
         else:
-            min_expires = current_datetime() + timedelta(
-                seconds=self._config.token_lifetime.total_seconds() / 2
-            )
+            lifetime = self._config.token_lifetime.total_seconds()
+            min_expires = now + timedelta(seconds=lifetime / 2)
 
         # If the minimum expiration is greater than than the expiration of the
         # parent token, cap it at the expiration of the parent token, since we

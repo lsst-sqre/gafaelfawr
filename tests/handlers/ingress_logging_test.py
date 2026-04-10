@@ -15,16 +15,15 @@ from gafaelfawr.dependencies.context import context_dependency
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.token import Token
 
-from ..support.config import reconfigure
 from ..support.constants import TEST_HOSTNAME
 from ..support.tokens import create_session_token
 
 
+@pytest.mark.parametrize("config", ["github-quota"], indirect=True)
 @pytest.mark.asyncio
 async def test_success(
     client: AsyncClient, factory: Factory, caplog: pytest.LogCaptureFixture
 ) -> None:
-    await reconfigure("github-quota", factory)
     token_data = await create_session_token(factory, scopes={"exec:admin"})
 
     # Successful request with X-Forwarded-For and a bearer token.
@@ -454,11 +453,11 @@ async def test_internal(
     ]
 
 
+@pytest.mark.parametrize("config", ["github-quota"], indirect=True)
 @pytest.mark.asyncio
 async def test_rate_limit_events(
     client: AsyncClient, factory: Factory, caplog: pytest.LogCaptureFixture
 ) -> None:
-    await reconfigure("github-quota", factory)
     token_data = await create_session_token(factory, scopes={"read:all"})
     r = await client.get(
         "/ingress/auth",
@@ -535,9 +534,9 @@ async def test_rate_limit_events(
     )
 
 
+@pytest.mark.parametrize("config", ["github-quota"], indirect=True)
 @pytest.mark.asyncio
 async def test_bot_events(client: AsyncClient, factory: Factory) -> None:
-    await reconfigure("github-quota", factory)
     token_data = await create_session_token(
         factory, username="bot-something", scopes={"read:all"}
     )

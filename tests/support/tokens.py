@@ -1,9 +1,8 @@
 """Create tokens for testing."""
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
-from safir.datetime import current_datetime
-from sqlalchemy.ext.asyncio import async_scoped_session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.enums import TokenChange, TokenType
@@ -24,7 +23,7 @@ async def add_expired_session_token(
     *,
     scopes: set[str],
     ip_address: str,
-    session: async_scoped_session,
+    session: AsyncSession,
 ) -> None:
     """Add an expired session token to the database.
 
@@ -51,7 +50,7 @@ async def add_expired_session_token(
     token_change_store = TokenChangeHistoryStore(session)
 
     token = Token()
-    created = current_datetime()
+    created = datetime.now(tz=UTC).replace(microsecond=0)
     expires = created - timedelta(minutes=10)
     data = TokenData(
         token=token,

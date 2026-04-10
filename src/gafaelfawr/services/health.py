@@ -2,7 +2,7 @@
 
 from random import SystemRandom
 
-from sqlalchemy.ext.asyncio import async_scoped_session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.enums import TokenType
 from ..storage.token import TokenDatabaseStore, TokenRedisStore
@@ -35,7 +35,7 @@ class HealthCheckService:
         token_db_store: TokenDatabaseStore,
         token_redis_store: TokenRedisStore,
         user_info_service: UserInfoService,
-        session: async_scoped_session,
+        session: AsyncSession,
     ) -> None:
         self._db = token_db_store
         self._redis = token_redis_store

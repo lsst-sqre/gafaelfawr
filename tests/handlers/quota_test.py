@@ -10,13 +10,12 @@ from gafaelfawr.factory import Factory
 from gafaelfawr.models.token import TokenUserInfo
 from gafaelfawr.models.userinfo import Group
 
-from ..support.config import reconfigure
 from ..support.tokens import create_session_token
 
 
+@pytest.mark.parametrize("config", ["github-quota"], indirect=True)
 @pytest.mark.asyncio
 async def test_info(client: AsyncClient, factory: Factory) -> None:
-    await reconfigure("github-quota", factory)
     user_info = TokenUserInfo(
         username="example", groups=[Group(name="bar", id=12312)]
     )
@@ -59,9 +58,9 @@ async def test_info(client: AsyncClient, factory: Factory) -> None:
     }
 
 
+@pytest.mark.parametrize("config", ["github-quota"], indirect=True)
 @pytest.mark.asyncio
 async def test_no_spawn(client: AsyncClient, factory: Factory) -> None:
-    await reconfigure("github-quota", factory)
     token_data = await create_session_token(
         factory, group_names=["blocked", "bar"], scopes={"read:all"}
     )
@@ -90,11 +89,11 @@ async def test_no_spawn(client: AsyncClient, factory: Factory) -> None:
     }
 
 
+@pytest.mark.parametrize("config", ["github-quota"], indirect=True)
 @pytest.mark.asyncio
 async def test_rate_limit_override(
-    client: AsyncClient, factory: Factory
+    *, config: Config, client: AsyncClient, factory: Factory
 ) -> None:
-    config = await reconfigure("github-quota", factory)
     assert config.quota
     token_data = await create_session_token(
         factory,
@@ -249,11 +248,11 @@ async def test_rate_limit_override_only(
     assert r.json() == expected_user_info
 
 
+@pytest.mark.parametrize("config", ["github-quota"], indirect=True)
 @pytest.mark.asyncio
 async def test_rate_limit_override_groups(
-    client: AsyncClient, factory: Factory
+    config: Config, client: AsyncClient, factory: Factory
 ) -> None:
-    config = await reconfigure("github-quota", factory)
     assert config.quota
     token_data = await create_session_token(
         factory,

@@ -2,7 +2,7 @@
 
 import asyncio
 from base64 import b64decode, b64encode
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import ANY
 
@@ -14,7 +14,6 @@ from kubernetes_asyncio.client import (
     V1ObjectMeta,
     V1Secret,
 )
-from safir.datetime import current_datetime
 
 from gafaelfawr.constants import KUBERNETES_TIMER_DELAY
 from gafaelfawr.factory import Factory
@@ -78,7 +77,7 @@ async def assert_secret_token_matches_spec(
         groups=None,
     )
     if is_fresh:
-        now = current_datetime()
+        now = datetime.now(tz=UTC).replace(microsecond=0)
         assert now - timedelta(seconds=30) <= data.created <= now
 
 

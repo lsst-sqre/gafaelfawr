@@ -2,11 +2,11 @@
 
 from collections.abc import Sequence
 from contextlib import suppress
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Self, override
 
 from pydantic import BaseModel, Field
-from safir.datetime import current_datetime
 
 from ..constants import ALGORITHM, OIDC_AUTHORIZATION_LIFETIME
 from ..exceptions import InvalidGrantError
@@ -149,7 +149,7 @@ class OIDCAuthorization(BaseModel):
     )
 
     created_at: Timestamp = Field(
-        default_factory=current_datetime,
+        default_factory=lambda: datetime.now(tz=UTC).replace(microsecond=0),
         title="When the authorization was created",
     )
 
@@ -169,7 +169,8 @@ class OIDCAuthorization(BaseModel):
     @property
     def lifetime(self) -> int:
         """The object lifetime in seconds."""
-        age = (current_datetime() - self.created_at).total_seconds()
+        now = datetime.now(tz=UTC).replace(microsecond=0)
+        age = (now - self.created_at).total_seconds()
         remaining = OIDC_AUTHORIZATION_LIFETIME - age
         return int(remaining) if remaining > 0 else 0
 

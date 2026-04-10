@@ -4,7 +4,7 @@ import asyncio
 import os
 from collections.abc import AsyncIterator, Iterable, Iterator, Mapping
 from contextlib import asynccontextmanager, contextmanager
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from unittest.mock import ANY
@@ -22,7 +22,6 @@ from kubernetes_asyncio.client import (
     V1ObjectMeta,
 )
 from kubernetes_asyncio.watch import Watch
-from safir.datetime import current_datetime
 
 from gafaelfawr.constants import NGINX_SNIPPET
 from gafaelfawr.models.kubernetes import KubernetesResourceStatus, StatusReason
@@ -184,7 +183,7 @@ async def assert_custom_resource_status_is(
     transition_str = seen["status"]["create"]["lastTransitionTime"]
     assert transition_str.endswith("Z")
     transition = datetime.fromisoformat(transition_str)
-    now = current_datetime()
+    now = datetime.now(tz=UTC).replace(microsecond=0)
     assert now - timedelta(seconds=30) <= transition <= now
 
 

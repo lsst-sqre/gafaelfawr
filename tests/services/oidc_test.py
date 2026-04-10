@@ -3,14 +3,14 @@
 import json
 import os
 import time
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import ANY
 
 import pytest
 from cryptography.fernet import Fernet
-from safir.datetime import current_datetime
 from safir.testing.slack import MockSlackWebhook
 
+from gafaelfawr.config import Config
 from gafaelfawr.exceptions import (
     InvalidClientError,
     InvalidClientIdError,
@@ -28,19 +28,19 @@ from gafaelfawr.models.oidc import (
 )
 from gafaelfawr.models.token import Token
 
-from ..support.config import build_oidc_client, reconfigure
+from ..support.config import build_oidc_client
 from ..support.tokens import create_session_token
 
 
+@pytest.mark.parametrize("config", ["github-oidc-server"], indirect=True)
 @pytest.mark.asyncio
 async def test_issue_code(
-    factory: Factory, monkeypatch: pytest.MonkeyPatch
+    config: Config, factory: Factory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     redirect_uri = "https://example.com/"
+    assert config.oidc_server
     clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
-    config = await reconfigure(
-        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
-    )
+    config.oidc_server.clients = clients
     oidc_service = factory.create_oidc_service()
     token_data = await create_session_token(factory)
     token = token_data.token
@@ -85,19 +85,17 @@ async def test_issue_code(
     assert now - 2 < serialized_code["created_at"] < now
 
 
+@pytest.mark.parametrize("config", ["github-oidc-server"], indirect=True)
 @pytest.mark.asyncio
 async def test_redeem_code(
-    factory: Factory, monkeypatch: pytest.MonkeyPatch
+    config: Config, factory: Factory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     redirect_uri = "https://example.com/"
-    clients = [
+    assert config.oidc_server
+    config.oidc_server.clients = [
         build_oidc_client("client-1", "client-1-secret", redirect_uri),
         build_oidc_client("client-2", "client-2-secret", redirect_uri),
     ]
-    config = await reconfigure(
-        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
-    )
-    assert config.oidc_server
     oidc_service = factory.create_oidc_service()
     token_data = await create_session_token(factory)
     assert token_data.expires
@@ -149,7 +147,7 @@ async def test_redeem_code(
         "gid": token_data.gid,
         "groups": token_data.groups,
     }
-    now = current_datetime()
+    now = datetime.now(tz=UTC).replace(microsecond=0)
     assert now - timedelta(seconds=2) <= access_data.created <= now
 
     assert not await factory.ephemeral_redis.get(f"oidc:{code.key}")
@@ -162,21 +160,22 @@ async def test_redeem_code(
     assert await token_service.get_data(access_token) is None
 
 
+@pytest.mark.parametrize("config", ["github-oidc-server"], indirect=True)
 @pytest.mark.asyncio
 async def test_redeem_code_errors(
+    *,
+    config: Config,
     factory: Factory,
     monkeypatch: pytest.MonkeyPatch,
     mock_slack: MockSlackWebhook,
 ) -> None:
     expires = int(timedelta(minutes=60).total_seconds())
     redirect_uri = "https://example.com/"
-    clients = [
+    assert config.oidc_server
+    config.oidc_server.clients = [
         build_oidc_client("client-1", "client-1-secret", redirect_uri),
         build_oidc_client("client-2", "client-2-secret", redirect_uri),
     ]
-    config = await reconfigure(
-        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
-    )
     oidc_service = factory.create_oidc_service()
     token_data = await create_session_token(factory)
     token = token_data.token
@@ -339,16 +338,15 @@ async def test_redeem_code_errors(
         )
 
 
+@pytest.mark.parametrize("config", ["github-oidc-server"], indirect=True)
 @pytest.mark.asyncio
 async def test_issue_id_token(
-    factory: Factory, monkeypatch: pytest.MonkeyPatch
+    config: Config, factory: Factory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     redirect_uri = "https://example.com/"
-    clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
-    config = await reconfigure(
-        "github-oidc-server", factory, monkeypatch, oidc_clients=clients
-    )
     assert config.oidc_server
+    clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
+    config.oidc_server.clients = clients
     oidc_service = factory.create_oidc_service()
 
     token_data = await create_session_token(factory)

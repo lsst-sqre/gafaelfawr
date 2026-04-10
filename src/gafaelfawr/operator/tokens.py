@@ -1,16 +1,19 @@
 """Kubernetes operator handlers for GafaelfawrServiceTokens."""
 
+from contextlib import aclosing
 from typing import Any
 
 import kopf
+from kubernetes_asyncio.client import ApiClient
 from pydantic import ValidationError
+from sqlalchemy.ext.asyncio import AsyncEngine
 from structlog.stdlib import BoundLogger
 
+from ..config import Config
 from ..constants import KUBERNETES_TIMER_DELAY, KUBERNETES_TOKEN_INTERVAL
 from ..exceptions import KubernetesObjectError
-from ..factory import Factory
+from ..factory import Factory, ProcessContext
 from ..models.kubernetes import GafaelfawrServiceToken
-from ..services.kubernetes import KubernetesTokenService
 
 __all__ = [
     "create",
@@ -25,26 +28,32 @@ async def _update_token(
     memo: kopf.Memo,
 ) -> dict[str, int | str] | None:
     """Do the work of updating the token, shared by `create` and `periodic`."""
-    factory: Factory = memo.factory
-    token_service: KubernetesTokenService = memo.token_service
-
     # These cases are probably not possible given how the handlers are
     # invoked, but unconfuse mypy.
     if not name or not namespace:
         return None
 
-    # Parse the GafaelafwrServiceToken resource.
-    try:
-        service_token = GafaelfawrServiceToken.model_validate(body)
-    except ValidationError as e:
-        raise KubernetesObjectError(
-            "GafaelfawrServiceToken", name, namespace, e
-        ) from e
+    api_client: ApiClient = memo.api_client
+    config: Config = memo.config
+    context: ProcessContext = memo.context
+    engine: AsyncEngine = memo.engine
 
-    # Update the corresponding Secret and return the new status information.
-    status = await token_service.update(name, namespace, service_token)
-    await factory.session.remove()
-    return status.to_dict() if status else None
+    factory = await Factory.create(config, context, engine)
+    async with aclosing(factory):
+        token_service = factory.create_kubernetes_token_service(api_client)
+
+        # Parse the GafaelafwrServiceToken resource.
+        try:
+            service_token = GafaelfawrServiceToken.model_validate(body)
+        except ValidationError as e:
+            raise KubernetesObjectError(
+                "GafaelfawrServiceToken", name, namespace, e
+            ) from e
+
+        # Update the corresponding Secret and return the new status
+        # information.
+        status = await token_service.update(name, namespace, service_token)
+        return status.to_dict() if status else None
 
 
 @kopf.on.create("gafaelfawr.lsst.io", "v1alpha1", "gafaelfawrservicetokens")

@@ -8,7 +8,7 @@ from safir.database import (
     datetime_to_db,
 )
 from sqlalchemy import delete, or_, select
-from sqlalchemy.ext.asyncio import async_scoped_session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Select, text
 
 from ..models.enums import TokenType
@@ -33,7 +33,7 @@ class AdminHistoryStore:
         The database session proxy.
     """
 
-    def __init__(self, session: async_scoped_session) -> None:
+    def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
     async def add(self, entry: AdminHistoryEntry) -> None:
@@ -58,7 +58,7 @@ class TokenChangeHistoryStore:
         The database session proxy.
     """
 
-    def __init__(self, session: async_scoped_session) -> None:
+    def __init__(self, session: AsyncSession) -> None:
         self._session = session
         self._paginated_runner = CountedPaginatedQueryRunner(
             TokenChangeHistoryRecord, TokenChangeHistoryCursor

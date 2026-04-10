@@ -10,7 +10,6 @@ from kubernetes_asyncio.client import ApiClient, ApiException
 from gafaelfawr.config import Config
 from gafaelfawr.models.kubernetes import KubernetesResourceStatus, StatusReason
 
-from ..support.config import reconfigure
 from ..support.kubernetes import (
     assert_custom_resource_status_is,
     assert_resources_match,
@@ -23,12 +22,12 @@ from ..support.kubernetes import (
 )
 
 
+@pytest.mark.parametrize("config", ["github-subdomain"], indirect=True)
 @requires_kubernetes
 @pytest.mark.asyncio
 async def test_create(
     empty_database: None, api_client: ApiClient, namespace: str
 ) -> None:
-    await reconfigure("github-subdomain")
     ingresses = operator_test_input("ingresses", namespace)
     await create_custom_resources(api_client, ingresses)
 

@@ -1,11 +1,11 @@
 """Representation of a token or admin history event."""
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any, Self, override
 
 from pydantic import BaseModel, Field
 from safir.database import DatetimeIdCursor
-from safir.datetime import current_datetime
 from sqlalchemy.orm import InstrumentedAttribute
 
 from ..schema import TokenChangeHistory as SQLTokenChangeHistory
@@ -52,7 +52,7 @@ class AdminHistoryEntry(BaseModel):
     )
 
     event_time: Timestamp = Field(
-        default_factory=current_datetime,
+        default_factory=lambda: datetime.now(tz=UTC).replace(microsecond=0),
         title="Timestamp",
         description="When the change was made",
         examples=[1614986130],
@@ -184,7 +184,7 @@ class TokenChangeHistoryEntry(BaseModel):
     )
 
     event_time: Timestamp = Field(
-        default_factory=current_datetime,
+        default_factory=lambda: datetime.now(tz=UTC).replace(microsecond=0),
         title="Whent he change was made",
         examples=[1614985631],
     )

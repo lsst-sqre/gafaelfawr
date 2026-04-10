@@ -10,7 +10,7 @@ import asyncio
 import json
 import os
 import subprocess
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -18,7 +18,6 @@ import structlog
 from click.testing import CliRunner
 from cryptography.fernet import Fernet
 from safir.database import drop_database, initialize_database
-from safir.datetime import current_datetime
 from safir.testing.data import Data
 from safir.testing.slack import MockSlackWebhook
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -38,7 +37,7 @@ from gafaelfawr.schema import SchemaBase
 from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
 
-from .support.config import build_oidc_client, configure
+from .support.config import build_oidc_client
 from .support.database import create_old_database
 
 
@@ -50,7 +49,7 @@ def test_audit(
     mock_slack: MockSlackWebhook,
 ) -> None:
     event_loop = asyncio.new_event_loop()
-    now = current_datetime()
+    now = datetime.now(tz=UTC).replace(microsecond=0)
     token_data = TokenData(
         token=Token(),
         username="some-user",
@@ -109,6 +108,7 @@ def test_audit(
     assert len(mock_slack.messages) == 0
 
 
+@pytest.mark.parametrize("config", ["github-oidc-server"], indirect=True)
 def test_delete_all_data(
     engine: AsyncEngine,
     config: Config,
@@ -117,9 +117,8 @@ def test_delete_all_data(
     event_loop = asyncio.new_event_loop()
     redirect_uri = "https://example.com/"
     clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
-    config = configure(
-        "github-oidc-server", monkeypatch=monkeypatch, oidc_clients=clients
-    )
+    assert config.oidc_server
+    config.oidc_server.clients = clients
     logger = structlog.get_logger("gafaelfawr")
 
     async def setup() -> OIDCAuthorizationCode:
@@ -242,7 +241,7 @@ def test_init(engine: AsyncEngine, config: Config) -> None:
 
 def test_maintenance(engine: AsyncEngine, config: Config) -> None:
     event_loop = asyncio.new_event_loop()
-    now = current_datetime()
+    now = datetime.now(tz=UTC).replace(microsecond=0)
     token_data = TokenData(
         token=Token(),
         username="some-user",

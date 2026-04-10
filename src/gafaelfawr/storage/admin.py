@@ -4,7 +4,7 @@ import builtins
 from typing import cast
 
 from sqlalchemy import CursorResult, delete, select
-from sqlalchemy.ext.asyncio import async_scoped_session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.admin import Admin
 from ..schema import Admin as SQLAdmin
@@ -21,7 +21,7 @@ class AdminStore:
         The database session proxy.
     """
 
-    def __init__(self, session: async_scoped_session) -> None:
+    def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
     async def add(self, admin: Admin) -> None:

@@ -1,10 +1,9 @@
 """Create JWTs for testing."""
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import jwt
-from safir.datetime import current_datetime
 
 from gafaelfawr.constants import ALGORITHM
 from gafaelfawr.dependencies.config import config_dependency
@@ -41,7 +40,7 @@ def create_upstream_oidc_jwt(
     config = config_dependency.config()
     assert config.oidc
 
-    now = current_datetime()
+    now = datetime.now(tz=UTC).replace(microsecond=0)
     exp = now + timedelta(days=24)
     payload: dict[str, Any] = {
         "aud": config.oidc.audience,

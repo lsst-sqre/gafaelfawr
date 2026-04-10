@@ -9,7 +9,6 @@ from gafaelfawr.config import Config
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.userinfo import Group, UserInfo
 
-from ..support.config import reconfigure
 from ..support.constants import TEST_HOSTNAME
 from ..support.ldap import MockLDAP
 from ..support.tokens import create_session_token
@@ -29,27 +28,38 @@ async def test_get_index(client: AsyncClient, config: Config) -> None:
 
 @pytest.mark.asyncio
 async def test_health(
-    app: FastAPI, client: AsyncClient, factory: Factory, mock_ldap: MockLDAP
+    *, app: FastAPI, client: AsyncClient, factory: Factory, mock_ldap: MockLDAP
 ) -> None:
     r = await client.get("/health")
     assert r.status_code == 200
     assert r.json() == {"status": "healthy"}
 
     # Create a session token so that Redis will also be tested.
-    token = await create_session_token(factory)
+    await create_session_token(factory)
     r = await client.get("/health")
     assert r.status_code == 200
     assert r.json() == {"status": "healthy"}
 
-    # Configure LDAP so that we'll also do LDAP lookups. The test should still
-    # pass because successful LDAP lookups are optional as long as the LDAP
-    # server is responding.
-    await reconfigure("oidc")
-    token_service = factory.create_token_service()
-    await token_service.delete_token(
-        token.token.key, token, token.username, ip_address="127.0.0.1"
-    )
+    # Finally, force a health check failure by dropping the tokens table,
+    # which should produce database errors.
+    async with factory.session.begin():
+        await factory.session.execute(text("DROP TABLE token CASCADE"))
+    base_url = f"https://{TEST_HOSTNAME}"
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
+    async with AsyncClient(transport=transport, base_url=base_url) as c:
+        r = await c.get("/health")
+    assert r.status_code == 500
+
+
+@pytest.mark.parametrize("config", ["oidc"], indirect=True)
+@pytest.mark.asyncio
+async def test_health_ldap(
+    *, app: FastAPI, client: AsyncClient, factory: Factory, mock_ldap: MockLDAP
+) -> None:
     token = await create_session_token(factory)
+
+    # The test should pass without LDAP entries because successful LDAP
+    # lookups are optional as long as the LDAP server is responding.
     r = await client.get("/health")
     assert r.status_code == 200
     assert r.json() == {"status": "healthy"}
@@ -64,13 +74,3 @@ async def test_health(
     r = await client.get("/health")
     assert r.status_code == 200
     assert r.json() == {"status": "healthy"}
-
-    # Finally, force a health check failure by dropping the tokens table,
-    # which should produce database errors.
-    async with factory.session.begin():
-        await factory.session.execute(text("DROP TABLE token CASCADE"))
-    base_url = f"https://{TEST_HOSTNAME}"
-    transport = ASGITransport(app=app, raise_app_exceptions=False)
-    async with AsyncClient(transport=transport, base_url=base_url) as c:
-        r = await c.get("/health")
-    assert r.status_code == 500

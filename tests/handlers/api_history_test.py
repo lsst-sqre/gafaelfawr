@@ -2,15 +2,15 @@
 
 import json
 from collections.abc import Callable, Sequence
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from ipaddress import ip_address, ip_network
 from typing import Any
 from urllib.parse import urlencode
 
 import pytest
 from httpx import AsyncClient
-from safir.database import PaginationLinkData, datetime_to_db
-from safir.datetime import current_datetime
+from safir.database import datetime_to_db
+from safir.http import PaginationLinkData
 from safir.testing.slack import MockSlackWebhook
 from sqlalchemy import select
 
@@ -35,6 +35,7 @@ async def build_history(factory: Factory) -> list[TokenChangeHistoryRecord]:
     since that's tested in other tests.  The only point of this function is to
     build enough history that we can make interesting paginated queries of it.
     """
+    now = datetime.now(tz=UTC).replace(microsecond=0)
     token_service = factory.create_token_service()
     user_info_one = TokenUserInfo(username="one")
     token_one = await token_service.create_session_token(
@@ -129,7 +130,7 @@ async def build_history(factory: Factory) -> list[TokenChangeHistoryRecord]:
         service_token_data,
         ip_address="2001:db8:034a:ea78:4278:4562:6578:af42",
         token_name="other name",
-        expires=current_datetime() + timedelta(days=30),
+        expires=now + timedelta(days=30),
         scopes={"read:all"},
     )
     assert await token_service.delete_token(
@@ -146,7 +147,7 @@ async def build_history(factory: Factory) -> list[TokenChangeHistoryRecord]:
         stmt = select(TokenChangeHistory).order_by(TokenChangeHistory.id)
         result = await factory.session.execute(stmt)
         entries = [e[0] for e in result.all()]
-        event_time = current_datetime() - timedelta(seconds=len(entries) * 5)
+        event_time = now - timedelta(seconds=len(entries) * 5)
         for i, entry in enumerate(entries):
             entry.event_time = datetime_to_db(event_time)
             if i % 2 != 0:

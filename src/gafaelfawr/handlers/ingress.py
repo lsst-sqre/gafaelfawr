@@ -17,7 +17,7 @@ from urllib.parse import urlparse
 import sentry_sdk
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
 from limits import RateLimitItemPerMinute
-from safir.datetime import current_datetime, format_datetime_for_logging
+from safir.datetime import format_datetime_for_logging
 from safir.models import ErrorModel
 from safir.pydantic import SecondsTimedelta
 from safir.slack.webhook import SlackRouteErrorHandler
@@ -626,7 +626,8 @@ def check_lifetime(
         )
         raise InvalidMinimumLifetimeError(msg)
     if token_data.expires:
-        lifetime = token_data.expires - current_datetime()
+        now = datetime.now(tz=UTC).replace(microsecond=0)
+        lifetime = token_data.expires - now
         if auth_config.minimum_lifetime > lifetime:
             raise generate_unauthorized_challenge(
                 context,
