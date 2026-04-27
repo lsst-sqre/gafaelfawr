@@ -174,7 +174,7 @@ jobs:
   build:
     needs: [test]
     secrets: inherit
-    uses: lsst-sqre/multiplatform-build-and-push/.github/workflows/build.yaml@v3
+    uses: lsst-sqre/multiplatform-build-and-push/.github/workflows/build.yaml@v4
     with:
       images: ghcr.io/${{ github.repository }}
 
