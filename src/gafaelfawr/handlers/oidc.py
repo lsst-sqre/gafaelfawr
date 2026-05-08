@@ -267,7 +267,7 @@ async def post_token(
             ip_address=context.ip_address,
         )
     except OAuthError as e:
-        context.logger.warning("%s", e.message, error=str(e))
+        context.logger.warning(e.message, error=str(e))
         content = {
             "error": e.error,
             "error_description": e.message if e.hide_error else str(e),

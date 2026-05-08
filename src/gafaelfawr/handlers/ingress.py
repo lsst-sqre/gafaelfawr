@@ -406,9 +406,12 @@ async def get_auth(
         response.headers.update(rate_status.to_http_headers())
 
     # Construct the response headers.
-    headers = await build_success_headers(
-        context, auth_config, token_data, user_info
-    )
+    try:
+        headers = await build_success_headers(
+            context, auth_config, token_data, user_info
+        )
+    except InvalidTokenError as e:
+        raise generate_challenge(context, auth_config.auth_type, e) from e
     for key, value in headers:
         response.headers.append(key, value)
 
@@ -866,12 +869,6 @@ async def build_success_headers(
     -------
     headers
         Headers to include in the response.
-
-    Raises
-    ------
-    fastapi.HTTPException
-        Raised if user information could not be retrieved from external
-        systems.
     """
     headers = [("X-Auth-Request-User", token_data.username)]
     if user_info.email:

@@ -4,11 +4,13 @@ from datetime import UTC, datetime, timedelta
 
 import sentry_sdk
 from safir.datetime import format_datetime_for_logging
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from structlog.stdlib import BoundLogger
 
 from ..cache import InternalTokenCache, NotebookTokenCache
 from ..config import Config
+from ..exceptions import InvalidTokenError
 from ..models.enums import TokenChange, TokenType
 from ..models.history import TokenChangeHistoryEntry
 from ..models.token import Token, TokenData
@@ -141,10 +143,9 @@ class TokenCacheService:
             valid = await self._is_token_valid(token, minimum_lifetime, scopes)
             if token and valid:
                 return token
-            async with self._session.begin():
-                token = await self._create_internal_token(
-                    token_data, service, scopes, ip_address, minimum_lifetime
-                )
+            token = await self._create_internal_token(
+                token_data, service, scopes, ip_address, minimum_lifetime
+            )
             self._internal_cache.store(token_data, service, scopes, token)
             return token
 
@@ -187,10 +188,9 @@ class TokenCacheService:
             token = self._notebook_cache.get(token_data)
             if token and await self._is_token_valid(token, minimum_lifetime):
                 return token
-            async with self._session.begin():
-                token = await self._create_notebook_token(
-                    token_data, ip_address, minimum_lifetime
-                )
+            token = await self._create_notebook_token(
+                token_data, ip_address, minimum_lifetime
+            )
             self._notebook_cache.store(token_data, token)
             return token
 
@@ -225,14 +225,21 @@ class TokenCacheService:
         -------
         Token
             Retrieved or newly-created internal token.
+
+        Raises
+        ------
+        InvalidTokenError
+            Raised if the parent token is invalid, probably due to a
+            desynchronization between Redis and the SQL database.
         """
         # See if there's already a matching internal token.
-        key = await self._token_db_store.get_internal_token_key(
-            token_data,
-            service,
-            scopes,
-            self._minimum_expiration(token_data, minimum_lifetime),
-        )
+        async with self._session.begin():
+            key = await self._token_db_store.get_internal_token_key(
+                token_data,
+                service,
+                scopes,
+                self._minimum_expiration(token_data, minimum_lifetime),
+            )
         if key:
             data = await self._token_redis_store.get_data_by_key(key)
             if data:
@@ -272,10 +279,17 @@ class TokenCacheService:
             event_time=created,
         )
 
+        parent = token_data.token.key
         await self._token_redis_store.store_data(data)
         try:
-            await self._token_db_store.add(data, parent=token_data.token.key)
-            await self._token_change_store.add(history_entry)
+            async with self._session.begin():
+                await self._token_db_store.add(data, parent=parent)
+                await self._token_change_store.add(history_entry)
+        except IntegrityError as e:
+            msg = "Integrity error creating internal token"
+            self._logger.exception(msg, error=str(e))
+            await self._token_redis_store.delete(data.token.key)
+            raise InvalidTokenError(msg) from e
         except Exception:
             await self._token_redis_store.delete(data.token.key)
             raise
@@ -316,11 +330,19 @@ class TokenCacheService:
         -------
         Token
             The retrieved or newly-created notebook token.
+
+        Raises
+        ------
+        InvalidTokenError
+            Raised if the parent token is invalid, probably due to a
+            desynchronization between Redis and the SQL database.
         """
         # See if there's already a matching notebook token.
-        key = await self._token_db_store.get_notebook_token_key(
-            token_data, self._minimum_expiration(token_data, minimum_lifetime)
-        )
+        async with self._session.begin():
+            key = await self._token_db_store.get_notebook_token_key(
+                token_data,
+                self._minimum_expiration(token_data, minimum_lifetime),
+            )
         if key:
             data = await self._token_redis_store.get_data_by_key(key)
             if data:
@@ -358,10 +380,17 @@ class TokenCacheService:
             event_time=created,
         )
 
+        parent = token_data.token.key
         await self._token_redis_store.store_data(data)
         try:
-            await self._token_db_store.add(data, parent=token_data.token.key)
-            await self._token_change_store.add(history_entry)
+            async with self._session.begin():
+                await self._token_db_store.add(data, parent=parent)
+                await self._token_change_store.add(history_entry)
+        except IntegrityError as e:
+            msg = "Integrity error creating notebook token"
+            self._logger.exception(msg, error=str(e))
+            await self._token_redis_store.delete(data.token.key)
+            raise InvalidTokenError(msg) from e
         except Exception:
             await self._token_redis_store.delete(data.token.key)
             raise
