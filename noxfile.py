@@ -182,7 +182,7 @@ def dump_schema(session: nox.Session) -> None:
 @session(uv_only_groups=["lint"], uv_no_install_project=True)
 def lint(session: nox.Session) -> None:
     """Run pre-commit hooks."""
-    session.run("pre-commit", "run", "--all-files", *session.posargs)
+    session.run("prek", "run", "--all-files", *session.posargs)
 
 
 @dataclass
