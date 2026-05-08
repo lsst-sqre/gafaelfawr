@@ -9,7 +9,7 @@
 .. _nox: https://nox.thea.codes/en/stable/index.html
 .. _Nublado: https://nublado.lsst.io/
 .. _Phalanx: https://phalanx.lsst.io/
-.. _pre-commit: https://pre-commit.com
+.. _prek: https://prek.j178.dev/
 .. _pytest: https://docs.pytest.org/en/latest/
 .. _Repertoire: https://repertoire.lsst.io/
 .. _RFC 2307bis: https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02

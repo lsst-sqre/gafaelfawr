@@ -72,11 +72,16 @@ blacken-docs
 ruff
     Lint Python code and attempt to automatically fix some problems.
 
+uv-lock
+    Check that the uv_ lock files are up to date.
+
 When these hooks fail, your Git commit will be aborted.
 To proceed, stage the new modifications and proceed with your Git commit.
 
 If the ``uv-lock`` pre-commit hook fails, that indicates that the :file:`uv.lock` file is out of sync with the declared dependencies.
-To fix this, run :command:`make update-deps` as described in :ref:`dev-updating-dependencies`.
+The pre-commit hook will attempt to fix it, but the best solution is to run :command:`make update-deps` as described in :ref:`dev-updating-dependencies`.
+
+Despite the name, Nublado uses prek_ to run pre-commit hooks rather than the package named pre-commit.
 
 .. _dev-run-tests:
 
@@ -272,7 +277,7 @@ docs
     Dependencies required to build the documentation.
 
 lint
-    Dependencies required to run pre-commit_ and to lint the code base.
+    Dependencies required to run prek_ and to lint the code base.
 
 nox
     Dependencies required to run nox_.

@@ -8,7 +8,7 @@ help:
 .PHONY: init
 init:
 	uv sync --frozen --all-groups
-	uv run pre-commit install
+	uv run prek install
 
 .PHONY: update
 update: update-deps init
@@ -17,5 +17,5 @@ update: update-deps init
 update-deps:
 	uv lock --upgrade
 	uv lock --upgrade --directory client
-	uv run --only-group=lint pre-commit autoupdate
+	uv run --only-group=lint prek autoupdate
 	./scripts/update-uv-version.sh

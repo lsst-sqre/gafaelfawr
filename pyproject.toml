@@ -85,9 +85,9 @@ docs = [
     "sphinx-diagrams>=0.4",
 ]
 lint = [
-    "pre-commit",
-    "pre-commit-uv",
+    "prek",
     "ruff>=0.15",
+    "uv",
 ]
 nox = [
     "nox",
