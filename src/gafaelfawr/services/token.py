@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from safir.database import CountedPaginatedList
 from safir.datetime import format_datetime_for_logging
 from safir.redis import DeserializeError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from structlog.stdlib import BoundLogger
 
@@ -26,6 +27,7 @@ from ..exceptions import (
     InvalidExpiresError,
     InvalidIPAddressError,
     InvalidScopesError,
+    InvalidTokenError,
     PermissionDeniedError,
 )
 from ..models.enums import TokenChange, TokenType
@@ -266,6 +268,9 @@ class TokenService:
         ------
         InvalidGrantError
             Raised if the underlying authentication token has expired.
+        InvalidTokenError
+            Raised if the parent token is invalid, probably due to a
+            desynchronization between Redis and the SQL database.
         """
         token = Token()
         created = datetime.now(tz=UTC).replace(microsecond=0)
@@ -302,6 +307,11 @@ class TokenService:
             async with self._session.begin():
                 await self._token_db_store.add(data, parent=parent)
                 await self._token_change_store.add(history_entry)
+        except IntegrityError as e:
+            msg = "Integrity error creating OIDC token"
+            self._logger.exception(msg, error=str(e))
+            await self._token_redis_store.delete(data.token.key)
+            raise InvalidTokenError(msg) from e
         except Exception:
             await self._token_redis_store.delete(data.token.key)
             raise

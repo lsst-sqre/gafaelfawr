@@ -25,6 +25,7 @@ from gafaelfawr.models.oidc import (
     OIDCTokenReply,
 )
 from gafaelfawr.models.token import Token
+from gafaelfawr.storage.token import TokenDatabaseStore
 from gafaelfawr.util import number_to_base64
 
 from ..support.config import build_oidc_client
@@ -1100,3 +1101,52 @@ async def test_userinfo_internal(
         "preferred_username": token_data.username,
         "sub": token_data.username,
     }
+
+
+@pytest.mark.parametrize("config", ["github-oidc-server"], indirect=True)
+@pytest.mark.asyncio
+async def test_database_desync(
+    config: Config, client: AsyncClient, factory: Factory
+) -> None:
+    """Test error handling when a token is missing from the database.
+
+    If a token exists only in Redis but not in the database, internal tokens
+    cannot be generated for it. Test error handling in that case.
+    """
+    redirect_uri = f"https://{TEST_HOSTNAME}/foo"
+    assert config.oidc_server
+    config.oidc_server.clients = [
+        build_oidc_client("some-id", "some-secret", redirect_uri)
+    ]
+    token_data = await create_session_token(factory, scopes={"read:all"})
+    await set_session_cookie(client, token_data.token)
+    token_store = TokenDatabaseStore(factory.session)
+    async with factory.session.begin():
+        assert await token_store.delete(token_data.token.key)
+
+    r = await client.get(
+        "/auth/openid/login",
+        params={
+            "response_type": "code",
+            "scope": "openid",
+            "client_id": "some-id",
+            "state": "random-state",
+            "redirect_uri": redirect_uri,
+        },
+    )
+    assert r.status_code == 307
+    url = urlparse(r.headers["Location"])
+    query = parse_qs(url.query)
+    code = query["code"][0]
+
+    r = await client.post(
+        "/auth/openid/token",
+        data={
+            "grant_type": "authorization_code",
+            "client_id": "some-id",
+            "client_secret": "some-secret",
+            "code": code,
+            "redirect_uri": redirect_uri,
+        },
+    )
+    assert r.status_code == 400
