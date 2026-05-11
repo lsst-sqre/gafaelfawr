@@ -23,6 +23,6 @@
 .. _Squareone: https://squareone.lsst.io/
 .. _structlog: https://www.structlog.org/en/stable/
 .. _uv: https://docs.astral.sh/uv/
-.. _uvicorn: https://www.uvicorn.org/
+.. _uvicorn: https://uvicorn.dev/
 .. _Vault: https://developer.hashicorp.com/vault
 .. _Vault Secrets Operator: https://github.com/ricoberger/vault-secrets-operator
