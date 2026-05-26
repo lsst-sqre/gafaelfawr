@@ -10,6 +10,14 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-15.2.5'></a>
+## 15.2.5 (2026-05-26)
+
+### Bug fixes
+
+- Rather than raising uncaught exceptions when a token does not exist in the SQL database when creating a child token, log an exception and return a 401 error (for ingresses) or a 400 error (for OpenID Connect authentication). This desynchronization will be caught by the nightly audit `CronJob` and doesn't need to spam alerts.
+- Update Starlette to fix CVE-2026-48710 as a precaution. The effect on Gafaelfawr is unclear.
+
 <a id='changelog-15.2.4'></a>
 ## 15.2.4 (2026-04-10)
 

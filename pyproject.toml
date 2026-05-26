@@ -42,7 +42,7 @@ dependencies = [
     "safir[db,kafka,kubernetes]>=14.3",
     "sentry-sdk[fastapi]",
     "sqlalchemy>=2",
-    "starlette",
+    "starlette>=1.0.1",
     "structlog",
     "uvicorn[standard]",
 ]
