@@ -16,7 +16,7 @@ Gafaelfawr
 Gafaelfawr provides the authentication and authorization infrastructure for Phalanx_ environments, including the Vera C. Rubin Observatory Science Platform.
 
 Its primary purpose is to serve as an NGINX ``auth_request`` backend.
-It also provides basic API rate limiting and user quota information, an API to create and manipulate tokens, a minimal OpenID Connect server to support protected services that only understand OpenID Connect, and an implementation of the `IVAO Group Membership Service protocol (version 1.0) <https://www.ivoa.net/documents/GMS/20220222/REC-GMS-1.0.html>`__.
+It also provides basic API rate limiting and user quota information, an API to create and manipulate tokens, a minimal OpenID Connect server to support protected services that only understand OpenID Connect, and an implementation of the `IVOA Group Membership Service protocol (version 1.0) <https://www.ivoa.net/documents/GMS/20220222/REC-GMS-1.0.html>`__.
 
 Currently, the Kubernetes `NGINX ingress controller <https://github.com/kubernetes/ingress-nginx>`__.
 A future version will use a Kubernetes gateway controller (probably Envoy) instead.
