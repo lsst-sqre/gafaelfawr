@@ -2,6 +2,8 @@
 
 .. py:currentmodule:: rubin.gafaelfawr
 
+.. _python-client:
+
 ########################
 Gafaelfawr Python client
 ########################

@@ -11,7 +11,7 @@ Read those documents for a more complete picture of how Gafaelfawr fits into a l
 Gafaelfawr provides authentication and access control via NGINX's `auth_request` directive, and handles integration with an external identity provider (either with GitHub or OpenID Connect).
 Authentication sessions and user identity information are stored in Redis.
 Token information is stored in a SQL database.
-It also provides an API to create and manipulate tokens, and a minimal OpenID Connect server to support protected services that only understand OpenID Connect.
+It also provides basic API rate limiting and user quota information, an API to create and manipulate tokens, a minimal OpenID Connect server to support protected services that only understand OpenID Connect, and an implementation of the IVAO Group Membership Service protocol (version 1.0).
 
 For full documentation, see [gafaelfawr.lsst.io](https://gafaelfawr.lsst.io/).
 
