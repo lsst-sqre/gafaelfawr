@@ -26,7 +26,7 @@ async def test_gms(client: AsyncClient, factory: Factory) -> None:
         "/auth/gms", headers={"Authorization": f"Bearer {session_token}"}
     )
     assert r.status_code == 200
-    assert r.text == "foo\nfoobar\n"
+    assert r.text == "foo\r\nfoobar\r\n"
 
     r = await client.get(
         "/auth/gms",
@@ -34,7 +34,7 @@ async def test_gms(client: AsyncClient, factory: Factory) -> None:
         headers={"Authorization": f"Bearer {session_token}"},
     )
     assert r.status_code == 200
-    assert r.text == "foo\nfoobar\n"
+    assert r.text == "foo\r\nfoobar\r\n"
 
     # Remaining tests are done using cookie authentication.
     await set_session_cookie(client, session_token)
@@ -43,7 +43,7 @@ async def test_gms(client: AsyncClient, factory: Factory) -> None:
         "/auth/gms", params=(("group", "foo"), ("group", "bar"))
     )
     assert r.status_code == 200
-    assert r.text == "foo\n"
+    assert r.text == "foo\r\n"
 
     r = await client.get("/auth/gms", params={"group": "bar"})
     assert r.status_code == 200

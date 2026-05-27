@@ -4,15 +4,7 @@ from datetime import UTC, datetime, timedelta
 from email.utils import format_datetime
 from typing import Annotated
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-    Query,
-    Request,
-    Response,
-    status,
-)
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.responses import PlainTextResponse
 from safir.sentry import report_exception
 from safir.slack.webhook import SlackRouteErrorHandler
@@ -42,7 +34,6 @@ __all__ = ["router"]
 async def get_gms(
     group: Annotated[list[str] | None, Query()] = None,
     *,
-    request: Request,
     response: Response,
     auth_data: Annotated[TokenData, Depends(AuthenticateRead())],
     context: Annotated[RequestContext, Depends(context_dependency)],
@@ -79,6 +70,6 @@ async def get_gms(
     seen = {g.name for g in user_info.groups}
     matching = seen & wanted if wanted else seen
     if matching:
-        return "\n".join(sorted(matching)) + "\n"
+        return "\r\n".join(sorted(matching)) + "\r\n"
     else:
         return ""
