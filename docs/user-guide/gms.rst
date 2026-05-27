@@ -6,7 +6,7 @@
 IVOA GMS queries
 ################
 
-Gafaelfawr also provides an implementation of the `IVAO Group Membership Service protocol (version 1.0) <https://www.ivoa.net/documents/GMS/20220222/REC-GMS-1.0.html>`__.
+Gafaelfawr also provides an implementation of the `IVOA Group Membership Service protocol (version 1.0) <https://www.ivoa.net/documents/GMS/20220222/REC-GMS-1.0.html>`__.
 This is a simple text-based API that allows a service with a delegated credential (see :ref:`delegated-tokens`) to get the group membership of an authenticated user.
 
 To use this API, send a GET request to ``/auth/gms``.
