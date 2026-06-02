@@ -10,6 +10,13 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-15.3.0'></a>
+## 15.3.0 (2026-06-02)
+
+### New features
+
+- Add an implementation of the IVOA GMS 1.0 protocol on the `/auth/gms` route. This is a simple protocol that allows IVOA services to determine the group membership of the current authenticated user.
+
 <a id='changelog-15.2.5'></a>
 ## 15.2.5 (2026-05-26)
 
