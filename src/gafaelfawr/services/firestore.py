@@ -113,3 +113,34 @@ class FirestoreService:
             uid = await self._storage.get_uid(username, bot=bot)
             self._uid_cache.store(username, uid)
             return uid
+
+    async def get_uid_if_assigned(
+        self, username: str, *, uncached: bool = False
+    ) -> int | None:
+        """Get the UID for a given user if one is assigned.
+
+        Parameters
+        ----------
+        username
+            Username of the user.
+        uncached
+            Bypass the cache.
+
+        Returns
+        -------
+        int or None
+            UID of the user if assigned or `None`.
+        """
+        if uncached:
+            return await self._storage.get_uid_if_assigned(username)
+        uid = self._uid_cache.get(username)
+        if uid:
+            return uid
+        async with self._uid_cache.lock():
+            uid = self._uid_cache.get(username)
+            if uid:
+                return uid
+            uid = await self._storage.get_uid_if_assigned(username)
+            if uid is not None:
+                self._uid_cache.store(username, uid)
+            return uid

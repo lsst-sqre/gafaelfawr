@@ -90,8 +90,6 @@ class UserInfoService:
         information from LDAP and (optionally) Firestore, and therefore is not
         useful or supported when LDAP is not configured.
 
-        Authorization must be handled by the caller.
-
         Parameters
         ----------
         auth_data
@@ -126,7 +124,9 @@ class UserInfoService:
         # just be a typo from an admin trying to get user information.
         ldap_data = await self._ldap.get_data(username)
 
-        # Get the UID and GID from firestore if it is configured.
+        # Get the UID and GID from firestore if it is configured. The value of
+        # ldap_data may be a pointer to a cached object, so take special care
+        # not to modify it.
         uid = None
         gid = None
         if self._firestore and not ldap_data.is_empty():
@@ -226,6 +226,87 @@ class UserInfoService:
             groups=sorted(groups, key=lambda g: g.name),
             quota=await self._calculate_quota(groups),
         )
+
+    async def get_users_from_ldap(
+        self, auth_data: TokenData
+    ) -> list[UserInfo]:
+        """List all users found in LDAP.
+
+        This will not include any override information from tokens, only the
+        information from LDAP and (optionally) Firestore, and therefore is not
+        useful or supported when LDAP is not configured. UIDs and primary GIDs
+        will only be present if they have already been allocated by Firestore,
+        but all groups will have GIDs allocated.
+
+        Authorization must be handled by the caller.
+
+        Parameters
+        ----------
+        auth_data
+            Authenticated user making the request.
+
+        Returns
+        -------
+        list of UserInfo
+            User information for all users found in LDAP.
+
+        Raises
+        ------
+        FirestoreError
+            Raised if UID/GID allocation using Firestore failed.
+        LDAPError
+            Raised if the attempt to get user information from LDAP failed.
+        NotConfiguredError
+            Raised if LDAP is not configured.
+        PermissionDeniedError
+            Raised if the authenticated user does not have access to retrieve
+            user information for this user.
+        """
+        if not self._ldap:
+            msg = "No external user information source configured"
+            raise NotConfiguredError(msg)
+        self._check_authorization(auth_data)
+
+        # Retrieve all users found in LDAP.
+        users = await self._ldap.get_all_users()
+
+        # Flesh out the data for each user.
+        results = []
+        for username, data in users.items():
+            user = UserInfo(
+                username=username,
+                name=data.name,
+                email=data.email,
+                uid=data.uid,
+                gid=data.gid,
+            )
+
+            # Get UID and GID from Firestore if configured, but without
+            # assigning a new one.
+            if self._firestore:
+                user.uid = await self._firestore.get_uid_if_assigned(username)
+                if self._config.add_user_group:
+                    user.gid = user.uid
+
+            # Get groups from LDAP. This is one LDAP query per user, which is
+            # rather inefficient, but this method is infrequently called and
+            # only by admins, so don't bother optimizing for now.
+            groups = await self._get_groups_from_ldap(
+                username, user.uid, user.gid, uncached=True
+            )
+            user.groups = sorted(groups, key=lambda g: g.name)
+
+            # If the primary GID isn't set and we're adding a user private
+            # group, set the primary GID to the same as the UID.
+            if not user.gid and self._config.add_user_group:
+                user.gid = user.uid
+
+            # Add this user to the results.
+            results.append(user)
+
+        # Return the results. Do not include quota information. The client
+        # must retrieve the full user record if it wants that.
+        return sorted(results, key=lambda r: r.username)
 
     async def get_scopes(self, user_info: TokenUserInfo) -> set[str] | None:
         """Get scopes from user information.
@@ -365,7 +446,7 @@ class UserInfoService:
             )
 
     def _check_authorization(
-        self, auth_data: TokenData, username: str
+        self, auth_data: TokenData, username: str | None = None
     ) -> None:
         """Check authorization for performing an action.
 
@@ -374,7 +455,8 @@ class UserInfoService:
         auth_data
             Aauthenticated user performing the action.
         username
-            User whose user information will be returned.
+            User whose user information will be returned, or `None` if all
+            users are being retrieved.
 
         Raises
         ------
@@ -383,7 +465,7 @@ class UserInfoService:
             manipulate tokens for that user.
         """
         is_admin = "admin:userinfo" in auth_data.scopes
-        if username != auth_data.username and not is_admin:
+        if (username != auth_data.username or not username) and not is_admin:
             msg = f"Cannot get information for user {username}"
             self._logger.warning("Permission denied", error=msg)
             raise PermissionDeniedError(msg)

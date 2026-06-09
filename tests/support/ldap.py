@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 
 import bonsai
 from bonsai.utils import escape_filter_exp
+from safir.testing.data import Data
 
 from gafaelfawr import factory
 from gafaelfawr.constants import LDAP_TIMEOUT
@@ -96,7 +97,7 @@ class MockLDAP(Mock):
         """
         config = config_dependency.config()
         assert config.ldap
-        entry = {}
+        entry = {config.ldap.user_search_attr: [userinfo.username]}
         if userinfo.name:
             entry[config.ldap.name_attr or "displayName"] = [userinfo.name]
         if userinfo.email:
@@ -111,6 +112,23 @@ class MockLDAP(Mock):
             userinfo.username,
             [entry],
         )
+
+    def load_test_data(self, data: Data, path: str) -> None:
+        """Load test data for users and groups.
+
+        Parameters
+        ----------
+        data
+            Test data management object.
+        path
+            Path to the test data file containing user and group information.
+        """
+        ldap_data = data.read_json(path)
+        for user in ldap_data.get("users"):
+            self.add_test_user(UserInfo.model_validate(user))
+        for username, group_data in ldap_data.get("membership").items():
+            groups = [Group.model_validate(g) for g in group_data]
+            self.add_test_group_membership(username, groups)
 
     async def close(self) -> None:
         pass
@@ -135,10 +153,22 @@ class MockLDAP(Mock):
         )
         assert match, f"{filter_exp} does not match regex of searches"
         key = (match.group(1), match.group(2))
+        results = []
+
+        # Handle wildcard searches.
+        if key[1] == "*":
+            for entry_key, entries in self._entries[base].items():
+                if entry_key[0] != key[0]:
+                    continue
+                for entry in entries:
+                    attributes = {a: entry[a] for a in attrlist if a in entry}
+                    results.append(attributes)
+            return results
+
+        # Otherwise, we're searching for a specific entry.
         if key not in self._entries[base]:
             return []
         entries = self._entries[base][key]
-        results = []
         for entry in entries:
             attributes = {a: entry[a] for a in attrlist if a in entry}
             results.append(attributes)

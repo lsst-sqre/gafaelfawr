@@ -1,0 +1,51 @@
+[
+  {
+    "email": "ldap-user@example.com",
+    "gid": 1045,
+    "groups": [
+      {
+        "id": 1222,
+        "name": "foo"
+      },
+      {
+        "id": 1223,
+        "name": "group-1"
+      },
+      {
+        "id": 1224,
+        "name": "group-2"
+      }
+    ],
+    "name": "LDAP User",
+    "uid": 1999,
+    "username": "99digits99"
+  },
+  {
+    "gid": 1045,
+    "groups": [
+      {
+        "id": 1223,
+        "name": "group-1"
+      }
+    ],
+    "uid": 2002,
+    "username": "ldap-user"
+  },
+  {
+    "gid": 1045,
+    "groups": [
+      {
+        "id": 1222,
+        "name": "foo"
+      }
+    ],
+    "name": "\u540d\u5b57",
+    "uid": 2000,
+    "username": "some-user"
+  },
+  {
+    "gid": 1045,
+    "uid": 2001,
+    "username": "unknown-user"
+  }
+]

@@ -38,6 +38,105 @@ class LDAPStorage:
         self._pool = pool
         self._logger = logger.bind(ldap_url=str(self._config.url))
 
+    async def get_all_users(self) -> dict[str, LDAPUserData]:
+        """List all users found in LDAP.
+
+        This operation is not cached.
+
+        Returns
+        -------
+        dict of LDAPUserData
+            Mapping from usernames to `~gafaelfawr.models.ldap.LDAPUserData`.
+
+        Raises
+        ------
+        LDAPError
+            Raised if the lookup of ``user_search_attr`` at ``user_base_dn``
+            in the LDAP server was not valid (connection to the LDAP server
+            failed, attribute not found in LDAP, UID result value not an
+            integer).
+        """
+        if not self._config.user_base_dn:
+            return {}
+
+        # Perform the LDAP search.
+        search = f"({self._config.user_search_attr}=*)"
+        logger = self._logger.bind(ldap_search=search)
+        results = await self._query(
+            base=self._config.user_base_dn,
+            scope=bonsai.LDAPSearchScope.ONE,
+            filter_exp=search,
+            attrlist=[
+                self._config.user_search_attr,
+                *self._build_user_search_attrs(),
+            ],
+        )
+        logger.debug("LDAP entries for user data", ldap_results=results)
+
+        # Transform the resulting data.
+        users = {}
+        for result in results:
+            try:
+                if self._config.user_search_attr in result:
+                    username = result[self._config.user_search_attr][0]
+                else:
+                    logger.debug(
+                        "Ignoring LDAP entry with missing attribute",
+                        user_search_attr=self._config.user_search_attr,
+                    )
+                    continue
+                user = self._build_user_from_result(username, result, logger)
+                users[username] = user
+            except LDAPError as e:
+                logger.debug("Ignoring invalid LDAP user entry", error=str(e))
+
+        # Return the results.
+        return users
+
+    @sentry_sdk.trace
+    async def get_data(self, username: str) -> LDAPUserData:
+        """Get the data for an LDAP user.
+
+        Parameters
+        ----------
+        username
+            Username of the user.
+
+        Returns
+        -------
+        LDAPUserData
+            The data for an LDAP user.  Which fields are filled in will be
+            determined by the configuration.
+
+        Raises
+        ------
+        LDAPError
+            Raised if the lookup of ``user_search_attr`` at ``user_base_dn``
+            in the LDAP server was not valid (connection to the LDAP server
+            failed, attribute not found in LDAP, UID result value not an
+            integer).
+        """
+        if not self._config.user_base_dn:
+            return LDAPUserData(name=None, email=None, uid=None, gid=None)
+
+        search = f"({self._config.user_search_attr}={username})"
+        logger = self._logger.bind(ldap_search=search, user=username)
+        results = await self._query(
+            base=self._config.user_base_dn,
+            scope=bonsai.LDAPSearchScope.ONE,
+            filter_exp=search,
+            attrlist=self._build_user_search_attrs(),
+            username=username,
+        )
+        logger.debug("LDAP entries for user data", ldap_results=results)
+
+        # If results are empty, return no data.
+        if not results:
+            return LDAPUserData(name=None, email=None, uid=None, gid=None)
+
+        # Extract data from the result.
+        return self._build_user_from_result(username, results[0], logger)
+
     @sentry_sdk.trace
     async def get_group_names(
         self, username: str, primary_gid: int | None
@@ -121,68 +220,6 @@ class LDAPStorage:
 
         return groups
 
-    @sentry_sdk.trace
-    async def get_data(self, username: str) -> LDAPUserData:
-        """Get the data for an LDAP user.
-
-        Parameters
-        ----------
-        username
-            Username of the user.
-
-        Returns
-        -------
-        LDAPUserData
-            The data for an LDAP user.  Which fields are filled in will be
-            determined by the configuration.
-
-        Raises
-        ------
-        LDAPError
-            Raised if the lookup of ``user_search_attr`` at ``user_base_dn``
-            in the LDAP server was not valid (connection to the LDAP server
-            failed, attribute not found in LDAP, UID result value not an
-            integer).
-        """
-        if not self._config.user_base_dn:
-            return LDAPUserData(name=None, email=None, uid=None, gid=None)
-
-        search = f"({self._config.user_search_attr}={username})"
-        logger = self._logger.bind(ldap_search=search, user=username)
-        results = await self._query(
-            self._config.user_base_dn,
-            bonsai.LDAPSearchScope.ONE,
-            search,
-            self._build_user_search_attrs(),
-            username,
-        )
-        logger.debug("LDAP entries for user data", ldap_results=results)
-
-        # If results are empty, return no data.
-        if not results:
-            return LDAPUserData(name=None, email=None, uid=None, gid=None)
-        result = results[0]
-
-        # Extract data from the result.
-        try:
-            name = None
-            email = None
-            uid = None
-            gid = None
-            if self._config.name_attr and self._config.name_attr in result:
-                name = result[self._config.name_attr][0]
-            if self._config.email_attr and self._config.email_attr in result:
-                email = result[self._config.email_attr][0]
-            if self._config.uid_attr and self._config.uid_attr in result:
-                uid = int(result[self._config.uid_attr][0])
-            if self._config.gid_attr and self._config.gid_attr in result:
-                gid = int(result[self._config.gid_attr][0])
-            return LDAPUserData(name=name, email=email, uid=uid, gid=gid)
-        except Exception as e:
-            msg = "LDAP user entry invalid"
-            logger.exception(msg, error=str(e))
-            raise LDAPError(msg, username) from e
-
     def _build_group_member_search(self, username: str) -> str:
         """Build the LDAP search to find group memberships for a user.
 
@@ -205,6 +242,50 @@ class LDAPStorage:
         else:
             target = username
         return f"(&(objectClass={group_class})({member_attr}={target}))"
+
+    def _build_user_from_result(
+        self, username: str, result: dict[str, list[str]], logger: BoundLogger
+    ) -> LDAPUserData:
+        """Construct a user record from a result.
+
+        Parameters
+        ----------
+        username
+            Username of record, for error reporting.
+        result
+            Raw result from LDAP.
+        logger
+            Logger to use.
+
+        Returns
+        -------
+        LDAPUserData
+            Corresponding user record.
+
+        Raises
+        ------
+        LDAPError
+            Raised if the result entry could not be parsed into a valid
+            result.
+        """
+        try:
+            name = None
+            email = None
+            uid = None
+            gid = None
+            if self._config.name_attr and self._config.name_attr in result:
+                name = result[self._config.name_attr][0]
+            if self._config.email_attr and self._config.email_attr in result:
+                email = result[self._config.email_attr][0]
+            if self._config.uid_attr and self._config.uid_attr in result:
+                uid = int(result[self._config.uid_attr][0])
+            if self._config.gid_attr and self._config.gid_attr in result:
+                gid = int(result[self._config.gid_attr][0])
+            return LDAPUserData(name=name, email=email, uid=uid, gid=gid)
+        except Exception as e:
+            msg = "LDAP user entry invalid"
+            logger.exception(msg, error=f"{type(e).__name__}: {e!s}")
+            raise LDAPError(msg, username) from e
 
     def _build_user_search_attrs(self) -> list[str]:
         """Construct the list of user attributes to search for."""
@@ -243,11 +324,11 @@ class LDAPStorage:
         search = f"(&(objectClass={group_class})(gidNumber={gid}))"
         logger = self._logger.bind(ldap_search=search, user=username)
         results = await self._query(
-            self._config.group_base_dn,
-            bonsai.LDAPSearchScope.SUB,
-            search,
-            ["cn"],
-            username,
+            base=self._config.group_base_dn,
+            scope=bonsai.LDAPSearchScope.SUB,
+            filter_exp=search,
+            attrlist=["cn"],
+            username=username,
         )
         logger.debug(
             "Results for primary group", gid=gid, ldap_results=results
@@ -288,11 +369,11 @@ class LDAPStorage:
         search = self._build_group_member_search(username)
         logger = self._logger.bind(ldap_search=search, user=username)
         results = await self._query(
-            self._config.group_base_dn,
-            bonsai.LDAPSearchScope.SUB,
-            search,
-            attrs,
-            username,
+            base=self._config.group_base_dn,
+            scope=bonsai.LDAPSearchScope.SUB,
+            filter_exp=search,
+            attrlist=attrs,
+            username=username,
         )
         logger.debug("LDAP groups found", ldap_results=results)
 
@@ -315,11 +396,12 @@ class LDAPStorage:
 
     async def _query(
         self,
+        *,
         base: str,
         scope: LDAPSearchScope,
         filter_exp: str,
         attrlist: list[str],
-        username: str,
+        username: str | None = None,
     ) -> list[dict[str, list[str]]]:
         """Perform an LDAP query using the connection pool.
 
@@ -334,7 +416,8 @@ class LDAPStorage:
         attrlist
             List of attributes to retrieve.
         username
-            User for which the query is being performed, for error reporting.
+            User for which the query is being performed, if any, for error
+            reporting.
 
         Returns
         -------
@@ -363,11 +446,10 @@ class LDAPStorage:
         clear whether that's true if there are other active coroutines.
         """
         logger = self._logger.bind(
-            ldap_attrs=attrlist,
-            ldap_base=base,
-            ldap_search=filter_exp,
-            user=username,
+            ldap_attrs=attrlist, ldap_base=base, ldap_search=filter_exp
         )
+        if username:
+            logger = logger.bind(user=username)
 
         try:
             for _ in range(2):

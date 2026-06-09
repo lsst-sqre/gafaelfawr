@@ -1,0 +1,43 @@
+[
+  {
+    "email": "ldap-user@example.com",
+    "groups": [
+      {
+        "id": 2000000,
+        "name": "foo"
+      },
+      {
+        "id": 2000001,
+        "name": "group-1"
+      },
+      {
+        "id": 2000002,
+        "name": "group-2"
+      }
+    ],
+    "name": "LDAP User",
+    "username": "99digits99"
+  },
+  {
+    "groups": [
+      {
+        "id": 2000001,
+        "name": "group-1"
+      }
+    ],
+    "username": "ldap-user"
+  },
+  {
+    "groups": [
+      {
+        "id": 2000000,
+        "name": "foo"
+      }
+    ],
+    "name": "\u540d\u5b57",
+    "username": "some-user"
+  },
+  {
+    "username": "unknown-user"
+  }
+]
