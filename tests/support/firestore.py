@@ -29,8 +29,11 @@ class MockDocumentRef(Mock):
         super().__init__(spec=firestore.AsyncDocumentReference)
         self.document: dict[str, Any] | None = None
 
-    async def get(self, *, transaction: MockTransaction) -> MockDocument:
-        assert isinstance(transaction, MockTransaction)
+    async def get(
+        self, *, transaction: MockTransaction | None = None
+    ) -> MockDocument:
+        if transaction:
+            assert isinstance(transaction, MockTransaction)
         return MockDocument(self.document)
 
     def get_for_testing(self) -> MockDocument:

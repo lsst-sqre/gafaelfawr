@@ -1,0 +1,55 @@
+{
+  "users": [
+    {
+      "username": "99digits99",
+      "name": "LDAP User",
+      "email": "ldap-user@example.com",
+      "uid": 1999,
+      "gid": 1045
+    },
+    {
+      "username": "ldap-user",
+      "uid": 2002,
+      "gid": 1045
+    },
+    {
+      "username": "some-user",
+      "name": "名字",
+      "uid": 2000,
+      "gid": 1045
+    },
+    {
+      "username": "unknown-user",
+      "uid": 2001,
+      "gid": 1045
+    }
+  ],
+  "membership": {
+    "99digits99": [
+      {
+        "name": "foo",
+        "id": 1222
+      },
+      {
+        "name": "group-1",
+        "id": 1223
+      },
+      {
+        "name": "group-2",
+        "id": 1224
+      }
+    ],
+    "ldap-user": [
+      {
+        "name": "group-1",
+        "id": 1223
+      }
+    ],
+    "some-user": [
+      {
+        "name": "foo",
+        "id": 1222
+      }
+    ]
+  }
+}

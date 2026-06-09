@@ -166,6 +166,30 @@ class FirestoreStorage:
             raise FirestoreError(f"{type(e).__name__}: {e!s}") from e
 
     @_convert_exception
+    async def get_uid_if_assigned(self, username: str) -> int | None:
+        """Get the UID for a user if assigned.
+
+        Parameters
+        ----------
+        username
+            Name of the user.
+
+        Returns
+        -------
+        int or None
+            UID of the user or `None` if none was assigned.
+
+        Raises
+        ------
+        FirestoreAPIError
+            Raised if some error occurs talking to Firestore.
+        FirestoreNotInitializedError
+            Raised if Firestore has not been initialized.
+        """
+        user = await self._client.collection("users").document(username).get()
+        return user.get("uid") if user.exists else None
+
+    @_convert_exception
     async def initialize(self) -> None:
         """Initialize a Firestore document store for UID/GID assignment.
 
@@ -305,6 +329,44 @@ async def _get_or_assign_uid(
     transaction.update(counter_ref, {"next": next_uid + 1})
     logger.info("Assigned new UID", user=username, uid=next_uid)
     return next_uid
+
+
+@firestore.async_transactional
+async def _get_uid(
+    transaction: firestore.AsyncTransaction,
+    *,
+    username: str,
+    user_ref: firestore.AsyncDocumentReference,
+    logger: BoundLogger,
+) -> int | None:
+    """Get a UID for a user in a transaction.
+
+    Parameters
+    ----------
+    transaction
+        The open transaction.
+    username
+        Username of user, for logging.
+    user_ref
+        Reference to the user's (possibly nonexistent) UID document.
+    logger
+        Logger for messages.
+
+    Returns
+    -------
+    int
+        UID of the user.
+
+    Raises
+    ------
+    FirestoreNotInitializedError
+        Raised if Firestore has not been initialized.
+    """
+    user = await user_ref.get(transaction=transaction)
+    if user.exists:
+        return user.get("uid")
+    else:
+        return None
 
 
 @firestore.async_transactional

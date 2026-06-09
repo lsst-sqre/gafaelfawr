@@ -46,6 +46,54 @@ class LDAPService:
         self._user_cache = user_cache
         self._logger = logger
 
+    async def get_all_users(self) -> dict[str, LDAPUserData]:
+        """List all users found in LDAP.
+
+        This operation is not cached.
+
+        Returns
+        -------
+        dict of LDAPUserData
+            Mappings of usernames to `~gafaelfawr.models.ldap.LDAPUserData`.
+        """
+        return await self._ldap.get_all_users()
+
+    @sentry_sdk.trace
+    async def get_data(
+        self,
+        username: str,
+        *,
+        uncached: bool = False,
+    ) -> LDAPUserData:
+        """Get configured data from LDAP.
+
+        Returns all data configured to be retrieved from LDAP.
+
+        Parameters
+        ----------
+        username
+            Username of the user.
+        uncached
+            Bypass the cache, used for health checks.
+
+        Returns
+        -------
+        LDAPUserData
+            The retrieved data.
+        """
+        if uncached:
+            return await self._ldap.get_data(username)
+        data = self._user_cache.get(username)
+        if data:
+            return data
+        async with await self._user_cache.lock(username):
+            data = self._user_cache.get(username)
+            if data:
+                return data
+            data = await self._ldap.get_data(username)
+            self._user_cache.store(username, data)
+            return data
+
     @sentry_sdk.trace
     async def get_group_names(
         self, username: str, gid: int | None, *, uncached: bool = False
@@ -93,13 +141,14 @@ class LDAPService:
         username
             Username for which to get information.
         gid
-            Primary GID if set.  If not `None`, the user's groups will be
-            checked for this GID.  If it's not found, search for the group
-            with this GID and add it to the user's group memberships.  This
-            handles LDAP configurations where the user's primary group is
-            represented only by their GID and not their group memberships.
+            Primary GID if set. If not `None`, the user's groups will be
+            checked for this GID. If it's not found, search for the group with
+            this GID and add it to the user's group memberships. This handles
+            LDAP configurations where the user's primary group is represented
+            only by their GID and not their group memberships.
         uncached
-            Bypass the cache, used for health checks.
+            Bypass the cache, used for health checks and when performing an
+            uncached operation such as listing all known users.
 
         Returns
         -------
@@ -123,42 +172,6 @@ class LDAPService:
             groups = await self._ldap.get_groups(username, gid)
             self._group_cache.store(username, groups)
             return groups
-
-    @sentry_sdk.trace
-    async def get_data(
-        self,
-        username: str,
-        *,
-        uncached: bool = False,
-    ) -> LDAPUserData:
-        """Get configured data from LDAP.
-
-        Returns all data configured to be retrieved from LDAP.
-
-        Parameters
-        ----------
-        username
-            Username of the user.
-        uncached
-            Bypass the cache, used for health checks.
-
-        Returns
-        -------
-        LDAPUserData
-            The retrieved data.
-        """
-        if uncached:
-            return await self._ldap.get_data(username)
-        data = self._user_cache.get(username)
-        if data:
-            return data
-        async with await self._user_cache.lock(username):
-            data = self._user_cache.get(username)
-            if data:
-                return data
-            data = await self._ldap.get_data(username)
-            self._user_cache.store(username, data)
-            return data
 
     async def invalidate_cache(self, username: str) -> None:
         """Invalidate the cache for a given user.

@@ -40,6 +40,15 @@ every configuration file.
 """
 
 
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--update-test-data",
+        action="store_true",
+        default=False,
+        help="Overwrite expected test output with current results",
+    )
+
+
 @pytest.fixture(autouse=True)
 def environment(monkeypatch: pytest.MonkeyPatch) -> None:
     """Set default values of environment variables for testing."""
@@ -142,8 +151,9 @@ def config(
 
 
 @pytest.fixture
-def data() -> Data:
-    return Data(Path(__file__).parent / "data")
+def data(request: pytest.FixtureRequest) -> Data:
+    update = request.config.getoption("--update-test-data")
+    return Data(Path(__file__).parent / "data", update_test_data=update)
 
 
 @pytest_asyncio.fixture

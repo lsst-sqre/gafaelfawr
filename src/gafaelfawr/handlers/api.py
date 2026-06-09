@@ -572,6 +572,28 @@ async def get_user_token_change_history(
 
 
 @router.get(
+    "/auth/api/v1/users",
+    response_model_exclude_defaults=True,
+    summary="List known users",
+    description=(
+        "Only information from LDAP is displayed. Bot users will not be"
+        " listed unless they also exist in LDAP. Gafaelfawr installations"
+        " using GitHub for authentication will return a 404 error since LDAP"
+        " is not configured."
+    ),
+    responses={404: {"description": "LDAP is not configured"}},
+    tags=["admin"],
+)
+async def list_users(
+    *,
+    auth_data: Annotated[TokenData, Depends(authenticate_read)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+) -> list[UserInfo]:
+    user_info_service = context.factory.create_user_info_service()
+    return await user_info_service.get_users_from_ldap(auth_data)
+
+
+@router.get(
     "/auth/api/v1/users/{username}",
     response_model_exclude_defaults=True,
     summary="Get user information",

@@ -1,11 +1,14 @@
 """Tests for the user information API."""
 
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient
+from safir.testing.data import Data
 
 from gafaelfawr.config import Config
 from gafaelfawr.constants import GID_MIN, UID_USER_MIN
 from gafaelfawr.factory import Factory
+from gafaelfawr.models.token import TokenData
 from gafaelfawr.models.userinfo import Group, UserInfo
 
 from ..support.firestore import MockFirestore
@@ -13,20 +16,74 @@ from ..support.ldap import MockLDAP
 from ..support.tokens import create_session_token
 
 
+@pytest_asyncio.fixture
+async def admin_token(factory: Factory) -> TokenData:
+    return await create_session_token(
+        factory, username="admin", scopes={"admin:userinfo"}
+    )
+
+
+@pytest.mark.parametrize("config", ["oidc"], indirect=True)
+@pytest.mark.asyncio
+async def test_list_users(
+    *,
+    data: Data,
+    admin_token: TokenData,
+    client: AsyncClient,
+    mock_ldap: MockLDAP,
+) -> None:
+    headers = {"Authorization": f"Bearer {admin_token.token}"}
+    mock_ldap.load_test_data(data, "ldap/users")
+
+    r = await client.get("/auth/api/v1/users", headers=headers)
+    assert r.status_code == 200
+    assert r.json()
+    data.assert_json_matches(r.json(), "api/users")
+
+
+@pytest.mark.parametrize("config", ["oidc-firestore"], indirect=True)
+@pytest.mark.asyncio
+async def test_list_users_firestore(
+    *,
+    data: Data,
+    admin_token: TokenData,
+    client: AsyncClient,
+    mock_ldap: MockLDAP,
+) -> None:
+    headers = {"Authorization": f"Bearer {admin_token.token}"}
+    mock_ldap.load_test_data(data, "ldap/users")
+
+    # Initially, there will be GIDs for the explicitly listed groups, but not
+    # UIDs or GIDs for any of the users since no entries exist in Firestore.
+    r = await client.get("/auth/api/v1/users", headers=headers)
+    assert r.status_code == 200
+    data.assert_json_matches(r.json(), "api/users-unallocated")
+
+    # Force UID allocation for each of the users.
+    for user in data.read_json("api/users-unallocated"):
+        username = user["username"]
+        r = await client.get(f"/auth/api/v1/users/{username}", headers=headers)
+        assert r.status_code == 200
+
+    # Now, there should be UIDs and GIDs for all of the users that have any
+    # LDAP attributes.
+    r = await client.get("/auth/api/v1/users", headers=headers)
+    assert r.status_code == 200
+    data.assert_json_matches(r.json(), "api/users-firestore")
+
+
 @pytest.mark.parametrize("config", ["oidc"], indirect=True)
 @pytest.mark.asyncio
 async def test_userinfo_basic(
     *,
     config: Config,
+    admin_token: TokenData,
     client: AsyncClient,
     factory: Factory,
     mock_ldap: MockLDAP,
 ) -> None:
     assert config.ldap
-    token_data = await create_session_token(
-        factory, username="admin", scopes={"admin:userinfo"}
-    )
-    headers = {"Authorization": f"bearer {token_data.token}"}
+    headers = {"Authorization": f"bearer {admin_token.token}"}
     mock_ldap.add_test_user(
         UserInfo(username="some-user", name="Some user", uid=2000, gid=1045)
     )
@@ -48,9 +105,11 @@ async def test_userinfo_basic(
 
     # Getting the information for the admin user should return just the
     # username since the user doesn't exist in LDAP.
-    r = await client.get("/auth/api/v1/users/admin", headers=headers)
+    r = await client.get(
+        f"/auth/api/v1/users/{admin_token.username}", headers=headers
+    )
     assert r.status_code == 200
-    assert r.json() == {"username": "admin"}
+    assert r.json() == {"username": admin_token.username}
 
 
 @pytest.mark.parametrize("config", ["oidc-firestore"], indirect=True)
@@ -125,13 +184,19 @@ async def test_userinfo_firestore(
 
 
 @pytest.mark.asyncio
-async def test_userinfo_github(client: AsyncClient, factory: Factory) -> None:
-    token_data = await create_session_token(factory, scopes={"admin:userinfo"})
+async def test_userinfo_github(
+    admin_token: TokenData, client: AsyncClient, factory: Factory
+) -> None:
+    """Test GitHub handling of user listing endpoints.
 
-    # When configured with GitHub, any attempt to access the users endpoint
-    # directly should fail with 404.
-    r = await client.get(
-        f"/auth/api/v1/users/{token_data.username}",
-        headers={"Authorization": f"bearer {token_data.token}"},
-    )
+    When configured with GitHub, any attempt to access the users endpoint
+    directly should fail with 404.
+    """
+    username = admin_token.username
+    headers = {"Authorization": f"bearer {admin_token.token}"}
+
+    r = await client.get("/auth/api/v1/users", headers=headers)
+    assert r.status_code == 404
+
+    r = await client.get(f"/auth/api/v1/users/{username}", headers=headers)
     assert r.status_code == 404
