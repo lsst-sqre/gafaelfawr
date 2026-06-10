@@ -1,0 +1,13 @@
+{
+  "email": "example@example.com",
+  "gid": 45612,
+  "groups": [
+    {
+      "id": 12313,
+      "name": "foo"
+    }
+  ],
+  "name": "Example Person",
+  "uid": 45613,
+  "username": "example"
+}

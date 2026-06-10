@@ -1,0 +1,33 @@
+{
+  "email": "example@example.com",
+  "gid": 45612,
+  "groups": [
+    {
+      "id": 12313,
+      "name": "foo"
+    }
+  ],
+  "name": "Example Person",
+  "quota": {
+    "api": {
+      "datalinker": 1000,
+      "other": 2,
+      "test": 2
+    },
+    "notebook": {
+      "cpu": 8.0,
+      "memory": 8.0,
+      "spawn": true
+    },
+    "tap": {
+      "qserv": {
+        "concurrent": 15
+      },
+      "sso": {
+        "concurrent": 5
+      }
+    }
+  },
+  "uid": 45613,
+  "username": "example"
+}

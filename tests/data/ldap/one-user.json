@@ -1,0 +1,20 @@
+{
+  "users": [
+    {
+      "username": "ldap",
+      "name": "User",
+      "email": "something@example.com",
+      "uid": 1000,
+      "gid": 2000
+    }
+  ],
+  "groups": [
+    {
+      "name": "foo",
+      "gid": 1222,
+      "members": [
+        "ldap"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "email": "something@example.com",
+  "gid": 2000,
+  "groups": [
+    {
+      "id": 1222,
+      "name": "foo"
+    }
+  ],
+  "name": "User",
+  "quota": null,
+  "uid": 1000,
+  "username": "ldap"
+}
