@@ -12,6 +12,7 @@ from rubin.gafaelfawr import (
     GafaelfawrClient,
     GafaelfawrDiscoveryError,
     GafaelfawrGroup,
+    GafaelfawrGroups,
     GafaelfawrNotFoundError,
     GafaelfawrUserInfo,
     GafaelfawrWebError,
@@ -167,3 +168,26 @@ async def test_cache_by_token(
     # Clearing the cache should result in the new data.
     await client.clear_cache()
     assert await client.get_user_info(token) == user_info
+
+
+@pytest.mark.asyncio
+async def test_list_groups(
+    data: Data, mock_gafaelfawr: MockGafaelfawr
+) -> None:
+    token = mock_gafaelfawr.create_token("admin", scopes=["admin:userinfo"])
+    client = GafaelfawrClient()
+
+    # If no data is available, should raise GafaelfawrNotFoundError.
+    with pytest.raises(GafaelfawrNotFoundError):
+        await client.list_groups(token)
+
+    # HTTP errors should raise GafaelfawrWebError.
+    mock_gafaelfawr.fail_on("admin", MockGafaelfawrAction.LIST_GROUPS)
+    with pytest.raises(GafaelfawrWebError):
+        await client.list_groups(token)
+
+    # Register some user information and try again.
+    mock_gafaelfawr.fail_on("admin", [])
+    groups = data.read_pydantic(GafaelfawrGroups, "userinfo/groups")
+    mock_gafaelfawr.set_groups(groups)
+    assert await client.list_groups(token) == groups

@@ -40,7 +40,7 @@ class AllGroups(BaseModel):
 
     user: list[Group] = Field(
         [],
-        title="User-created groups",
+        title="User-managed groups",
         description=(
             "Excludes any groups marked in the configuration as system groups."
             " Those will be in the system attribute."

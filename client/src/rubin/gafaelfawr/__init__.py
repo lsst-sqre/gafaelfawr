@@ -23,6 +23,7 @@ from ._mock import (
 )
 from ._models import (
     GafaelfawrGroup,
+    GafaelfawrGroups,
     GafaelfawrNotebookQuota,
     GafaelfawrQuota,
     GafaelfawrTapQuota,
@@ -36,6 +37,7 @@ __all__ = [
     "GafaelfawrDiscoveryError",
     "GafaelfawrError",
     "GafaelfawrGroup",
+    "GafaelfawrGroups",
     "GafaelfawrNotFoundError",
     "GafaelfawrNotebookQuota",
     "GafaelfawrQuota",
