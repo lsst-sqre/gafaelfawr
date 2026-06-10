@@ -12,7 +12,13 @@ from urllib.parse import urljoin
 from httpx import Request, Response
 from rubin.repertoire import DiscoveryClient
 
-from ._models import AdminTokenRequest, GafaelfawrUserInfo, NewToken, TokenData
+from ._models import (
+    AdminTokenRequest,
+    GafaelfawrGroups,
+    GafaelfawrUserInfo,
+    NewToken,
+    TokenData,
+)
 from ._tokens import create_token
 
 if TYPE_CHECKING:
@@ -39,6 +45,7 @@ class MockGafaelfawrAction(Enum):
     """Possible actions that could fail."""
 
     CREATE_TOKEN = "create_token"
+    LIST_GROUPS = "list_groups"
     USER_INFO = "user_info"
 
 
@@ -48,6 +55,7 @@ class MockGafaelfawr:
     def __init__(self) -> None:
         self._fail: defaultdict[str, set[MockGafaelfawrAction]]
         self._fail = defaultdict(set)
+        self._groups: GafaelfawrGroups | None = None
         self._tokens: dict[str, TokenData] = {}
         self._user_info: dict[str, GafaelfawrUserInfo | None] = {}
 
@@ -124,6 +132,8 @@ class MockGafaelfawr:
             Base URL for the mock routes.
         """
         prefix = base_url.rstrip("/") + "/"
+        handler = self._handle_groups
+        respx_mock.get(urljoin(prefix, "groups")).mock(side_effect=handler)
         handler = self._handle_user_info
         respx_mock.get(urljoin(prefix, "user-info")).mock(side_effect=handler)
         handler = self._handle_create_token
@@ -133,6 +143,16 @@ class MockGafaelfawr:
         base_regex = re.escape(base_url.rstrip("/"))
         regex = re.compile(base_regex + "/users/(?P<username>[^/]+)$")
         respx_mock.get(url__regex=regex).mock(side_effect=self._handle_user)
+
+    def set_groups(self, groups: GafaelfawrGroups) -> None:
+        """Set the group information returned when listing all groups.
+
+        Parameters
+        ----------
+        groups
+            Group information to return.
+        """
+        self._groups = groups
 
     def set_user_info(
         self, username: str, user_info: GafaelfawrUserInfo | None
@@ -232,6 +252,19 @@ class MockGafaelfawr:
         self.set_user_info(body.username, userinfo)
         response = NewToken(token=token)
         return Response(200, json=response.model_dump(mode="json"))
+
+    @_check(
+        fail_on=MockGafaelfawrAction.LIST_GROUPS,
+        required_scope="admin:userinfo",
+    )
+    def _handle_groups(
+        self, request: Request, token_data: TokenData
+    ) -> Response:
+        if groups := self._groups:
+            result = groups.model_dump(mode="json", exclude_defaults=True)
+            return Response(200, json=result)
+        else:
+            return Response(404)
 
     @_check(required_scope="admin:userinfo")
     def _handle_user(

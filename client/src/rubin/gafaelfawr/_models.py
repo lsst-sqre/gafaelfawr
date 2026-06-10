@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 __all__ = [
     "AdminTokenRequest",
     "GafaelfawrGroup",
+    "GafaelfawrGroups",
     "GafaelfawrNotebookQuota",
     "GafaelfawrQuota",
     "GafaelfawrTapQuota",
@@ -31,6 +32,14 @@ class GafaelfawrGroup(BaseModel):
     name: Annotated[str, Field(title="Name of the group")]
 
     id: Annotated[int, Field(title="Numeric GID of the group")]
+
+
+class GafaelfawrGroups(BaseModel):
+    """List of all known groups."""
+
+    user: list[GafaelfawrGroup] = Field([], title="User-managed groups")
+
+    system: list[GafaelfawrGroup] = Field([], title="System groups")
 
 
 class GafaelfawrNotebookQuota(BaseModel):

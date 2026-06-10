@@ -121,6 +121,23 @@ There are separate caches for retrieving user information by token and by userna
 
 To clear the cache and force any subsequent requests to go back to the Gafealfawr API, call `GafaelfawrClient.clear_cache`.
 
+Listing known groups
+--------------------
+
+Gafaelfawr instances that use LDAP as the source for user information support listing all groups known to the server.
+
+To obtain the group list, the application must have a token with ``admin:userinfo`` scope.
+Usually, it will obtain this token via a ``GafaelfawrServiceToken`` Kubernetes object (see :doc:`service-tokens`).
+
+Then, call `GafaelfawrClient.list_groups`, passing in that service token as the one argument.
+The result will be a `GafaelfawrGroups` object.
+
+The groups are classified into "user" and "system" groups based on the Gafaelfawr server configuration, where user groups are ones created or managed by users and system groups are ones used by the environment administrators.
+This allows clients that only want to act on user groups, such as a client that wants to create a collaboration space for every user group but not spaces for the large system groups, to distinguish between the types of groups.
+
+Gafaelfawr configurations that do not use LDAP for user information will raise `GafaelfawrNotFoundError` for requests to list groups.
+This does not imply that there are no groups, only that the list of groups cannot be retrieved.
+
 Creating service tokens
 =======================
 

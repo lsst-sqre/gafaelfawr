@@ -20,6 +20,7 @@ from ._exceptions import (
 from ._models import (
     AdminTokenRequest,
     GafaelfawrGroup,
+    GafaelfawrGroups,
     GafaelfawrUserInfo,
     NewToken,
     TokenType,
@@ -243,6 +244,36 @@ class GafaelfawrClient:
                 userinfo = await self._get(url, GafaelfawrUserInfo, token)
                 self._userinfo_token_cache[token] = userinfo
                 return userinfo
+
+    async def list_groups(self, token: str) -> GafaelfawrGroups:
+        """List all known groups.
+
+        This method may only be called with a token with ``admin:userinfo``
+        scope, and group information is only available from a Gafaelfawr
+        instance that uses LDAP as a backing store for user information. Only
+        LDAP information will be returned, not any overrides present in
+        tokens.
+
+        Parameters
+        ----------
+        token
+            Gafaelfawr token used for authentication.
+
+        Raises
+        ------
+        GafaelfawrNotFoundError
+            Raised if the group list is not available, such as when Gafaelfawr
+            is not using LDAP as a source of user information.
+        GafaelfawrValidationError
+            Raised if the response from Gafaelfawr is invalid.
+        GafaelfawrWebError
+            Raised if there is some problem talking to the Gafaelfawr API,
+            such as an invalid token or network or service failure.
+        rubin.repertoire.RepertoireError
+            Raised if there was an error talking to service discovery.
+        """
+        url = await self._url_for("groups")
+        return await self._get(url, GafaelfawrGroups, token)
 
     async def _get[T: BaseModel](
         self, url: str, model: type[T], token: str
