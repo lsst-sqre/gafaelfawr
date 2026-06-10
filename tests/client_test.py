@@ -19,13 +19,7 @@ from safir.testing.data import Data
 
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.token import Token, TokenUserInfo
-from gafaelfawr.models.userinfo import Group, UserInfo
-from rubin.gafaelfawr import (
-    GafaelfawrClient,
-    GafaelfawrGroup,
-    GafaelfawrUserInfo,
-    create_token,
-)
+from rubin.gafaelfawr import GafaelfawrClient, GafaelfawrGroup, create_token
 
 from .support.ldap import MockLDAP
 
@@ -42,44 +36,37 @@ def mock_discovery(
 def gafaelfawr_client(
     client: AsyncClient, mock_discovery: Discovery
 ) -> GafaelfawrClient:
-    # Use a separate discovery client with its own AsyncClient because the one
-    # the Gafaelfawr client is using is bound to a specific FastAPI app.
+    # Use a separate discovery client with its own AsyncClient because the
+    # AsyncClient the Gafaelfawr client is using is bound to a specific
+    # FastAPI app.
     discovery = DiscoveryClient()
     return GafaelfawrClient(client, discovery_client=discovery)
 
 
+@pytest.mark.parametrize("config", ["github-quota"], indirect=True)
 @pytest.mark.asyncio
 async def test_get_user_info(
-    client: AsyncClient, factory: Factory, gafaelfawr_client: GafaelfawrClient
+    *,
+    data: Data,
+    client: AsyncClient,
+    factory: Factory,
+    gafaelfawr_client: GafaelfawrClient,
 ) -> None:
-    service_user_info = TokenUserInfo(
-        username="example",
-        name="Example Person",
-        email="example@example.com",
-        uid=45613,
-        gid=45612,
-        groups=[Group(name="foo", id=12313)],
-    )
+    user_info = data.read_pydantic(TokenUserInfo, "userinfo/example")
     token_service = factory.create_token_service()
     token = await token_service.create_session_token(
-        service_user_info, scopes={"admin:userinfo"}, ip_address="127.0.0.1"
+        user_info, scopes={"admin:userinfo"}, ip_address="127.0.0.1"
     )
 
-    user_info = await gafaelfawr_client.get_user_info(str(token))
-    expected = GafaelfawrUserInfo(
-        username="example",
-        name="Example Person",
-        email="example@example.com",
-        uid=45613,
-        gid=45612,
-        groups=[GafaelfawrGroup(name="foo", id=12313)],
-    )
-    assert user_info == expected
+    result = await gafaelfawr_client.get_user_info(str(token))
+    data.assert_pydantic_matches(result, "client/userinfo-example")
 
 
 @pytest.mark.parametrize("config", ["oidc"], indirect=True)
 @pytest.mark.asyncio
 async def test_get_user_info_ldap(
+    *,
+    data: Data,
     client: AsyncClient,
     factory: Factory,
     gafaelfawr_client: GafaelfawrClient,
@@ -91,28 +78,10 @@ async def test_get_user_info_ldap(
         scopes={"admin:userinfo"},
         ip_address="127.0.0.1",
     )
-    mock_ldap.add_test_user(
-        UserInfo(
-            username="some-user",
-            name="User",
-            email="something@example.com",
-            uid=1000,
-            gid=2000,
-        )
-    )
-    mock_ldap.add_test_group_membership(
-        "some-user", [Group(name="foo", id=1222)]
-    )
+    mock_ldap.load_data_for_test(data, "ldap/one-user")
 
-    user_info = await gafaelfawr_client.get_user_info(str(token), "some-user")
-    assert user_info == GafaelfawrUserInfo(
-        username="some-user",
-        name="User",
-        email="something@example.com",
-        uid=1000,
-        gid=2000,
-        groups=[GafaelfawrGroup(name="foo", id=1222)],
-    )
+    result = await gafaelfawr_client.get_user_info(str(token), "ldap")
+    data.assert_pydantic_matches(result, "client/userinfo-ldap")
 
 
 @pytest.mark.asyncio
