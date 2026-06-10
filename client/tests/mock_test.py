@@ -6,11 +6,11 @@ are specific to the mock.
 """
 
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
 import pytest
 import respx
 from rubin.repertoire import register_mock_discovery
+from safir.testing.data import Data
 
 from rubin.gafaelfawr import (
     GafaelfawrClient,
@@ -21,13 +21,12 @@ from rubin.gafaelfawr import (
     register_mock_gafaelfawr,
 )
 
-from .support.data import read_test_user_info
-
 
 @pytest.mark.asyncio
-async def test_bad_token(mock_gafaelfawr: MockGafaelfawr) -> None:
+async def test_bad_token(data: Data, mock_gafaelfawr: MockGafaelfawr) -> None:
     client = GafaelfawrClient()
-    mock_gafaelfawr.set_user_info("someuser", read_test_user_info("someuser"))
+    user_info = data.read_pydantic(GafaelfawrUserInfo, "userinfo/someuser")
+    mock_gafaelfawr.set_user_info("someuser", user_info)
 
     # Making a request with an invalid token should return a 403 error.
     with pytest.raises(GafaelfawrWebError) as exc_info:
@@ -36,9 +35,12 @@ async def test_bad_token(mock_gafaelfawr: MockGafaelfawr) -> None:
 
 
 @pytest.mark.asyncio
-async def test_create_token_expires(mock_gafaelfawr: MockGafaelfawr) -> None:
+async def test_create_token_expires(
+    data: Data, mock_gafaelfawr: MockGafaelfawr
+) -> None:
     client = GafaelfawrClient()
-    mock_gafaelfawr.set_user_info("someuser", read_test_user_info("someuser"))
+    user_info = data.read_pydantic(GafaelfawrUserInfo, "userinfo/someuser")
+    mock_gafaelfawr.set_user_info("someuser", user_info)
 
     # Creating a token that is already expired should be reflected in the
     # token information and cause the token to be rejected in later calls.
@@ -51,10 +53,11 @@ async def test_create_token_expires(mock_gafaelfawr: MockGafaelfawr) -> None:
 
 
 @pytest.mark.asyncio
-async def test_fail_on(mock_gafaelfawr: MockGafaelfawr) -> None:
+async def test_fail_on(data: Data, mock_gafaelfawr: MockGafaelfawr) -> None:
     client = GafaelfawrClient()
     token = mock_gafaelfawr.create_token("someuser")
-    mock_gafaelfawr.set_user_info("someuser", read_test_user_info("someuser"))
+    user_info = data.read_pydantic(GafaelfawrUserInfo, "userinfo/someuser")
+    mock_gafaelfawr.set_user_info("someuser", user_info)
     admin_token = mock_gafaelfawr.create_token(
         "admin", scopes=["admin:userinfo", "admin:token"]
     )
@@ -82,11 +85,10 @@ async def test_fail_on(mock_gafaelfawr: MockGafaelfawr) -> None:
 
 @pytest.mark.asyncio
 async def test_missing_discovery(
-    monkeypatch: pytest.MonkeyPatch, respx_mock: respx.Router
+    data: Data, monkeypatch: pytest.MonkeyPatch, respx_mock: respx.Router
 ) -> None:
     monkeypatch.setenv("REPERTOIRE_BASE_URL", "https://example.com/repertoire")
-    path = Path(__file__).parent / "data" / "empty.json"
-    register_mock_discovery(respx_mock, path)
+    register_mock_discovery(respx_mock, data.path("empty.json"))
 
     # If the Gafaelfawr service (v1) is not included in the discovery
     # information, register_mock_gafaelfawr should assert.
@@ -95,9 +97,12 @@ async def test_missing_discovery(
 
 
 @pytest.mark.asyncio
-async def test_required_scopes(mock_gafaelfawr: MockGafaelfawr) -> None:
+async def test_required_scopes(
+    data: Data, mock_gafaelfawr: MockGafaelfawr
+) -> None:
     client = GafaelfawrClient()
-    mock_gafaelfawr.set_user_info("someuser", read_test_user_info("someuser"))
+    user_info = data.read_pydantic(GafaelfawrUserInfo, "userinfo/someuser")
+    mock_gafaelfawr.set_user_info("someuser", user_info)
 
     # A token without admin:userinfo should not be able to access the user
     # route used by get_user_info with an explicit username.

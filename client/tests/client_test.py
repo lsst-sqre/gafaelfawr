@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 import respx
 from rubin.repertoire import register_mock_discovery
+from safir.testing.data import Data
 
 from rubin.gafaelfawr import (
     GafaelfawrClient,
@@ -17,8 +18,6 @@ from rubin.gafaelfawr import (
     MockGafaelfawr,
     MockGafaelfawrAction,
 )
-
-from .support.data import read_test_user_info
 
 
 @pytest.mark.asyncio
@@ -79,9 +78,11 @@ async def test_missing_discovery(
 
 
 @pytest.mark.asyncio
-async def test_userinfo_by_username(mock_gafaelfawr: MockGafaelfawr) -> None:
+async def test_userinfo_by_username(
+    data: Data, mock_gafaelfawr: MockGafaelfawr
+) -> None:
     token = mock_gafaelfawr.create_token("admin", scopes=["admin:userinfo"])
-    user_info = read_test_user_info("someuser")
+    user_info = data.read_pydantic(GafaelfawrUserInfo, "userinfo/someuser")
     client = GafaelfawrClient()
 
     # If no data is available, should raise GafaelfawrNotFoundError.
@@ -100,9 +101,11 @@ async def test_userinfo_by_username(mock_gafaelfawr: MockGafaelfawr) -> None:
 
 
 @pytest.mark.asyncio
-async def test_cache_by_username(mock_gafaelfawr: MockGafaelfawr) -> None:
+async def test_cache_by_username(
+    data: Data, mock_gafaelfawr: MockGafaelfawr
+) -> None:
     token = mock_gafaelfawr.create_token("admin", scopes=["admin:userinfo"])
-    user_info = read_test_user_info("someuser")
+    user_info = data.read_pydantic(GafaelfawrUserInfo, "userinfo/someuser")
     empty_user_info = GafaelfawrUserInfo(username="someuser")
     client = GafaelfawrClient()
 
@@ -121,9 +124,11 @@ async def test_cache_by_username(mock_gafaelfawr: MockGafaelfawr) -> None:
 
 
 @pytest.mark.asyncio
-async def test_userinfo_by_token(mock_gafaelfawr: MockGafaelfawr) -> None:
+async def test_userinfo_by_token(
+    data: Data, mock_gafaelfawr: MockGafaelfawr
+) -> None:
     token = mock_gafaelfawr.create_token("someuser")
-    user_info = read_test_user_info("someuser")
+    user_info = data.read_pydantic(GafaelfawrUserInfo, "userinfo/someuser")
     client = GafaelfawrClient()
 
     # If no data is available, should raise GafaelfawrNotFoundError.
@@ -142,9 +147,11 @@ async def test_userinfo_by_token(mock_gafaelfawr: MockGafaelfawr) -> None:
 
 
 @pytest.mark.asyncio
-async def test_cache_by_token(mock_gafaelfawr: MockGafaelfawr) -> None:
+async def test_cache_by_token(
+    data: Data, mock_gafaelfawr: MockGafaelfawr
+) -> None:
     token = mock_gafaelfawr.create_token("someuser")
-    user_info = read_test_user_info("someuser")
+    user_info = data.read_pydantic(GafaelfawrUserInfo, "userinfo/someuser")
     empty_user_info = GafaelfawrUserInfo(username="someuser")
     client = GafaelfawrClient()
 
