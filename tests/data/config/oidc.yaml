@@ -19,6 +19,8 @@ ldap:
   url: "ldaps://ldap.example.com/"
   groupBaseDn: "dc=example,dc=com"
   userBaseDn: "ou=people,dc=example,dc=com"
+  systemGroups:
+    - "foo"
 oidc:
   clientId: "some-oidc-client-id"
   loginUrl: "https://upstream.example.com/oidc/login"

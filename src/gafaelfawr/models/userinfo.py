@@ -9,6 +9,7 @@ from ..constants import GROUPNAME_REGEX
 from .quota import Quota
 
 __all__ = [
+    "AllGroups",
     "Group",
     "Quota",
     "RateLimitStatus",
@@ -31,6 +32,29 @@ class Group(BaseModel):
         ...,
         title="Numeric GID of the group",
         examples=[123181],
+    )
+
+
+class AllGroups(BaseModel):
+    """List of all groups found in the user information source."""
+
+    user: list[Group] = Field(
+        [],
+        title="User-created groups",
+        description=(
+            "Excludes any groups marked in the configuration as system groups."
+            " Those will be in the system attribute."
+        ),
+    )
+
+    system: list[Group] = Field(
+        [],
+        title="System groups",
+        description=(
+            "System is defined as any group listed in the configuration as a"
+            " system group. All other groups are considered user-created"
+            " groups."
+        ),
     )
 
 

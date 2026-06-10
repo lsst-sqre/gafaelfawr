@@ -21,6 +21,8 @@ ldap:
   uidAttr: null
   gidAttr: null
   addUserGroup: true
+  systemGroups:
+    - "foo"
 oidc:
   clientId: "some-oidc-client-id"
   loginUrl: "https://upstream.example.com/oidc/login"

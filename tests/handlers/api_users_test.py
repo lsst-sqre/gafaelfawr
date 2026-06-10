@@ -25,6 +25,41 @@ async def admin_token(factory: Factory) -> TokenData:
 
 @pytest.mark.parametrize("config", ["oidc"], indirect=True)
 @pytest.mark.asyncio
+async def test_list_groups(
+    *,
+    data: Data,
+    admin_token: TokenData,
+    client: AsyncClient,
+    mock_ldap: MockLDAP,
+) -> None:
+    headers = {"Authorization": f"Bearer {admin_token.token}"}
+    mock_ldap.load_data_for_test(data, "ldap/users")
+
+    r = await client.get("/auth/api/v1/groups", headers=headers)
+    assert r.status_code == 200
+    assert r.json()
+    data.assert_json_matches(r.json(), "api/groups")
+
+
+@pytest.mark.parametrize("config", ["oidc-firestore"], indirect=True)
+@pytest.mark.asyncio
+async def test_list_groups_firestore(
+    *,
+    data: Data,
+    admin_token: TokenData,
+    client: AsyncClient,
+    mock_ldap: MockLDAP,
+) -> None:
+    headers = {"Authorization": f"Bearer {admin_token.token}"}
+    mock_ldap.load_data_for_test(data, "ldap/users")
+
+    r = await client.get("/auth/api/v1/groups", headers=headers)
+    assert r.status_code == 200
+    data.assert_json_matches(r.json(), "api/groups-firestore")
+
+
+@pytest.mark.parametrize("config", ["oidc"], indirect=True)
+@pytest.mark.asyncio
 async def test_list_users(
     *,
     data: Data,
@@ -33,11 +68,10 @@ async def test_list_users(
     mock_ldap: MockLDAP,
 ) -> None:
     headers = {"Authorization": f"Bearer {admin_token.token}"}
-    mock_ldap.load_test_data(data, "ldap/users")
+    mock_ldap.load_data_for_test(data, "ldap/users")
 
     r = await client.get("/auth/api/v1/users", headers=headers)
     assert r.status_code == 200
-    assert r.json()
     data.assert_json_matches(r.json(), "api/users")
 
 
@@ -51,7 +85,7 @@ async def test_list_users_firestore(
     mock_ldap: MockLDAP,
 ) -> None:
     headers = {"Authorization": f"Bearer {admin_token.token}"}
-    mock_ldap.load_test_data(data, "ldap/users")
+    mock_ldap.load_data_for_test(data, "ldap/users")
 
     # Initially, there will be GIDs for the explicitly listed groups, but not
     # UIDs or GIDs for any of the users since no entries exist in Firestore.

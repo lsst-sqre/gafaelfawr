@@ -2,7 +2,22 @@
 
 from dataclasses import dataclass
 
-__all__ = ["LDAPUserData"]
+__all__ = ["LDAPGroup", "LDAPUserData"]
+
+
+@dataclass
+class LDAPGroup:
+    """Data about a group from LDAP.
+
+    This represents the subset of `~gafaelfawr.models.userinfo.Group` that
+    comes from LDAP. It allows the GID to be `None`.
+    """
+
+    name: str
+    """Name of the group."""
+
+    gid: int | None
+    """GID of the group."""
 
 
 @dataclass

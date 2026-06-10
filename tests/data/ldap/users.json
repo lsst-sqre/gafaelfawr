@@ -24,32 +24,29 @@
       "gid": 1045
     }
   ],
-  "membership": {
-    "99digits99": [
-      {
-        "name": "foo",
-        "id": 1222
-      },
-      {
-        "name": "group-1",
-        "id": 1223
-      },
-      {
-        "name": "group-2",
-        "id": 1224
-      }
-    ],
-    "ldap-user": [
-      {
-        "name": "group-1",
-        "id": 1223
-      }
-    ],
-    "some-user": [
-      {
-        "name": "foo",
-        "id": 1222
-      }
-    ]
-  }
+  "groups": [
+    {
+      "name": "foo",
+      "gid": 1222,
+      "members": [
+        "99digits99",
+        "some-user"
+      ]
+    },
+    {
+      "name": "group-1",
+      "gid": 1223,
+      "members": [
+        "99digits99",
+        "ldap-user"
+      ]
+    },
+    {
+      "name": "group-2",
+      "gid": 1224,
+      "members": [
+        "99digits99"
+      ]
+    }
+  ]
 }

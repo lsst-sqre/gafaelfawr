@@ -4,7 +4,7 @@ import sentry_sdk
 from structlog.stdlib import BoundLogger
 
 from ..cache import LDAPCache
-from ..models.ldap import LDAPUserData
+from ..models.ldap import LDAPGroup, LDAPUserData
 from ..models.userinfo import Group
 from ..storage.ldap import LDAPStorage
 
@@ -45,6 +45,18 @@ class LDAPService:
         self._group_name_cache = group_name_cache
         self._user_cache = user_cache
         self._logger = logger
+
+    async def get_all_groups(self) -> list[LDAPGroup]:
+        """List all groups found in LDAP.
+
+        This operation is not cached.
+
+        Returns
+        -------
+        list of Group
+            All groups found in LDAP, including ones with no members.
+        """
+        return await self._ldap.get_all_groups()
 
     async def get_all_users(self) -> dict[str, LDAPUserData]:
         """List all users found in LDAP.

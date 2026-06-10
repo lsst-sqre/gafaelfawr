@@ -12,7 +12,7 @@ from structlog.stdlib import BoundLogger
 from ..config import LDAPConfig
 from ..constants import GROUPNAME_REGEX, LDAP_TIMEOUT
 from ..exceptions import LDAPError
-from ..models.ldap import LDAPUserData
+from ..models.ldap import LDAPGroup, LDAPUserData
 from ..models.userinfo import Group
 
 __all__ = ["LDAPStorage"]
@@ -37,6 +37,54 @@ class LDAPStorage:
         self._config = config
         self._pool = pool
         self._logger = logger.bind(ldap_url=str(self._config.url))
+
+    @sentry_sdk.trace
+    async def get_all_groups(self) -> list[LDAPGroup]:
+        """Get all groups found in LDAP.
+
+        Returns
+        -------
+        list of LDAPGroup
+            All groups found in LDAP.
+
+        Raises
+        ------
+        LDAPError
+            Raised if some error occurred when searching LDAP.
+        """
+        search = f"(objectClass={self._config.group_object_class})"
+        logger = self._logger.bind(ldap_search=search)
+        results = await self._query(
+            base=self._config.group_base_dn,
+            scope=bonsai.LDAPSearchScope.SUB,
+            filter_exp=search,
+            attrlist=["cn", "gidNumber"],
+        )
+        logger.debug("LDAP groups found", ldap_results=results)
+
+        # Parse the results into a group list.
+        groups = []
+        valid_group_regex = re.compile(GROUPNAME_REGEX)
+        for result in results:
+            gid = None
+            try:
+                name = result["cn"][0]
+                if "gidNumber" in result:
+                    gid = int(result["gidNumber"][0])
+            except Exception as e:
+                msg = "Invalid LDAP group result, ignoring"
+                logger.warning(msg, error=str(e), ldap_result=result)
+            if valid_group_regex.match(name):
+                groups.append(LDAPGroup(name=name, gid=gid))
+            elif name.startswith("CO:"):
+                # COmanage populates internal groups that start with CO:. We
+                # always ignore these, so they don't warrant a warning.
+                logger.debug(f"Ignoring COmanage group {name}")
+            else:
+                logger.warning(f"LDAP group {name} invalid, ignoring")
+
+        # Return the results.
+        return groups
 
     async def get_all_users(self) -> dict[str, LDAPUserData]:
         """List all users found in LDAP.

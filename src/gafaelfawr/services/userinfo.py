@@ -11,7 +11,7 @@ from ..exceptions import (
 from ..models.ldap import LDAPUserData
 from ..models.quota import Quota, QuotaConfig
 from ..models.token import TokenData, TokenUserInfo
-from ..models.userinfo import Group, UserInfo
+from ..models.userinfo import AllGroups, Group, UserInfo
 from ..storage.quota import QuotaOverridesStore
 from .firestore import FirestoreService
 from .ldap import LDAPService
@@ -70,6 +70,70 @@ class UserInfoService:
             `True` if quota overrides were deleted, `False` if none were set.
         """
         return await self._quota_overrides.delete()
+
+    async def get_groups_from_ldap(self, auth_data: TokenData) -> AllGroups:
+        """Get all groups found in LDAP.
+
+        Groups will be classified as user groups or system groups based on the
+        ``ldap.systemGroups`` configuration parameter.
+
+        This API provides only information from LDAP and (optionally)
+        Firestore, and therefore is not useful or supported when LDAP is not
+        configured.
+
+        Parameters
+        ----------
+        auth_data
+            Authenticated user making the request.
+
+        Returns
+        -------
+        AllGroups
+            List of all groups found in LDAP, including those with no members.
+
+        Raises
+        ------
+        FirestoreError
+            Raised if UID/GID allocation using Firestore failed.
+        LDAPError
+            Raised if the attempt to get user information from LDAP failed.
+        NotConfiguredError
+            Raised if LDAP is not configured.
+        PermissionDeniedError
+            Raised if the authenticated user does not have access to retrieve
+            user information for this user.
+        """
+        if not self._ldap or not self._config.ldap:
+            msg = "No external user information source configured"
+            raise NotConfiguredError(msg)
+        self._check_authorization(auth_data)
+
+        # Get the full group list from LDAP.
+        ldap_groups = await self._ldap.get_all_groups()
+
+        # Fill in the GIDs from Firestore if configured, and otherwise discard
+        # all groups without GIDs since we can't do anything useful with them.
+        user_groups = []
+        system_groups = []
+        for ldap_group in ldap_groups:
+            if self._firestore:
+                gid = await self._firestore.get_gid(ldap_group.name)
+                group = Group(name=ldap_group.name, id=gid)
+            else:
+                if ldap_group.gid is None:
+                    msg = "Ignoring group without GID"
+                    self._logger.warning(msg, group=ldap_group.name)
+                    continue
+                group = Group(name=ldap_group.name, id=ldap_group.gid)
+
+            # Classify the groups as user or system.
+            if group.name in self._config.ldap.system_groups:
+                system_groups.append(group)
+            else:
+                user_groups.append(group)
+
+        # Return the results.
+        return AllGroups(user=user_groups, system=system_groups)
 
     async def get_quota_overrides(self) -> QuotaConfig | None:
         """Get the current quota overrides, if any.
