@@ -1,7 +1,6 @@
 """Tests for paginated retrieval of history."""
 
 import json
-import sys
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 from ipaddress import ip_address, ip_network
@@ -12,6 +11,7 @@ import pytest
 from httpx import AsyncClient
 from safir.database import datetime_to_db
 from safir.http import PaginationLinkData
+from safir.testing.data import Data
 from safir.testing.slack import MockSlackWebhook
 from sqlalchemy import select
 
@@ -29,12 +29,23 @@ from ..support.cookies import set_session_cookie
 from ..support.tokens import create_session_token
 
 
-async def build_history(factory: Factory) -> list[TokenChangeHistoryRecord]:
+async def build_history(
+    factory: Factory, data: Data, path: str
+) -> list[TokenChangeHistoryRecord]:
     """Perform a bunch of token manipulations and return the history entries.
 
     Assume that all token manipulations generate the correct history entries,
     since that's tested in other tests.  The only point of this function is to
     build enough history that we can make interesting paginated queries of it.
+
+    Parameters
+    ----------
+    factory
+        Service factory.
+    data
+        Test data management object.
+    path
+        Relative path for test data file containing the expected history.
     """
     now = datetime.now(tz=UTC).replace(microsecond=0)
     token_service = factory.create_token_service()
@@ -155,11 +166,9 @@ async def build_history(factory: Factory) -> list[TokenChangeHistoryRecord]:
                 event_time += timedelta(seconds=5)
 
     history = await token_service.get_change_history(service_token_data)
-    if history.count != 20:
-        json_history = [e.model_dump(mode="json") for e in history.entries]
-        sys.stdout.write(json.dumps(json_history, indent=2))
-    assert history.count == 20
-    assert len(history.entries) == 20
+    json_history = [e.model_dump(mode="json") for e in history.entries]
+    data.assert_json_matches(json_history, path)
+    assert history.count == len(history.entries)
     return history.entries
 
 
@@ -267,11 +276,11 @@ async def check_pagination(
 
 @pytest.mark.asyncio
 async def test_admin_change_history(
-    client: AsyncClient, factory: Factory
+    data: Data, client: AsyncClient, factory: Factory
 ) -> None:
     token_data = await create_session_token(factory, scopes={"admin:token"})
     await set_session_cookie(client, token_data.token)
-    history = await build_history(factory)
+    history = await build_history(factory, data, "output/admin-change-history")
 
     r = await client.get("/auth/api/v1/history/token-changes")
     assert r.status_code == 200
@@ -372,11 +381,15 @@ async def test_admin_change_history(
 
 @pytest.mark.asyncio
 async def test_user_change_history(
-    client: AsyncClient, factory: Factory
+    data: Data, client: AsyncClient, factory: Factory
 ) -> None:
     token_data = await create_session_token(factory, username="one")
     await set_session_cookie(client, token_data.token)
-    history = [e for e in await build_history(factory) if e.username == "one"]
+    history = await build_history(factory, data, "output/user-change-history")
+
+    # Filter history down to just the ones affecting this user, since that
+    # will be all that's visible.
+    history = [e for e in history if e.username == "one"]
 
     r = await client.get("/auth/api/v1/users/one/token-change-history")
     assert r.status_code == 200

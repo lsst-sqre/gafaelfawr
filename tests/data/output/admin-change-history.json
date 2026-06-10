@@ -1,0 +1,406 @@
+[
+  {
+    "action": "revoke",
+    "actor": "bot-service",
+    "event_time": "<ANY>",
+    "expires": "<ANY>",
+    "ip_address": "2001:db8:34a:ea78:4278:4562:6578:9876",
+    "old_expires": null,
+    "old_scopes": null,
+    "old_token_name": null,
+    "parent": null,
+    "scopes": [
+      "admin:token",
+      "exec:test",
+      "read:all",
+      "user:token"
+    ],
+    "service": null,
+    "token": "<ANY>",
+    "token_name": null,
+    "token_type": "session",
+    "username": "one"
+  },
+  {
+    "action": "revoke",
+    "actor": "bot-service",
+    "event_time": "<ANY>",
+    "expires": "<ANY>",
+    "ip_address": "2001:db8:34a:ea78:4278:4562:6578:9876",
+    "old_expires": null,
+    "old_scopes": null,
+    "old_token_name": null,
+    "parent": "<ANY>",
+    "scopes": [
+      "exec:test",
+      "read:all"
+    ],
+    "service": "foo",
+    "token": "<ANY>",
+    "token_name": null,
+    "token_type": "internal",
+    "username": "one"
+  },
+  {
+    "action": "revoke",
+    "actor": "bot-service",
+    "event_time": "<ANY>",
+    "expires": "<ANY>",
+    "ip_address": "2001:db8:34a:ea78:4278:4562:6578:9876",
+    "old_expires": null,
+    "old_scopes": null,
+    "old_token_name": null,
+    "parent": "<ANY>",
+    "scopes": [
+      "read:all"
+    ],
+    "service": "bar",
+    "token": "<ANY>",
+    "token_name": null,
+    "token_type": "internal",
+    "username": "one"
+  },
+  {
+    "action": "revoke",
+    "actor": "bot-service",
+    "event_time": "<ANY>",
+    "expires": "<ANY>",
+    "ip_address": "2001:db8:34a:ea78:4278:4562:6578:9876",
+    "old_expires": null,
+    "old_scopes": null,
+    "old_token_name": null,
+    "parent": "<ANY>",
+    "scopes": [
+      "admin:token",
+      "exec:test",
+      "read:all",
+      "user:token"
+    ],
+    "service": null,
+    "token": "<ANY>",
+    "token_name": null,
+    "token_type": "notebook",
+    "username": "one"
+  },
+  {
+    "action": "revoke",
+    "actor": "bot-service",
+    "event_time": "<ANY>",
+    "expires": "<ANY>",
+    "ip_address": "2001:db8:34a:ea78:4278:4562:6578:9876",
+    "old_expires": null,
+    "old_scopes": null,
+    "old_token_name": null,
+    "parent": "<ANY>",
+    "scopes": [],
+    "service": "baz",
+    "token": "<ANY>",
+    "token_name": null,
+    "token_type": "internal",
+    "username": "one"
+  },
+  {
+    "action": "revoke",
+    "actor": "bot-service",
+    "event_time": "<ANY>",
+    "expires": "<ANY>",
+    "ip_address": "2001:db8:34a:ea78:4278:4562:6578:9876",
+    "old_expires": null,
+    "old_scopes": null,
+    "old_token_name": null,
+    "parent": "<ANY>",
+    "scopes": [
+      "exec:test"
+    ],
+    "service": "foo",
+    "token": "<ANY>",
+    "token_name": null,
+    "token_type": "internal",
+    "username": "one"
+  },
+  {
+    "action": "edit",
+    "actor": "bot-service",
+    "event_time": "<ANY>",
+    "expires": "<ANY>",
+    "ip_address": "2001:db8:34a:ea78:4278:4562:6578:af42",
+    "old_expires": null,
+    "old_scopes": [
+      "admin:token",
+      "read:all"
+    ],
+    "old_token_name": "happy token",
+    "parent": null,
+    "scopes": [
+      "read:all"
+    ],
+    "service": null,
+    "token": "<ANY>",
+    "token_name": "other name",
+    "token_type": "user",
+    "username": "two"
+  },
+  {
+    "action": "edit",
+    "actor": "bot-service",
+    "event_time": "<ANY>",
+    "expires": null,
+    "ip_address": "2001:db8:34a:ea78:4278:4562:6578:9876",
+    "old_expires": null,
+    "old_scopes": [
+      "admin:token",
+      "read:some",
+      "user:token"
+    ],
+    "old_token_name": null,
+    "parent": null,
+    "scopes": [
+      "admin:token",
+      "read:all"
+    ],
+    "service": null,
+    "token": "<ANY>",
+    "token_name": "happy token",
+    "token_type": "user",
+    "username": "two"
+  },
+  {
+    "action": "create",
+    "actor": "<bootstrap>",
+    "event_time": "<ANY>",
+    "expires": null,
+    "ip_address": "2001:db8:34a:ea78:4278:4562:6578:9876",
+    "old_expires": null,
+    "old_scopes": null,
+    "old_token_name": null,
+    "parent": null,
+    "scopes": [
+      "admin:token"
+    ],
+    "service": null,
+    "token": "<ANY>",
+    "token_name": null,
+    "token_type": "service",
+    "username": "bot-service"
+  },
+  {
+    "action": "edit",
+    "actor": "two",
+    "event_time": "<ANY>",
+    "expires": null,
+    "ip_address": "192.0.2.20",
+    "old_expires": null,
+    "old_scopes": null,
+    "old_token_name": "some token",
+    "parent": null,
+    "scopes": [
+      "admin:token",
+      "read:some",
+      "user:token"
+    ],
+    "service": null,
+    "token": "<ANY>",
+    "token_name": "happy token",
+    "token_type": "user",
+    "username": "two"
+  },
+  {
+    "action": "create",
+    "actor": "two",
+    "event_time": "<ANY>",
+    "expires": "<ANY>",
+    "ip_address": "10.10.10.10",
+    "old_expires": null,
+    "old_scopes": null,
+    "old_token_name": null,
+    "parent": "<ANY>",
+    "scopes": [
+      "read:some"
+    ],
+    "service": "foo",
+    "token": "<ANY>",
+    "token_name": null,
+    "token_type": "internal",
+    "username": "two"
+  },
+  {
+    "action": "create",
+    "actor": "two",
+    "event_time": "<ANY>",
+    "expires": null,
+    "ip_address": "192.0.2.20",
+    "old_expires": null,
+    "old_scopes": null,
+    "old_token_name": null,
+    "parent": null,
+    "scopes": [
+      "admin:token",
+      "read:some",
+      "user:token"
+    ],
+    "service": null,
+    "token": "<ANY>",
+    "token_name": "some token",
+    "token_type": "user",
+    "username": "two"
+  },
+  {
+    "action": "create",
+    "actor": "two",
+    "event_time": "<ANY>",
+    "expires": "<ANY>",
+    "ip_address": "192.0.2.20",
+    "old_expires": null,
+    "old_scopes": null,
+    "old_token_name": null,
+    "parent": null,
+    "scopes": [
+      "admin:token",
+      "read:some",
+      "user:token"
+    ],
+    "service": null,
+    "token": "<ANY>",
+    "token_name": null,
+    "token_type": "session",
+    "username": "two"
+  },
+  {
+    "action": "create",
+    "actor": "one",
+    "event_time": "<ANY>",
+    "expires": "<ANY>",
+    "ip_address": "10.10.10.20",
+    "old_expires": null,
+    "old_scopes": null,
+    "old_token_name": null,
+    "parent": "<ANY>",
+    "scopes": [
+      "exec:test"
+    ],
+    "service": "foo",
+    "token": "<ANY>",
+    "token_name": null,
+    "token_type": "internal",
+    "username": "one"
+  },
+  {
+    "action": "create",
+    "actor": "one",
+    "event_time": "<ANY>",
+    "expires": "<ANY>",
+    "ip_address": "198.51.100.5",
+    "old_expires": null,
+    "old_scopes": null,
+    "old_token_name": null,
+    "parent": "<ANY>",
+    "scopes": [
+      "admin:token",
+      "exec:test",
+      "read:all",
+      "user:token"
+    ],
+    "service": null,
+    "token": "<ANY>",
+    "token_name": null,
+    "token_type": "notebook",
+    "username": "one"
+  },
+  {
+    "action": "create",
+    "actor": "one",
+    "event_time": "<ANY>",
+    "expires": "<ANY>",
+    "ip_address": "10.10.10.10",
+    "old_expires": null,
+    "old_scopes": null,
+    "old_token_name": null,
+    "parent": "<ANY>",
+    "scopes": [],
+    "service": "baz",
+    "token": "<ANY>",
+    "token_name": null,
+    "token_type": "internal",
+    "username": "one"
+  },
+  {
+    "action": "create",
+    "actor": "one",
+    "event_time": "<ANY>",
+    "expires": "<ANY>",
+    "ip_address": "192.0.2.3",
+    "old_expires": null,
+    "old_scopes": null,
+    "old_token_name": null,
+    "parent": "<ANY>",
+    "scopes": [
+      "read:all"
+    ],
+    "service": "bar",
+    "token": "<ANY>",
+    "token_name": null,
+    "token_type": "internal",
+    "username": "one"
+  },
+  {
+    "action": "create",
+    "actor": "one",
+    "event_time": "<ANY>",
+    "expires": "<ANY>",
+    "ip_address": "192.0.2.4",
+    "old_expires": null,
+    "old_scopes": null,
+    "old_token_name": null,
+    "parent": "<ANY>",
+    "scopes": [
+      "exec:test",
+      "read:all"
+    ],
+    "service": "foo",
+    "token": "<ANY>",
+    "token_name": null,
+    "token_type": "internal",
+    "username": "one"
+  },
+  {
+    "action": "create",
+    "actor": "one",
+    "event_time": "<ANY>",
+    "expires": "<ANY>",
+    "ip_address": "192.0.2.3",
+    "old_expires": null,
+    "old_scopes": null,
+    "old_token_name": null,
+    "parent": null,
+    "scopes": [
+      "admin:token",
+      "exec:test",
+      "read:all",
+      "user:token"
+    ],
+    "service": null,
+    "token": "<ANY>",
+    "token_name": null,
+    "token_type": "session",
+    "username": "one"
+  },
+  {
+    "action": "create",
+    "actor": "some-user",
+    "event_time": "<ANY>",
+    "expires": "<ANY>",
+    "ip_address": "127.0.0.1",
+    "old_expires": null,
+    "old_scopes": null,
+    "old_token_name": null,
+    "parent": null,
+    "scopes": [
+      "admin:token"
+    ],
+    "service": null,
+    "token": "<ANY>",
+    "token_name": null,
+    "token_type": "session",
+    "username": "some-user"
+  }
+]
