@@ -88,7 +88,7 @@ Creating test tokens
 --------------------
 
 To create a Gafaelfawr token that will be recognized by the mock, call `MockGafaelfawr.create_token`.
-If you will be using that token to get user information for other users, request the ``admin:userinfo`` scope by passing ``scopes=["admin:userinfo"]`` argument.
+If you will be using that token to get user information for other users or to list all groups, request the ``admin:userinfo`` scope by passing ``scopes=["admin:userinfo"]`` argument.
 
 You can also create service tokens using `GafaelfawrClient.create_service_token` as usual, but the authentication token for that call must be created with ``admin:token`` scope via `MockGafaelfawr.create_token` first.
 A common pattern for services is to get their admin token via their configuration, so the test suite should use a fixture to pre-create that token with `~MockGafaelfawr.create_token` and inject it into the configuration.

@@ -61,6 +61,18 @@ def environment(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+@pytest.fixture(autouse=True)
+def mock_firestore(tmp_path: Path) -> Iterator[MockFirestore]:
+    """Configure Firestore UID/GID assignment and mock the Firestore API."""
+    yield from patch_firestore()
+
+
+@pytest.fixture(autouse=True)
+def mock_ldap(config: Config) -> Iterator[MockLDAP]:
+    """Replace the bonsai LDAP API with a mock class."""
+    yield from patch_ldap()
+
+
 @pytest_asyncio.fixture
 async def app(
     empty_database: None, mock_slack: MockSlackWebhook | None
@@ -190,18 +202,6 @@ async def factory(
     """Return a component factory."""
     async with Factory.standalone(config, engine) as factory:
         yield factory
-
-
-@pytest.fixture(autouse=True)
-def mock_firestore(tmp_path: Path) -> Iterator[MockFirestore]:
-    """Configure Firestore UID/GID assignment and mock the Firestore API."""
-    yield from patch_firestore()
-
-
-@pytest.fixture(autouse=True)
-def mock_ldap() -> Iterator[MockLDAP]:
-    """Replace the bonsai LDAP API with a mock class."""
-    yield from patch_ldap()
 
 
 @pytest.fixture

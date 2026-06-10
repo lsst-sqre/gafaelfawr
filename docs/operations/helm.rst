@@ -394,6 +394,14 @@ If :ref:`Firestore support <firestore>` is enabled, the GIDs in LDAP are ignored
 
 The name of each group will be taken from the ``cn`` attribute and the GID will be taken from the ``gidNumber`` attribute.
 
+Finally, by default all groups are classified as user-created groups for the purposes of the ``/auth/api/v1/groups`` API.
+To classify some groups as system groups and move them out of the ``user`` section in the response in that API (which may affect clients that operate only on user groups), list them under this attribute:
+
+``config.ldap.systemGroups``
+    List of groups that should be considered system groups and therefore ignored by clients that only operate on user groups.
+    By default, all groups are considered user groups.
+    Default: Emtpy list.
+
 .. _ldap-user:
 
 LDAP user information
@@ -572,7 +580,7 @@ A user who is a member of the ``bar`` and ``other`` groups will have the ``exec:
 Regardless of the ``config.groupMapping`` configuration, the ``user:token`` scope will be automatically added to the session token of any user authenticating via OpenID Connect or GitHub.
 The ``admin:token`` scope will be automatically added to any user marked as an admin in Gafaelfawr.
 
-You will probably want to grant ``admin:userinfo`` scope to platform administrators so that they can use the :samp:`/auth/api/v1/users/{username}` route to retrieve the user information for a user from LDAP while debugging problems.
+You will probably want to grant ``admin:userinfo`` scope to platform administrators so that they can use the :samp:`/auth/api/v1/groups` and :samp:`/auth/api/v1/users` routes to retrieve user and group information for a user from LDAP while debugging problems.
 
 .. _helm-quota:
 

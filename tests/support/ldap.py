@@ -9,9 +9,11 @@ from unittest.mock import Mock, patch
 
 import bonsai
 from bonsai.utils import escape_filter_exp
+from pydantic import BaseModel
 from safir.testing.data import Data
 
 from gafaelfawr import factory
+from gafaelfawr.config import LDAPConfig
 from gafaelfawr.constants import LDAP_TIMEOUT
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.models.userinfo import Group, UserInfo
@@ -22,12 +24,32 @@ _MockData = dict[str, dict[tuple[str, str], _SearchResults]]
 __all__ = ["MockLDAP", "patch_ldap"]
 
 
+class _TestGroup(BaseModel):
+    """Data for a single test group."""
+
+    name: str
+    gid: int | None = None
+    members: list[str] = []
+
+
+class _TestData(BaseModel):
+    """Test LDAP data.
+
+    This class is used to parse saved JSON data in the test data directory via
+    the `MockLDAP.load_data_for_test` method. It can only be used for
+    well-formed data. For malformed data, use `MockLDAP.add_entries_for_test`.
+    """
+
+    users: list[UserInfo]
+    groups: list[_TestGroup]
+
+
 class MockLDAP(Mock):
     """Mock bonsai LDAP api for testing."""
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(spec=bonsai.LDAPConnection, **kwargs)
-        self._entries: _MockData = defaultdict(dict)
+        self._entries: _MockData = defaultdict(lambda: defaultdict(list))
 
     def add_entries_for_test(
         self, base_dn: str, attr: str, value: str, entries: _SearchResults
@@ -49,6 +71,41 @@ class MockLDAP(Mock):
         key = (attr, escape_filter_exp(value))
         self._entries[base_dn][key] = entries
 
+    def add_test_group(self, group: _TestGroup) -> None:
+        """Add a group with members to the test data.
+
+        Do not call this method is called repeatedly with the same group name
+        without resetting the test data (via `load_data_for_test`, for
+        example). Doing so will will register duplicate groups in the search
+        results and invalidate the tests.
+
+        Parameters
+        ----------
+        group
+            Test group information.
+        """
+        base_dn = self._config.group_base_dn
+        group_key = (self._config.group_member_attr, "**")
+        entry = {"cn": [group.name]}
+        if group.gid:
+            entry["gidNumber"] = [str(group.gid)]
+
+        # Add the group to the list of all groups.
+        self._entries[base_dn][group_key].append(entry)
+
+        # For each member, add the group to the list of groups returned by a
+        # search for their membership.
+        user_base_dn = self._config.user_base_dn
+        user_search_attr = self._config.user_search_attr
+        group_member_attr = self._config.group_member_attr
+        for member in group.members:
+            if self._config.group_search_by_dn:
+                search_value = f"{user_search_attr}={member},{user_base_dn}"
+            else:
+                search_value = member
+            key = (group_member_attr, escape_filter_exp(search_value))
+            self._entries[base_dn][key].append(entry)
+
     def add_test_group_membership(
         self, username: str, groups: list[Group], *, omit_gid: bool = False
     ) -> None:
@@ -63,11 +120,9 @@ class MockLDAP(Mock):
         omit_gid
             Whether to omit the GID from the record.
         """
-        config = config_dependency.config()
-        assert config.ldap
-        if config.ldap.group_search_by_dn:
-            base_dn = config.ldap.user_base_dn
-            attr = config.ldap.user_search_attr
+        if self._config.group_search_by_dn:
+            base_dn = self._config.user_base_dn
+            attr = self._config.user_search_attr
             search_value = f"{attr}={username},{base_dn}"
         else:
             search_value = username
@@ -78,8 +133,8 @@ class MockLDAP(Mock):
                 {"cn": [g.name], "gidNumber": [str(g.id)]} for g in groups
             ]
         self.add_entries_for_test(
-            config.ldap.group_base_dn,
-            config.ldap.group_member_attr,
+            self._config.group_base_dn,
+            self._config.group_member_attr,
             search_value,
             entries,
         )
@@ -95,26 +150,28 @@ class MockLDAP(Mock):
         userinfo
             Information for user whose entry should be added.
         """
-        config = config_dependency.config()
-        assert config.ldap
-        entry = {config.ldap.user_search_attr: [userinfo.username]}
+        entry = {self._config.user_search_attr: [userinfo.username]}
         if userinfo.name:
-            entry[config.ldap.name_attr or "displayName"] = [userinfo.name]
+            entry[self._config.name_attr or "displayName"] = [userinfo.name]
         if userinfo.email:
-            entry[config.ldap.email_attr or "mail"] = [userinfo.email]
+            entry[self._config.email_attr or "mail"] = [userinfo.email]
         if userinfo.uid:
-            entry[config.ldap.uid_attr or "uidNumber"] = [str(userinfo.uid)]
+            entry[self._config.uid_attr or "uidNumber"] = [str(userinfo.uid)]
         if userinfo.gid:
-            entry[config.ldap.gid_attr or "gidNumber"] = [str(userinfo.gid)]
+            entry[self._config.gid_attr or "gidNumber"] = [str(userinfo.gid)]
         self.add_entries_for_test(
-            config.ldap.user_base_dn,
-            config.ldap.user_search_attr,
+            self._config.user_base_dn,
+            self._config.user_search_attr,
             userinfo.username,
             [entry],
         )
 
-    def load_test_data(self, data: Data, path: str) -> None:
+    def load_data_for_test(self, data: Data, path: str) -> None:
         """Load test data for users and groups.
+
+        This method replaces all existing test data with the new test data. To
+        supplement this data after loading with invalid data, call
+        `add_entries_for_test` after calling this method.
 
         Parameters
         ----------
@@ -123,12 +180,12 @@ class MockLDAP(Mock):
         path
             Path to the test data file containing user and group information.
         """
-        ldap_data = data.read_json(path)
-        for user in ldap_data.get("users"):
-            self.add_test_user(UserInfo.model_validate(user))
-        for username, group_data in ldap_data.get("membership").items():
-            groups = [Group.model_validate(g) for g in group_data]
-            self.add_test_group_membership(username, groups)
+        self._entries = defaultdict(lambda: defaultdict(list))
+        ldap_data = data.read_pydantic(_TestData, path)
+        for user in ldap_data.users:
+            self.add_test_user(user)
+        for group in ldap_data.groups:
+            self.add_test_group(group)
 
     async def close(self) -> None:
         pass
@@ -146,16 +203,20 @@ class MockLDAP(Mock):
             bonsai.LDAPSearchScope.ONELEVEL,
         )
         assert timeout == LDAP_TIMEOUT
-
-        match = re.match(
-            r"\((?:&\(objectClass=posixGroup\))?\(?([^=]+)=([^\)]+)\)?\)$",
-            filter_exp,
-        )
-        assert match, f"{filter_exp} does not match regex of searches"
-        key = (match.group(1), match.group(2))
         results = []
 
-        # Handle wildcard searches.
+        # Find the key for our internal mock storage.
+        if filter_exp == "(objectClass=posixGroup)":
+            key = (self._config.group_member_attr, "**")
+        else:
+            match = re.match(
+                r"\((?:&\(objectClass=posixGroup\))?\(?([^=]+)=([^\)]+)\)?\)$",
+                filter_exp,
+            )
+            assert match, f"{filter_exp} does not match regex of searches"
+            key = (match.group(1), match.group(2))
+
+        # Handle wildcard searches for users.
         if key[1] == "*":
             for entry_key, entries in self._entries[base].items():
                 if entry_key[0] != key[0]:
@@ -177,6 +238,18 @@ class MockLDAP(Mock):
     @asynccontextmanager
     async def spawn(self) -> AsyncIterator[MockLDAP]:
         yield self
+
+    @property
+    def _config(self) -> LDAPConfig:
+        """LDAP configuration for Gafaelafwr.
+
+        This is deferred to a property so that it can be dynamically loaded on
+        demand, allowing the LDAP mock to be installed unconditionally even if
+        there is no LDAP configuration.
+        """
+        config = config_dependency.config()
+        assert config.ldap
+        return config.ldap
 
 
 def patch_ldap() -> Iterator[MockLDAP]:

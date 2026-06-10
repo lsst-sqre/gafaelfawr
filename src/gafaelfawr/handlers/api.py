@@ -40,7 +40,7 @@ from ..models.token import (
     UserTokenModifyRequest,
     UserTokenRequest,
 )
-from ..models.userinfo import UserInfo
+from ..models.userinfo import AllGroups, UserInfo
 from ..util import random_128_bits
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
@@ -145,6 +145,27 @@ async def delete_admin(
     if not success:
         msg = "Specified user is not an administrator"
         raise NotFoundError(msg, ErrorLocation.path, ["username"])
+
+
+@router.get(
+    "/auth/api/v1/groups",
+    response_model_exclude_defaults=True,
+    summary="List known groups",
+    description=(
+        "Only information from LDAP is displayed. Gafaelfawr installations"
+        " using GitHub for authentication will return a 404 error since LDAP"
+        " is not configured."
+    ),
+    responses={404: {"description": "LDAP is not configured"}},
+    tags=["admin"],
+)
+async def list_groups(
+    *,
+    auth_data: Annotated[TokenData, Depends(authenticate_read)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+) -> AllGroups:
+    user_info_service = context.factory.create_user_info_service()
+    return await user_info_service.get_groups_from_ldap(auth_data)
 
 
 @router.get(

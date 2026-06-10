@@ -521,6 +521,21 @@ class LDAPConfig(EnvFirstSettings):
         ),
     )
 
+    system_groups: set[str] = Field(
+        set(),
+        title="Names of system groups",
+        description=(
+            "By default, all groups are classified as user-created groups."
+            " This configuration parameter allows listing the known system"
+            " groups, which will then be moved into a separate part of the"
+            " return from the API to list all groups. This allows putting"
+            " the designation of groups as system or user-created in one"
+            " place in the Gafaelfawr configuration rather than separately"
+            " configuring each client. If no groups are listed here, all"
+            " groups will be considered user groups."
+        ),
+    )
+
     add_user_group: bool = Field(
         False,
         title="Synthesize user private groups",
