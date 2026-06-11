@@ -46,6 +46,7 @@ class MockGafaelfawrAction(Enum):
 
     CREATE_TOKEN = "create_token"
     LIST_GROUPS = "list_groups"
+    LIST_USERS = "list_users"
     USER_INFO = "user_info"
 
 
@@ -134,10 +135,12 @@ class MockGafaelfawr:
         prefix = base_url.rstrip("/") + "/"
         handler = self._handle_groups
         respx_mock.get(urljoin(prefix, "groups")).mock(side_effect=handler)
-        handler = self._handle_user_info
-        respx_mock.get(urljoin(prefix, "user-info")).mock(side_effect=handler)
         handler = self._handle_create_token
         respx_mock.post(urljoin(prefix, "tokens")).mock(side_effect=handler)
+        handler = self._handle_user_info
+        respx_mock.get(urljoin(prefix, "user-info")).mock(side_effect=handler)
+        handler = self._handle_users
+        respx_mock.get(urljoin(prefix, "users")).mock(side_effect=handler)
 
         # These routes require regex matching of the username.
         base_regex = re.escape(base_url.rstrip("/"))
@@ -278,6 +281,23 @@ class MockGafaelfawr:
             return Response(500)
         elif user_info := self._user_info.get(username):
             result = user_info.model_dump(mode="json", exclude_defaults=True)
+            return Response(200, json=result)
+        else:
+            return Response(404)
+
+    @_check(
+        fail_on=MockGafaelfawrAction.LIST_USERS,
+        required_scope="admin:userinfo",
+    )
+    def _handle_users(
+        self, request: Request, token_data: TokenData
+    ) -> Response:
+        result = [
+            u.model_dump(mode="json", exclude_defaults=True)
+            for u in self._user_info.values()
+            if u is not None
+        ]
+        if result:
             return Response(200, json=result)
         else:
             return Response(404)

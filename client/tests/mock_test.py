@@ -87,6 +87,11 @@ async def test_fail_on(data: Data, mock_gafaelfawr: MockGafaelfawr) -> None:
     with pytest.raises(GafaelfawrWebError) as exc_info:
         await client.list_groups(admin_token)
 
+    # Check failure for retrieving a list of users.
+    mock_gafaelfawr.fail_on("admin", MockGafaelfawrAction.LIST_USERS)
+    with pytest.raises(GafaelfawrWebError) as exc_info:
+        await client.list_users(admin_token)
+
 
 @pytest.mark.asyncio
 async def test_missing_discovery(
@@ -110,14 +115,17 @@ async def test_required_scopes(
     mock_gafaelfawr.set_user_info("someuser", user_info)
 
     # A token without admin:userinfo should not be able to access the user
-    # route used by get_user_info with an explicit username or list all
-    # groups.
+    # route used by get_user_info with an explicit username, list all groups,
+    # or list all users.
     token = mock_gafaelfawr.create_token("otheruser")
     with pytest.raises(GafaelfawrWebError) as exc_info:
         await client.get_user_info(token, "someuser")
     assert exc_info.value.status == 403
     with pytest.raises(GafaelfawrWebError) as exc_info:
         await client.list_groups(token)
+    assert exc_info.value.status == 403
+    with pytest.raises(GafaelfawrWebError) as exc_info:
+        await client.list_users(token)
     assert exc_info.value.status == 403
 
     # A token without admin:token should not be able to create a token.

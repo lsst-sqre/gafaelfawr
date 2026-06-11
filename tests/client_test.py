@@ -44,11 +44,10 @@ def gafaelfawr_client(
 
 
 @pytest.mark.parametrize("config", ["github-quota"], indirect=True)
+@pytest.mark.usefixtures("client")
 @pytest.mark.asyncio
 async def test_get_user_info(
-    *,
     data: Data,
-    client: AsyncClient,
     factory: Factory,
     gafaelfawr_client: GafaelfawrClient,
 ) -> None:
@@ -63,11 +62,11 @@ async def test_get_user_info(
 
 
 @pytest.mark.parametrize("config", ["oidc"], indirect=True)
+@pytest.mark.usefixtures("client")
 @pytest.mark.asyncio
 async def test_get_user_info_ldap(
     *,
     data: Data,
-    client: AsyncClient,
     factory: Factory,
     gafaelfawr_client: GafaelfawrClient,
     mock_ldap: MockLDAP,
@@ -82,6 +81,53 @@ async def test_get_user_info_ldap(
 
     result = await gafaelfawr_client.get_user_info(str(token), "ldap")
     data.assert_pydantic_matches(result, "client/userinfo-ldap")
+
+
+@pytest.mark.parametrize("config", ["oidc"], indirect=True)
+@pytest.mark.usefixtures("client")
+@pytest.mark.asyncio
+async def test_list_groups(
+    *,
+    data: Data,
+    factory: Factory,
+    gafaelfawr_client: GafaelfawrClient,
+    mock_ldap: MockLDAP,
+) -> None:
+    token_service = factory.create_token_service()
+    token = await token_service.create_session_token(
+        TokenUserInfo(username="admin"),
+        scopes={"admin:userinfo"},
+        ip_address="127.0.0.1",
+    )
+    mock_ldap.load_data_for_test(data, "ldap/users")
+
+    result = await gafaelfawr_client.list_groups(str(token))
+    data.assert_pydantic_matches(result, "api/groups")
+
+
+@pytest.mark.parametrize("config", ["oidc"], indirect=True)
+@pytest.mark.usefixtures("client")
+@pytest.mark.asyncio
+async def test_list_users(
+    *,
+    data: Data,
+    factory: Factory,
+    gafaelfawr_client: GafaelfawrClient,
+    mock_ldap: MockLDAP,
+) -> None:
+    token_service = factory.create_token_service()
+    token = await token_service.create_session_token(
+        TokenUserInfo(username="admin"),
+        scopes={"admin:userinfo"},
+        ip_address="127.0.0.1",
+    )
+    mock_ldap.load_data_for_test(data, "ldap/users")
+
+    result = await gafaelfawr_client.list_users(str(token))
+    result_json = [
+        m.model_dump(mode="json", exclude_defaults=True) for m in result
+    ]
+    data.assert_json_matches(result_json, "api/users")
 
 
 @pytest.mark.asyncio
