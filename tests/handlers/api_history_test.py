@@ -142,7 +142,7 @@ async def build_history(
         service_token_data,
         ip_address="2001:db8:034a:ea78:4278:4562:6578:af42",
         token_name="other name",
-        expires=now + timedelta(days=30),
+        expires=now + timedelta(days=10),
         scopes={"read:all"},
     )
     assert await token_service.delete_token(
@@ -152,18 +152,25 @@ async def build_history(
         ip_address="2001:db8:034a:ea78:4278:4562:6578:9876",
     )
 
-    # Spread out the timestamps so that we can test date range queries.  Every
+    # Spread out the timestamps so that we can test date range queries. Every
     # other entry has the same timestamp as the previous entry to test that
     # queries handle entries with the same timestamp.
+    #
+    # This operation has to be done in descending order (modifying the last
+    # entry first) because the entries are returned in reverse order and we
+    # want the first two in the returned list to have the same timestamp, the
+    # next two to have the next timestamp, and so forth.
     async with factory.session.begin():
-        stmt = select(TokenChangeHistory).order_by(TokenChangeHistory.id)
+        stmt = select(TokenChangeHistory).order_by(
+            TokenChangeHistory.id.desc()
+        )
         result = await factory.session.execute(stmt)
         entries = [e[0] for e in result.all()]
-        event_time = now - timedelta(seconds=len(entries) * 5)
+        event_time = now
         for i, entry in enumerate(entries):
             entry.event_time = datetime_to_db(event_time)
             if i % 2 != 0:
-                event_time += timedelta(seconds=5)
+                event_time -= timedelta(seconds=5)
 
     history = await token_service.get_change_history(service_token_data)
     json_history = [e.model_dump(mode="json") for e in history.entries]
@@ -225,7 +232,7 @@ async def check_pagination(
     first_url = url
     prev_data = None
     all_data = []
-    for end in range(5, len(history) + 4, 5):
+    for end in range(5, len(history) + 5, 5):
         r = await client.get(url)
         assert r.status_code == 200
         data = r.json()
@@ -253,7 +260,7 @@ async def check_pagination(
         all_data.extend(data)
 
         # If we're not done, move to the next URL.
-        if end < len(history):
+        if end <= len(history):
             assert link_data.next_url
             url = link_data.next_url
 
@@ -455,15 +462,15 @@ async def test_user_change_history(
     await check_history_request(
         client,
         {"since": int(history[3].event_time.timestamp())},
-        history[:4],
-        lambda e: True,
+        history,
+        lambda e: e.event_time >= history[3].event_time,
         username="one",
     )
     await check_history_request(
         client,
         {"until": int(history[2].event_time.timestamp())},
-        history[2:],
-        lambda e: True,
+        history,
+        lambda e: e.event_time <= history[2].event_time,
         username="one",
     )
     await check_history_request(
@@ -472,8 +479,10 @@ async def test_user_change_history(
             "since": int(history[5].event_time.timestamp()),
             "until": int(history[4].event_time.timestamp()),
         },
-        history[4:6],
-        lambda e: True,
+        history,
+        lambda e: (
+            history[4].event_time >= e.event_time >= history[5].event_time
+        ),
         username="one",
     )
 
