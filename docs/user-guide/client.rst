@@ -107,6 +107,13 @@ Usually, it will obtain this token via a ``GafaelfawrServiceToken`` Kubernetes o
 Then, call `GafaelfawrClient.get_user_info`, passing in both that service token and, as the second argument, the username for which to get information.
 The result will be a `GafaelfawrUserInfo` object.
 
+.. warning::
+
+   This call does not return the same information that is returned when calling the method with a valid token.
+   The returned user information will only contain the information from LDAP, not any token overrides.
+
+   Bot users that are not present in LDAP will not have any useful information associated with them, even if many fields were set when creating a token for the bot user.
+
 Be aware that some Gafaelfawr configurations will raise `GafaelfawrNotFoundError` for any request for user information with a service token.
 This is the case for GitHub configurations, for example.
 `GafaelfawrNotFoundError` may also be raised in some cases when requesting user information for service tokens.
@@ -137,6 +144,31 @@ This allows clients that only want to act on user groups, such as a client that 
 
 Gafaelfawr configurations that do not use LDAP for user information will raise `GafaelfawrNotFoundError` for requests to list groups.
 This does not imply that there are no groups, only that the list of groups cannot be retrieved.
+
+Listing known users
+-------------------
+
+Similarly, Gafaelfawr instances that use LDAP as the source for user information support listing all groups known to the server.
+
+To obtain the group list, the application must have a token with ``admin:userinfo`` scope.
+Usually, it will obtain this token via a ``GafaelfawrServiceToken`` Kubernetes object (see :doc:`service-tokens`).
+
+Then, call `GafaelfawrClient.list_users`, passing in that service token as the one argument.
+The result will be a list of `GafaelfawrUserInfo` objects.
+
+.. warning::
+
+   The results will only contain the users and information from LDAP, not any token overrides.
+   If a user has created an account but never logged in and UIDs and GIDs are allocated via Firestore, they will not have a UID or GID since they have not been allocated yet.
+   Quota information for users is not included.
+
+   Bot users that are not present in LDAP will not be included, even though they may have valid tokens.
+
+   You should therefore be cautious when using this information.
+   It is only a way to retrieve the information in LDAP and that has already been recorded in Firestore, not the information about the user that you would see with a valid token for the user.
+
+Gafaelfawr configurations that do not use LDAP for user information will raise `GafaelfawrNotFoundError` for requests to list users.
+This does not imply that there are no users, only that the list of groups cannot be retrieved.
 
 Creating service tokens
 =======================

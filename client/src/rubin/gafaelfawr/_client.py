@@ -275,6 +275,36 @@ class GafaelfawrClient:
         url = await self._url_for("groups")
         return await self._get(url, GafaelfawrGroups, token)
 
+    async def list_users(self, token: str) -> list[GafaelfawrUserInfo]:
+        """List all known groups.
+
+        This method may only be called with a token with ``admin:userinfo``
+        scope, and user information is only available from a Gafaelfawr
+        instance that uses LDAP as a backing store for user information. Only
+        LDAP information will be returned, not any overrides present in
+        tokens or bot users created outside of LDAP.
+
+        Parameters
+        ----------
+        token
+            Gafaelfawr token used for authentication.
+
+        Raises
+        ------
+        GafaelfawrNotFoundError
+            Raised if the group list is not available, such as when Gafaelfawr
+            is not using LDAP as a source of user information.
+        GafaelfawrValidationError
+            Raised if the response from Gafaelfawr is invalid.
+        GafaelfawrWebError
+            Raised if there is some problem talking to the Gafaelfawr API,
+            such as an invalid token or network or service failure.
+        rubin.repertoire.RepertoireError
+            Raised if there was an error talking to service discovery.
+        """
+        url = await self._url_for("users")
+        return await self._get_list(url, GafaelfawrUserInfo, token)
+
     async def _get[T: BaseModel](
         self, url: str, model: type[T], token: str
     ) -> T:
@@ -311,6 +341,50 @@ class GafaelfawrClient:
             )
             r.raise_for_status()
             return model.model_validate(r.json())
+        except HTTPError as e:
+            if isinstance(e, HTTPStatusError):
+                if e.response.status_code == 404:
+                    raise GafaelfawrNotFoundError.from_exception(e) from e
+            raise GafaelfawrWebError.from_exception(e) from e
+        except ValidationError as e:
+            raise GafaelfawrValidationError.from_exception(e) from e
+
+    async def _get_list[T: BaseModel](
+        self, url: str, model: type[T], token: str
+    ) -> list[T]:
+        """Make an HTTP GET request returning a list and validate the results.
+
+        Parameters
+        ----------
+        url
+            URL at which to make the request.
+        model
+            Expected type of each element of the response.
+        token
+            Gafaelfawr token used for authentication.
+
+        Returns
+        -------
+        list of pydantic.BaseModel
+            List of validated models of the requested type.
+
+        Raises
+        ------
+        GafaelfawrNotFoundError
+            Raised if the requested URL returned a 404 response.
+        GafaelfawrValidationError
+            Raised if the response from Gafaelfawr is invalid.
+        GafaelfawrWebError
+            Raised if there is some problem talking to the Gafaelfawr API,
+            such as an invalid token or network or service failure.
+        """
+        headers = {"Authorization": f"Bearer {token}"}
+        try:
+            r = await self._client.get(
+                url, headers=headers, timeout=self._timeout
+            )
+            r.raise_for_status()
+            return [model.model_validate(e) for e in r.json()]
         except HTTPError as e:
             if isinstance(e, HTTPStatusError):
                 if e.response.status_code == 404:

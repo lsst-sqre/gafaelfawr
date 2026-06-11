@@ -104,6 +104,10 @@ To clear the registered information again, call `MockGafaelfawr.set_user_info` w
 
 Tokens created via `GafaelfawrClient.create_service_token` will automatically have their user information set in the mock to the values provided to that call.
 
+To set the list of groups returned by the list groups API, call `MockGafaelfawr.set_groups` with the `GafaelfawrGroups` data to return.
+This must be done separately from setting any user information if the mock needs to support a request to list groups.
+If this method is not called, the mock will return a 404 response to the request for a list of groups.
+
 Testing Gafaelfawr errors
 -------------------------
 

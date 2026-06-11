@@ -191,3 +191,26 @@ async def test_list_groups(
     groups = data.read_pydantic(GafaelfawrGroups, "userinfo/groups")
     mock_gafaelfawr.set_groups(groups)
     assert await client.list_groups(token) == groups
+
+
+@pytest.mark.asyncio
+async def test_list_users(data: Data, mock_gafaelfawr: MockGafaelfawr) -> None:
+    token = mock_gafaelfawr.create_token("admin", scopes=["admin:userinfo"])
+    client = GafaelfawrClient()
+
+    # If no data is available, should raise GafaelfawrNotFoundError.
+    with pytest.raises(GafaelfawrNotFoundError):
+        await client.list_users(token)
+
+    # HTTP errors should raise GafaelfawrWebError.
+    mock_gafaelfawr.fail_on("admin", MockGafaelfawrAction.LIST_USERS)
+    with pytest.raises(GafaelfawrWebError):
+        await client.list_users(token)
+
+    # Register some user information and try again.
+    mock_gafaelfawr.fail_on("admin", [])
+    one = data.read_pydantic(GafaelfawrUserInfo, "userinfo/someuser")
+    mock_gafaelfawr.set_user_info("someuser", one)
+    two = data.read_pydantic(GafaelfawrUserInfo, "userinfo/otheruser")
+    mock_gafaelfawr.set_user_info("otheruser", two)
+    assert await client.list_users(token) == [one, two]

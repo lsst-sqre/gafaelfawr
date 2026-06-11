@@ -124,6 +124,25 @@
     "event_time": "<ANY>",
     "expires": "<ANY>",
     "ip_address": "2001:db8:34a:ea78:4278:4562:6578:af42",
+    "old_expires": "<ANY>",
+    "old_scopes": null,
+    "old_token_name": null,
+    "parent": "<ANY>",
+    "scopes": [
+      "read:some"
+    ],
+    "service": "foo",
+    "token": "<ANY>",
+    "token_name": null,
+    "token_type": "internal",
+    "username": "two"
+  },
+  {
+    "action": "edit",
+    "actor": "bot-service",
+    "event_time": "<ANY>",
+    "expires": "<ANY>",
+    "ip_address": "2001:db8:34a:ea78:4278:4562:6578:af42",
     "old_expires": null,
     "old_scopes": [
       "admin:token",

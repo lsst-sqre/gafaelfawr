@@ -1,0 +1,7 @@
+{
+  "username": "otheruser",
+  "name": "Another User",
+  "uid": 2001,
+  "gid": 1045,
+  "groups": [{"id": 1222, "name": "foo"}]
+}
