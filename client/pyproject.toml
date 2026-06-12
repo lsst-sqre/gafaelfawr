@@ -25,7 +25,7 @@ dependencies = [
     "httpx>=0.28,<1",
     "pydantic>=2.10,<3",
     "pydantic-settings>=2.6,<3",
-    "rubin-repertoire>=0.6,<2",
+    "rubin-repertoire>=0.6,<3",
     "safir>=4,<16",
     "structlog>24",
 ]

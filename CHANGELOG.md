@@ -10,6 +10,13 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-15.4.1'></a>
+## 15.4.1 (2026-06-12)
+
+### Other changes
+
+- Relax the dependency on rubin-repertoire in rubin-gafaelfawr to allow rubin-repertoire 2.0.0.
+
 <a id='changelog-15.4.0'></a>
 ## 15.4.0 (2026-06-12)
 
@@ -39,7 +46,7 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 ### Other changes
 
-- Relax the dependency on Safir in rubin.gafaelfawr to allow Safir 15.0.0.
+- Relax the dependency on Safir in rubin-gafaelfawr to allow Safir 15.0.0.
 
 <a id='changelog-15.2.3'></a>
 ## 15.2.3 (2026-03-23)
