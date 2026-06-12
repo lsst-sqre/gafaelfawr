@@ -10,6 +10,15 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-15.4.0'></a>
+## 15.4.0 (2026-06-12)
+
+### New features
+
+- Add new API at `/auth/api/v1/users` to list all users in LDAP, for sites using LDAP as the source of user identity.
+- Add new API at `/auth/api/v1/groups` to list all groups in LDAP, for sites using LDAP as the source of user identity.
+- Add new `list_groups` and `list_users` methods to the client to retrieve all known groups and users from a Gafaelfawr server that uses LDAP as the user information source. These methods require a token with `admin:userinfo` scope. Also add the corresponding mocks and a method to set the list of groups the mock should return.
+
 <a id='changelog-15.3.0'></a>
 ## 15.3.0 (2026-06-02)
 
