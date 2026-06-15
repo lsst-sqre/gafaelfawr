@@ -112,10 +112,8 @@ def config(
 ) -> Config:
     """Set up and return the default test configuration.
 
-    The fixture always configures Gafealfawr for GitHub authentication, but it
-    sets up the environment variables with secrets for other providers and
-    user information sources so that the test case can switch later. Metrics
-    are always disabled.
+    Override the parameter to use a configuration other than the default
+    GitHub configuration. Metrics are always disabled.
 
     Examples
     --------
@@ -179,8 +177,8 @@ async def empty_database(engine: AsyncEngine, config: Config) -> None:
     await stamp_database_async(engine)
 
 
-@pytest.fixture
-def engine(config: Config) -> AsyncEngine:
+@pytest_asyncio.fixture
+async def engine(config: Config) -> AsyncIterator[AsyncEngine]:
     """Create a database engine for testing.
 
     Previously, this fixture was session-scoped so that all tests could share
@@ -190,9 +188,11 @@ def engine(config: Config) -> AsyncEngine:
     pytest-asyncio was upgraded from 0.21.1 to 0.23.2 and the maintenance
     burden doesn't seem worth it.
     """
-    return create_database_engine(
+    engine = create_database_engine(
         config.database_url, config.database_password
     )
+    yield engine
+    await engine.dispose()
 
 
 @pytest_asyncio.fixture
