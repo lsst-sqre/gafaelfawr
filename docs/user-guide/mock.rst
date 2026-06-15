@@ -17,7 +17,7 @@ Add ``respx`` to your project's development dependencies.
 
 Then, add a fixture (usually to :file:`tests/conftest.py`) that calls `register_mock_gafaelfawr` and returns the `MockGafaelfawr` object.
 
-.. code-block:: yaml
+.. code-block:: python
 
    import pytest_asyncio
    import respx
