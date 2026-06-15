@@ -68,7 +68,7 @@ requires = ["setuptools>=61", "setuptools_scm[toml]>=6.2"]
 dev = [
     "asgi-lifespan",
     "coverage[toml]",
-    "pytest>=8.3",
+    "pytest>=8.3,!=9.1.0",  # https://github.com/pytest-dev/pytest/issues/14591
     "pytest-asyncio>=0.25",
     "pytest-cov>=6",
     "pytest-sugar>=1",
