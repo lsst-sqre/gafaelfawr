@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           # Ensure the documentation gets the right version.
           fetch-depth: 0
@@ -70,7 +70,7 @@ jobs:
           - "3.13"
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # The top-level Python version must be used for make update-deps,
       # followed by a switch to the matrix version. Otherwise, the test may
@@ -109,7 +109,7 @@ jobs:
     needs: [test, test-client]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # full history for setuptools_scm
 
