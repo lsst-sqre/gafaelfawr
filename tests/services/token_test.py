@@ -1740,18 +1740,30 @@ async def test_audit(
     # found.
     alerts = await token_service.audit()
     expected = [
-        f"Token `{db_session_token_data.token.key}` for `some-user`"
-        " found in database but not Redis",
-        f"Token `{redis_session_token_data.token.key}` for `other-user`"
-        " found in Redis but not database",
-        f"Token `{db_user_token_data.token.key}` for `some-user` does"
-        " not match between database and Redis (scopes, created)",
-        f"Token `{internal_token_data.token.key}` for `some-user`"
-        " expires after its parent token",
-        f"Token `{orphaned_token_data.token.key}` for `some-user` has"
-        " no parent token",
-        f"Token `{unknown_scope_token_data.token.key}` for `some-user`"
-        " has unknown scope (`bogus:scope`)",
+        (
+            f"Token `{db_session_token_data.token.key}` for `some-user`"
+            " found in database but not Redis"
+        ),
+        (
+            f"Token `{redis_session_token_data.token.key}` for `other-user`"
+            " found in Redis but not database"
+        ),
+        (
+            f"Token `{db_user_token_data.token.key}` for `some-user` does"
+            " not match between database and Redis (scopes, created)"
+        ),
+        (
+            f"Token `{internal_token_data.token.key}` for `some-user`"
+            " expires after its parent token"
+        ),
+        (
+            f"Token `{orphaned_token_data.token.key}` for `some-user` has"
+            " no parent token"
+        ),
+        (
+            f"Token `{unknown_scope_token_data.token.key}` for `some-user`"
+            " has unknown scope (`bogus:scope`)"
+        ),
         f"Token `{string.key}` in Redis is malformed",
         f"Token `{invalid.key}` in Redis is malformed",
     ]

@@ -74,8 +74,10 @@ def test_audit(
     assert result.exit_code == 0
 
     alerts = [
-        f"Token `{token_data.token.key}` for `some-user` found in database"
-        " but not Redis",
+        (
+            f"Token `{token_data.token.key}` for `some-user` found in database"
+            " but not Redis"
+        )
     ]
     expected_alert = (
         "Gafaelfawr data inconsistencies found:\n• " + "\n• ".join(alerts)
