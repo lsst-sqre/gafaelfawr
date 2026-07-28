@@ -141,6 +141,7 @@ def config(
     redis_port = redis.get_exposed_port(redis.port)
     redis_ephemeral_url = f"redis://{redis_host}:{redis_port}/1"
     redis_persistent_url = f"redis://{redis_host}:{redis_port}/0"
+    assert redis.password
 
     monkeypatch.setenv("GAFAELFAWR_BOOTSTRAP_TOKEN", str(Token()))
     monkeypatch.setenv("GAFAELFAWR_DATABASE_PASSWORD", postgres.password)
