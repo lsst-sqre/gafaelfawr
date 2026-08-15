@@ -28,7 +28,7 @@ from gafaelfawr.models.oidc import (
 )
 from gafaelfawr.models.token import Token
 
-from ..support.config import build_oidc_client
+from ..support.oidc import register_oidc_client
 from ..support.tokens import create_session_token
 
 
@@ -38,28 +38,22 @@ async def test_issue_code(
     config: Config, factory: Factory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     redirect_uri = "https://example.com/"
-    assert config.oidc_server
-    clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
-    config.oidc_server.clients = clients
     oidc_service = factory.create_oidc_service()
     token_data = await create_session_token(factory)
-    token = token_data.token
-
-    assert config.oidc_server
-    assert list(config.oidc_server.clients) == clients
+    client = await register_oidc_client(factory, redirect_uri, token_data)
 
     with pytest.raises(InvalidClientIdError):
         await oidc_service.issue_code(
             client_id="unknown-client",
             redirect_uri=redirect_uri,
-            token=token,
+            token=token_data.token,
             scopes=[OIDCScope.openid],
         )
 
     code = await oidc_service.issue_code(
-        client_id="some-id",
+        client_id=client.client_id,
         redirect_uri=redirect_uri,
-        token=token,
+        token=token_data.token,
         scopes=[OIDCScope.openid, OIDCScope.profile],
     )
     encrypted_code = await factory.ephemeral_redis.get(f"oidc:{code.key}")
@@ -71,11 +65,11 @@ async def test_issue_code(
             "key": code.key,
             "secret": code.secret,
         },
-        "client_id": "some-id",
+        "client_id": client.client_id,
         "redirect_uri": redirect_uri,
         "token": {
-            "key": token.key,
-            "secret": token.secret,
+            "key": token_data.token.key,
+            "secret": token_data.token.secret,
         },
         "created_at": ANY,
         "scopes": ["openid", "profile"],
@@ -90,36 +84,33 @@ async def test_issue_code(
 async def test_redeem_code(
     config: Config, factory: Factory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    redirect_uri = "https://example.com/"
     assert config.oidc_server
-    config.oidc_server.clients = [
-        build_oidc_client("client-1", "client-1-secret", redirect_uri),
-        build_oidc_client("client-2", "client-2-secret", redirect_uri),
-    ]
-    oidc_service = factory.create_oidc_service()
+    redirect_uri = "https://example.com/"
     token_data = await create_session_token(factory)
     assert token_data.expires
-    token = token_data.token
+    client = await register_oidc_client(factory, redirect_uri, token_data)
+    oidc_service = factory.create_oidc_service()
     code = await oidc_service.issue_code(
-        client_id="client-2",
+        client_id=client.client_id,
         redirect_uri=redirect_uri,
-        token=token,
+        token=token_data.token,
         scopes=[OIDCScope.openid, OIDCScope.profile],
     )
 
     reply = await oidc_service.redeem_code(
         grant_type="authorization_code",
-        client_id="client-2",
-        client_secret="client-2-secret",
+        client_id=client.client_id,
+        client_secret=client.client_secret.get_secret_value(),
         redirect_uri=redirect_uri,
         code=str(code),
         ip_address="127.0.0.1",
     )
     assert reply.scope == "openid profile"
     assert reply.token_type == "Bearer"
-    id_token = oidc_service.verify_token(OIDCToken(encoded=reply.id_token))
+    encoded_token = OIDCToken(encoded=reply.id_token)
+    id_token = await oidc_service.verify_token(encoded_token)
     assert id_token.claims == {
-        "aud": "client-2",
+        "aud": client.client_id,
         "iat": ANY,
         "exp": ANY,
         "iss": str(config.oidc_server.issuer),
@@ -155,7 +146,10 @@ async def test_redeem_code(
     # If the parent session token is revoked, the oidc token returned as an
     # access token should also be revoked.
     await token_service.delete_token(
-        token.key, token_data, token_data.username, ip_address="127.0.0.1"
+        token_data.token.key,
+        token_data,
+        token_data.username,
+        ip_address="127.0.0.1",
     )
     assert await token_service.get_data(access_token) is None
 
@@ -171,18 +165,14 @@ async def test_redeem_code_errors(
 ) -> None:
     expires = int(timedelta(minutes=60).total_seconds())
     redirect_uri = "https://example.com/"
-    assert config.oidc_server
-    config.oidc_server.clients = [
-        build_oidc_client("client-1", "client-1-secret", redirect_uri),
-        build_oidc_client("client-2", "client-2-secret", redirect_uri),
-    ]
     oidc_service = factory.create_oidc_service()
     token_data = await create_session_token(factory)
-    token = token_data.token
+    client_1 = await register_oidc_client(factory, redirect_uri, token_data)
+    client_2 = await register_oidc_client(factory, redirect_uri, token_data)
     code = await oidc_service.issue_code(
-        client_id="client-2",
+        client_id=client_1.client_id,
         redirect_uri=redirect_uri,
-        token=token,
+        token=token_data.token,
         scopes=[OIDCScope.openid],
     )
 
@@ -216,7 +206,7 @@ async def test_redeem_code_errors(
     with pytest.raises(InvalidClientError):
         await oidc_service.redeem_code(
             grant_type="authorization_code",
-            client_id="client-2",
+            client_id=client_1.client_id,
             client_secret="some-secret",
             redirect_uri=redirect_uri,
             code=str(code),
@@ -225,8 +215,8 @@ async def test_redeem_code_errors(
     with pytest.raises(InvalidGrantError):
         await oidc_service.redeem_code(
             grant_type="authorization_code",
-            client_id="client-2",
-            client_secret="client-2-secret",
+            client_id=client_1.client_id,
+            client_secret=client_1.client_secret.get_secret_value(),
             redirect_uri=redirect_uri,
             code=str(OIDCAuthorizationCode()),
             ip_address="127.0.0.1",
@@ -234,8 +224,8 @@ async def test_redeem_code_errors(
     with pytest.raises(InvalidGrantError):
         await oidc_service.redeem_code(
             grant_type="authorization_code",
-            client_id="client-1",
-            client_secret="client-1-secret",
+            client_id=client_2.client_id,
+            client_secret=client_2.client_secret.get_secret_value(),
             redirect_uri=redirect_uri,
             code=str(code),
             ip_address="127.0.0.1",
@@ -243,8 +233,8 @@ async def test_redeem_code_errors(
     with pytest.raises(InvalidGrantError):
         await oidc_service.redeem_code(
             grant_type="authorization_code",
-            client_id="client-2",
-            client_secret="client-2-secret",
+            client_id=client_1.client_id,
+            client_secret=client_1.client_secret.get_secret_value(),
             redirect_uri="https://foo.example.com/",
             code=str(code),
             ip_address="127.0.0.1",
@@ -253,9 +243,9 @@ async def test_redeem_code_errors(
         wrong_secret = OIDCAuthorizationCode(key=code.key)
         await oidc_service.redeem_code(
             grant_type="authorization_code",
-            client_id="client-2",
-            client_secret="client-2-secret",
-            redirect_uri="https://foo.example.com/",
+            client_id=client_1.client_id,
+            client_secret=client_1.client_secret.get_secret_value(),
+            redirect_uri=redirect_uri,
             code=str(wrong_secret),
             ip_address="127.0.0.1",
         )
@@ -268,8 +258,8 @@ async def test_redeem_code_errors(
     with pytest.raises(InvalidGrantError):
         await oidc_service.redeem_code(
             grant_type="authorization_code",
-            client_id="client-2",
-            client_secret="client-2-secret",
+            client_id=client_1.client_id,
+            client_secret=client_1.client_secret.get_secret_value(),
             redirect_uri=redirect_uri,
             code=str(code),
             ip_address="127.0.0.1",
@@ -318,20 +308,23 @@ async def test_redeem_code_errors(
     # Underlying access token revoked before code was redeemed.
     token_data = await create_session_token(factory)
     code = await oidc_service.issue_code(
-        client_id="client-2",
+        client_id=client_1.client_id,
         redirect_uri=redirect_uri,
-        token=token,
+        token=token_data.token,
         scopes=[OIDCScope.openid],
     )
     token_service = factory.create_token_service()
     await token_service.delete_token(
-        token.key, token_data, token_data.username, ip_address="127.0.0.1"
+        token_data.token.key,
+        token_data,
+        token_data.username,
+        ip_address="127.0.0.1",
     )
     with pytest.raises(InvalidGrantError):
         await oidc_service.redeem_code(
             grant_type="authorization_code",
-            client_id="client-2",
-            client_secret="client-2-secret",
+            client_id=client_1.client_id,
+            client_secret=client_1.client_secret.get_secret_value(),
             redirect_uri=redirect_uri,
             code=str(code),
             ip_address="127.0.0.1",
@@ -343,16 +336,14 @@ async def test_redeem_code_errors(
 async def test_issue_id_token(
     config: Config, factory: Factory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    redirect_uri = "https://example.com/"
     assert config.oidc_server
-    clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
-    config.oidc_server.clients = clients
+    redirect_uri = "https://example.com/"
     oidc_service = factory.create_oidc_service()
-
     token_data = await create_session_token(factory)
     assert token_data.expires
+    client = await register_oidc_client(factory, redirect_uri, token_data)
     authorization = OIDCAuthorization(
-        client_id="some-id",
+        client_id=client.client_id,
         redirect_uri=redirect_uri,
         token=token_data.token,
         scopes=[OIDCScope.openid, OIDCScope.profile],
@@ -361,7 +352,7 @@ async def test_issue_id_token(
     oidc_token = await oidc_service.issue_id_token(authorization)
 
     assert oidc_token.claims == {
-        "aud": "some-id",
+        "aud": client.client_id,
         "exp": int(token_data.expires.timestamp()),
         "iat": ANY,
         "iss": str(config.oidc_server.issuer),

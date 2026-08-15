@@ -16,6 +16,7 @@ knownScopes:
   "user:token": "Can create and modify user tokens"
 oidcServer:
   enabled: true
+  clientSuffix: ".example.com"
   issuer: "https://test.example.com/"
   keyId: "some-kid"
   dataRightsMapping:

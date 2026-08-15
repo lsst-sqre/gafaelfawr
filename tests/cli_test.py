@@ -26,7 +26,6 @@ from gafaelfawr.cli import main
 from gafaelfawr.config import Config
 from gafaelfawr.constants import CHANGE_HISTORY_RETENTION
 from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.exceptions import InvalidGrantError
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.enums import TokenChange, TokenType
@@ -37,8 +36,8 @@ from gafaelfawr.schema import SchemaBase
 from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
 
-from .support.config import build_oidc_client
 from .support.database import create_old_database
+from .support.oidc import register_oidc_client
 
 
 def test_audit(
@@ -118,12 +117,11 @@ def test_delete_all_data(
 ) -> None:
     event_loop = asyncio.new_event_loop()
     redirect_uri = "https://example.com/"
-    clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
-    assert config.oidc_server
-    config.oidc_server.clients = clients
     logger = structlog.get_logger("gafaelfawr")
+    oidc_client = None
 
     async def setup() -> OIDCAuthorizationCode:
+        nonlocal oidc_client
         await initialize_database(engine, logger, schema=SchemaBase.metadata)
         async with Factory.standalone(config, engine) as factory:
             token_service = factory.create_token_service()
@@ -131,9 +129,10 @@ def test_delete_all_data(
             token = await token_service.create_session_token(
                 user_info, scopes=set(), ip_address="127.0.0.1"
             )
+            oidc_client = await register_oidc_client(factory, redirect_uri)
             oidc_service = factory.create_oidc_service()
             return await oidc_service.issue_code(
-                client_id="some-id",
+                client_id=oidc_client.client_id,
                 redirect_uri=redirect_uri,
                 token=token,
                 scopes=[OIDCScope.openid],
@@ -153,15 +152,10 @@ def test_delete_all_data(
             bootstrap = TokenData.bootstrap_token()
             assert await token_service.list_tokens(bootstrap) == []
             oidc_service = factory.create_oidc_service()
-            with pytest.raises(InvalidGrantError):
-                await oidc_service.redeem_code(
-                    grant_type="authorization_code",
-                    client_id="some-id",
-                    client_secret="some-secret",
-                    redirect_uri="https://example.com/",
-                    code=str(code),
-                    ip_address="127.0.0.1",
-                )
+            assert await oidc_service.list_clients() == []
+            oidc_storage = factory.create_oidc_authorization_store()
+            async with factory.session.begin():
+                assert await oidc_storage.get(code) is None
 
     event_loop.run_until_complete(check_data())
 

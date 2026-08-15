@@ -850,8 +850,14 @@ OpenID Connect server
 =====================
 
 Gafaelfawr can act as an OpenID Connect identity provider for relying parties inside the Kubernetes cluster.
-To enable this, set ``config.oidcServer.enabled`` to true.
-If this is set, ``oidc-server-secrets`` and ``signing-key`` must be set in the Gafaelfawr Vault secret.
+See :ref:`openid-connect` for more information.
+See :dmtn:`253` for how this OpenID Connect support can be used by International Data Access Centers.
+
+To enable this support, set ``config.oidcServer.enabled`` to true.
+If this option is set, ``signing-key`` must be set in the Gafaelfawr Vault secret.
+
+OpenID Connect clients are managed through a Gafaelfawr API.
+See :ref:`openid-connect-register` for more information.
 
 Gafaelfawr can provide an OpenID Connect ID token claim listing the data releases to which the user has access.
 To do so, it must be configured with a mapping of group names to data releases to which membership in that group grants access.
@@ -873,10 +879,11 @@ For example:
 This configuration indicates members of the ``g_preview`` group have access to the ``dp0.1`` release and members of the ``g_users`` group have access to all of ``dp0.1``, ``dp0.2``, and ``dp0.3``.
 Users have access to the union of data releases across all of their group memberships.
 
-See :ref:`openid-connect` for more information.
-See :dmtn:`253` for how this OpenID Connect support can be used by International Data Access Centers.
-
 The following additional options customize the behavior of the OpenID Connect server:
+
+``config.oidcServer.clientSuffix``
+    Suffix to add to a randomly-generated identifier when creating new OpenID Connect client identifiers.
+    Default: The base hostname of the Phalanx environment with a period (``.``) prepended.
 
 ``config.oidcServer.issuer``
     The issuer identity (the ``iss`` claim in JWTs).

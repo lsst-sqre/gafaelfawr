@@ -303,7 +303,7 @@ async def verified_oidc_token(
     unverified_token = OIDCToken(encoded=encoded_token)
     oidc_service = context.factory.create_oidc_service()
     try:
-        token = oidc_service.verify_token(unverified_token)
+        token = await oidc_service.verify_token(unverified_token)
     except InvalidTokenError as e:
         raise generate_challenge(
             context, AuthType.Bearer, e, error_in_headers=False

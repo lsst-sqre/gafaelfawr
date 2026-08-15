@@ -1,4 +1,4 @@
-"""OpenID Connect provider mocks for testing."""
+"""OpenID Connect provider and server testing support."""
 
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urljoin, urlparse
@@ -8,13 +8,22 @@ from httpx import AsyncClient, Request, Response
 
 from gafaelfawr.config import OIDCConfig
 from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.models.oidc import OIDCToken, OIDCVerifiedToken
+from gafaelfawr.factory import Factory
+from gafaelfawr.models.oidc import (
+    OIDCClientUpdate,
+    OIDCClientWithSecret,
+    OIDCToken,
+    OIDCVerifiedToken,
+)
+from gafaelfawr.models.token import TokenData
 
 from .constants import TEST_KEYPAIR
+from .tokens import create_session_token
 
 __all__ = [
     "mock_oidc_provider_config",
     "mock_oidc_provider_token",
+    "register_oidc_client",
     "simulate_oidc_login",
 ]
 
@@ -125,6 +134,36 @@ async def mock_oidc_provider_token(
     respx_mock.post(str(config.oidc.token_url)).mock(
         side_effect=mock.post_token
     )
+
+
+async def register_oidc_client(
+    factory: Factory,
+    return_uri: str,
+    token_data: TokenData | None = None,
+) -> OIDCClientWithSecret:
+    """Register a new OpenID Connect client.
+
+    Parameters
+    ----------
+    factory
+        Component factory.
+    return_uri
+        Client return URI.
+
+    Returns
+    -------
+    OIDCClientWithSecret
+        Client metadata with the client secret.
+    """
+    if not token_data:
+        token_data = await create_session_token(
+            factory, username="admin", scopes={"admin:oidc"}
+        )
+    oidc_service = factory.create_oidc_service()
+    oidc_request = OIDCClientUpdate(
+        return_uri=return_uri, description="Test client"
+    )
+    return await oidc_service.register_client(token_data, oidc_request)
 
 
 async def simulate_oidc_login(

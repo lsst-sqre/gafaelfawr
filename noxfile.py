@@ -27,6 +27,10 @@ nox.options.reuse_existing_virtualenvs = True
 # Recurse into these subdirectories, which have their own separate noxfile.py.
 _SUBDIRECTORIES = ["client"]
 
+# PostgreSQL and Redis images to use.
+_POSTGRES_IMAGE = "postgres:18"
+_REDIS_IMAGE = "redis:8"
+
 
 @dataclass
 class _Containers:
@@ -64,7 +68,7 @@ def _start_containers() -> Iterator[_Containers]:
 
     # Start the containers and flesh out env with the additional required
     # Gafaelfawr settings. Ideally we wouldn't require Redis.
-    with RedisContainer() as redis:
+    with RedisContainer(image=_REDIS_IMAGE) as redis:
         redis_host = redis.get_container_host_ip()
         redis_port = redis.get_exposed_port(redis.port)
         redis_url = f"redis://{redis_host}:{redis_port}"
@@ -72,6 +76,7 @@ def _start_containers() -> Iterator[_Containers]:
         env["GAFAELFAWR_REDIS_PERSISTENT_URL"] = f"{redis_url}/0"
 
         with PostgresContainer(
+            image=_POSTGRES_IMAGE,
             driver="asyncpg",
             dbname="gafaelfawr",
             username="gafaelfawr",

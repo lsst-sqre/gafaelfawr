@@ -3,10 +3,11 @@
 from collections.abc import Sequence
 from contextlib import suppress
 from datetime import UTC, datetime
-from enum import StrEnum
-from typing import Any, Self, override
+from enum import Enum, StrEnum
+from typing import Annotated, Any, Self, override
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PlainSerializer, SecretStr
+from safir.pydantic import UtcDatetime
 
 from ..constants import ALGORITHM, OIDC_AUTHORIZATION_LIFETIME
 from ..exceptions import InvalidGrantError
@@ -17,14 +18,129 @@ from .token import Token
 __all__ = [
     "JWK",
     "JWKS",
+    "OIDCAuthenticateStatus",
     "OIDCAuthorization",
     "OIDCAuthorizationCode",
+    "OIDCClient",
+    "OIDCClientCreate",
+    "OIDCClientUpdate",
+    "OIDCClientWithSecret",
     "OIDCConfig",
     "OIDCScope",
     "OIDCToken",
     "OIDCTokenReply",
     "OIDCVerifiedToken",
 ]
+
+
+class OIDCAuthenticateStatus(Enum):
+    """Possible results of an OpenID Connect client authentication."""
+
+    BAD_CLIENT = "bad_client"
+    BAD_SECRET = "bad_secret"
+    VALID = "valid"
+
+
+class OIDCClientUpdate(BaseModel):
+    """OpenID Connect client fields that can be updated."""
+
+    return_uri: Annotated[
+        str,
+        Field(
+            title="Return URI",
+            description=(
+                "Only this URL will be accepted as a redirect target after"
+                " authentication"
+            ),
+        ),
+    ]
+
+    description: Annotated[
+        str,
+        Field(
+            title="Description",
+            description="Short human-readable description of this client",
+        ),
+    ]
+
+    notes: Annotated[
+        str | None,
+        Field(
+            title="Notes",
+            description=(
+                "Optional notes about this entry, only readable by OpenID"
+                " Connect client administrators"
+            ),
+        ),
+    ] = None
+
+
+class OIDCClientCreate(OIDCClientUpdate):
+    """OpenID Connect client fields needed to create a new client."""
+
+    client_id: Annotated[
+        str,
+        Field(
+            title="Client ID",
+            description=(
+                "Uniquely identifies this relying party and also used as"
+                " the value for the aud claim in ID tokens issued to this"
+                " client"
+            ),
+        ),
+    ]
+
+    last_modified_by: Annotated[
+        str,
+        Field(
+            title="Last modified by",
+            description="Username of the last person to modify this client",
+        ),
+    ]
+
+
+class OIDCClient(OIDCClientCreate):
+    """Public data (no secrets) about a registered OpenID Client."""
+
+    created: Annotated[
+        UtcDatetime,
+        Field(
+            title="Created", description="When this client was first created"
+        ),
+    ]
+
+    last_modified: Annotated[
+        UtcDatetime,
+        Field(
+            title="Last modified",
+            description="When this client was last modified",
+        ),
+    ]
+
+    url: Annotated[
+        str | None,
+        Field(
+            title="URL of client",
+            description="URL for this OpenID Connect client",
+        ),
+    ] = None
+
+
+class OIDCClientWithSecret(OIDCClient):
+    """OpenID Connect client information with the secret.
+
+    This is returned from the initial client creation and then is used only
+    internally and is never again returned from an API call.
+    """
+
+    client_secret: Annotated[
+        SecretStr,
+        Field(
+            title="Client secret",
+            description="Authentication secret sent by the relying party",
+        ),
+        PlainSerializer(lambda v: v.get_secret_value(), when_used="json"),
+    ]
 
 
 class OIDCScope(StrEnum):

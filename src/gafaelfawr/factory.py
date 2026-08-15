@@ -66,7 +66,7 @@ from .storage.kubernetes import (
     KubernetesTokenStorage,
 )
 from .storage.ldap import LDAPStorage
-from .storage.oidc import OIDCAuthorizationStore
+from .storage.oidc import OIDCAuthorizationStore, OIDCClientStore
 from .storage.quota import QuotaOverridesStore
 from .storage.token import TokenDatabaseStore, TokenRedisStore
 
@@ -463,6 +463,22 @@ class Factory:
             logger=self._logger,
         )
 
+    def create_oidc_authorization_store(self) -> OIDCAuthorizationStore:
+        """Create the backing store for OIDC client authorization codes.
+
+        Returns
+        -------
+        OIDCAuthorizationStore
+            Newly-created authorization store.
+        """
+        storage = EncryptedPydanticRedisStorage(
+            datatype=OIDCAuthorization,
+            redis=self._context.ephemeral_redis,
+            encryption_key=self._context.config.session_secret,
+            key_prefix="oidc:",
+        )
+        return OIDCAuthorizationStore(storage)
+
     def create_oidc_service(self) -> OIDCService:
         """Create a minimalist OpenID Connect server.
 
@@ -474,23 +490,15 @@ class Factory:
         if not self._context.config.oidc_server:
             msg = "OpenID Connect server not configured"
             raise NotConfiguredError(msg)
-        storage = EncryptedPydanticRedisStorage(
-            datatype=OIDCAuthorization,
-            redis=self._context.ephemeral_redis,
-            encryption_key=self._context.config.session_secret,
-            key_prefix="oidc:",
-        )
-        authorization_store = OIDCAuthorizationStore(storage)
-        token_service = self.create_token_service()
-        user_info_service = self.create_user_info_service()
-        slack_client = self.create_slack_client()
         return OIDCService(
             config=self._context.config.oidc_server,
             token_lifetime=self._context.config.token_lifetime,
-            authorization_store=authorization_store,
-            token_service=token_service,
-            user_info_service=user_info_service,
-            slack_client=slack_client,
+            authorization_store=self.create_oidc_authorization_store(),
+            client_store=OIDCClientStore(self.session),
+            token_service=self.create_token_service(),
+            user_info_service=self.create_user_info_service(),
+            slack_client=self.create_slack_client(),
+            session=self.session,
             logger=self._logger,
         )
 

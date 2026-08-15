@@ -80,7 +80,7 @@ __all__ = [
     "GitHubGroupTeam",
     "HttpsUrl",
     "LDAPConfig",
-    "OIDCClient",
+    "OIDCClientConfig",
     "OIDCConfig",
     "OIDCServerConfig",
     "QuotaConfig",
@@ -575,7 +575,7 @@ class FirestoreConfig(BaseModel):
     )
 
 
-class OIDCClient(BaseModel):
+class OIDCClientConfig(BaseModel):
     """Configuration for a single OpenID Connect client of our server.
 
     Unlike the other configuration models, this model parses the value of a
@@ -612,6 +612,18 @@ class OIDCServerConfig(EnvFirstSettings):
         description="Whether to enable the internal OpenID Connect server",
     )
 
+    client_suffix: str = Field(
+        ...,
+        title="Suffix for OIDC client IDs",
+        description=(
+            "Suffix to add to a random string when generating OpenID Connect"
+            " client IDs"
+        ),
+        validation_alias=AliasChoices(
+            "GAFAELFAWR_OIDC_SERVER_CLIENT_SUFFIX", "clientSuffix"
+        ),
+    )
+
     issuer: HttpsUrl = Field(
         ...,
         title="Token issuer",
@@ -639,10 +651,15 @@ class OIDCServerConfig(EnvFirstSettings):
         ),
     )
 
-    clients: list[OIDCClient] = Field(
+    clients: list[OIDCClientConfig] = Field(
         [],
         title="OpenID Connect clients",
-        description="Registered OpenID Connect clients",
+        description=(
+            "Registered OpenID Connect clients. This configuration has been"
+            " replaced with dynamically registered clients, and is only"
+            " supported to populate the client list as part of a schema"
+            " migration."
+        ),
         validation_alias="GAFAELFAWR_OIDC_SERVER_CLIENTS",
     )
 

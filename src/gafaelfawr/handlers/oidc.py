@@ -131,13 +131,13 @@ async def get_login(
     token_data: Annotated[TokenData, Depends(authenticate)],
     context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> str:
-    context.rebind_logger(return_uri=redirect_uri)
+    context.rebind_logger(return_uri=redirect_uri, oidc_client=client_id)
     oidc_service = context.factory.create_oidc_service()
 
     # Check the client_id and redirect_uri first, since if either of them are
     # not valid, we cannot continue or send any errors back to the client via
     # redirect.
-    oidc_service.validate_client(client_id, redirect_uri)
+    await oidc_service.validate_client(client_id, redirect_uri)
 
     # Parse the authentication request.
     error = None
@@ -253,6 +253,8 @@ async def post_token(
     context: Annotated[RequestContext, Depends(context_dependency)],
     response: Response,
 ) -> OIDCTokenReply | JSONResponse:
+    if client_id:
+        context.rebind_logger(oidc_client=client_id)
     oidc_service = context.factory.create_oidc_service()
     if credentials:
         client_id = credentials.username
