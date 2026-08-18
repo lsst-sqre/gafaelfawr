@@ -21,6 +21,7 @@ requires-python = ">=3.14"
 dependencies = [
     "alembic[tz]>=1.16",
     "asyncpg",
+    "bcrypt>=5",
     "bonsai>=1.5.0",
     "cachetools",
     "click>8.1.4",

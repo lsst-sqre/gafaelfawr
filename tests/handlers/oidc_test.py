@@ -20,6 +20,7 @@ from gafaelfawr.models.auth import AuthError, AuthErrorChallenge, AuthType
 from gafaelfawr.models.oidc import (
     OIDCAuthorization,
     OIDCAuthorizationCode,
+    OIDCClientWithSecret,
     OIDCScope,
     OIDCToken,
     OIDCTokenReply,
@@ -28,7 +29,6 @@ from gafaelfawr.models.token import Token
 from gafaelfawr.storage.token import TokenDatabaseStore
 from gafaelfawr.util import number_to_base64
 
-from ..support.config import build_oidc_client
 from ..support.constants import TEST_HOSTNAME
 from ..support.cookies import clear_session_cookie, set_session_cookie
 from ..support.headers import (
@@ -36,6 +36,7 @@ from ..support.headers import (
     parse_www_authenticate,
     query_from_url,
 )
+from ..support.oidc import register_oidc_client
 from ..support.tokens import create_session_token
 
 
@@ -134,7 +135,8 @@ async def authenticate(
 
     # Verify the ID token.
     oidc_service = factory.create_oidc_service()
-    token = oidc_service.verify_token(OIDCToken(encoded=data["id_token"]))
+    encoded_token = OIDCToken(encoded=data["id_token"])
+    token = await oidc_service.verify_token(encoded_token)
     assert token.claims["jti"] == OIDCAuthorizationCode.from_str(code).key
     now_seconds = time.time()
     assert now_seconds - 5 <= token.claims["iat"] <= now_seconds
@@ -153,13 +155,11 @@ async def test_login(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    redirect_uri = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
     assert config.oidc_server
-    config.oidc_server.clients = [
-        build_oidc_client(
-            "some-id", "some-secret", f"https://{TEST_HOSTNAME}:4444/foo"
-        )
-    ]
+    redirect_uri = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
+    oidc_client = await register_oidc_client(
+        factory, f"https://{TEST_HOSTNAME}:4444/foo"
+    )
     token_data = await create_session_token(factory)
     assert token_data.expires
     await set_session_cookie(client, token_data.token)
@@ -173,19 +173,20 @@ async def test_login(
         {
             "response_type": "code",
             "scope": " openid   unknown profile foo  ",
-            "client_id": "some-id",
+            "client_id": oidc_client.client_id,
             "state": "random-state",
             "redirect_uri": redirect_uri,
         },
-        client_secret="some-secret",
+        client_secret=oidc_client.client_secret.get_secret_value(),
         expires=token_data.expires,
     )
     clear_session_cookie(client)
 
     # Check the ID token claims.
-    id_token = oidc_service.verify_token(OIDCToken(encoded=reply.id_token))
+    encoded_token = OIDCToken(encoded=reply.id_token)
+    id_token = await oidc_service.verify_token(encoded_token)
     assert id_token.claims == {
-        "aud": "some-id",
+        "aud": oidc_client.client_id,
         "exp": int(token_data.expires.timestamp()),
         "iat": ANY,
         "iss": str(config.oidc_server.issuer),
@@ -207,6 +208,7 @@ async def test_login(
                 "remoteIp": "127.0.0.1",
             },
             "lifetime_seconds": ANY,
+            "oidc_client": oidc_client.client_id,
             "return_uri": redirect_uri,
             "scopes": ["user:token"],
             "severity": "info",
@@ -221,6 +223,7 @@ async def test_login(
                 "requestMethod": "POST",
                 "requestUrl": f"https://{TEST_HOSTNAME}/auth/openid/token",
             },
+            "oidc_client": oidc_client.client_id,
             "severity": "info",
             "token_expires": format_datetime_for_logging(token_data.expires),
             "token_key": Token.from_str(reply.access_token).key,
@@ -240,6 +243,7 @@ async def test_login(
                 "requestUrl": f"https://{TEST_HOSTNAME}/auth/openid/token",
                 "remoteIp": "127.0.0.1",
             },
+            "oidc_client": oidc_client.client_id,
             "severity": "info",
             "token": ANY,
             "user": username,
@@ -304,20 +308,18 @@ async def test_unauthenticated(
     *,
     config: Config,
     client: AsyncClient,
+    factory: Factory,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     return_url = f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz"
-    assert config.oidc_server
-    config.oidc_server.clients = [
-        build_oidc_client(
-            "some-id", "some-secret", f"https://{TEST_HOSTNAME}:4444/foo"
-        )
-    ]
+    oidc_client = await register_oidc_client(
+        factory, f"https://{TEST_HOSTNAME}:4444/foo"
+    )
     login_params = {
         "response_type": "code",
         "scope": "openid",
-        "client_id": "some-id",
+        "client_id": oidc_client.client_id,
         "state": "random-state",
         "redirect_uri": return_url,
     }
@@ -358,12 +360,8 @@ async def test_login_errors(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    assert config.oidc_server
-    config.oidc_server.clients = [
-        build_oidc_client(
-            "some-id", "some-secret", f"https://{TEST_HOSTNAME}/app"
-        )
-    ]
+    redirect_uri = f"https://{TEST_HOSTNAME}/app"
+    oidc_client = await register_oidc_client(factory, redirect_uri)
     token_data = await create_session_token(factory)
     await set_session_cookie(client, token_data.token)
 
@@ -372,16 +370,13 @@ async def test_login_errors(
     assert r.status_code == 422
 
     # Good client ID but missing redirect_uri.
-    login_params = {"client_id": "some-id"}
+    login_params = {"client_id": oidc_client.client_id}
     r = await client.get("/auth/openid/login", params=login_params)
     assert r.status_code == 422
 
     # Bad client ID.
     caplog.clear()
-    login_params = {
-        "client_id": "bad-client",
-        "redirect_uri": f"https://{TEST_HOSTNAME}/app",
-    }
+    login_params = {"client_id": "bad-client", "redirect_uri": redirect_uri}
     r = await client.get("/auth/openid/login", params=login_params)
     assert r.status_code == 403
     data = r.json()
@@ -398,6 +393,7 @@ async def test_login_errors(
                 "remoteIp": "127.0.0.1",
             },
             "lifetime_seconds": ANY,
+            "oidc_client": "bad-client",
             "return_uri": f"https://{TEST_HOSTNAME}/app",
             "scopes": ["user:token"],
             "severity": "warning",
@@ -408,15 +404,15 @@ async def test_login_errors(
     ]
 
     # Bad redirect_uri.
-    login_params["client_id"] = "some-id"
+    login_params["client_id"] = oidc_client.client_id
     login_params["redirect_uri"] = f"https://{TEST_HOSTNAME}/"
     r = await client.get("/auth/openid/login", params=login_params)
     assert r.status_code == 403
     data = r.json()
     assert data["detail"][0]["type"] == "return_uri_mismatch"
     wanted = (
-        "Invalid return URI for client some-id in OpenID Connect request:"
-        f" https://{TEST_HOSTNAME}/"
+        f"Invalid return URI for client {oidc_client.client_id} in OpenID"
+        f" Connect request: https://{TEST_HOSTNAME}/"
     )
     assert wanted == data["detail"][0]["msg"]
 
@@ -446,6 +442,7 @@ async def test_login_errors(
                 "remoteIp": "127.0.0.1",
             },
             "lifetime_seconds": ANY,
+            "oidc_client": oidc_client.client_id,
             "return_uri": login_params["redirect_uri"],
             "scopes": ["user:token"],
             "severity": "warning",
@@ -500,16 +497,13 @@ async def test_token_errors(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     redirect_uri = f"https://{TEST_HOSTNAME}/app"
-    assert config.oidc_server
-    config.oidc_server.clients = [
-        build_oidc_client("some-id", "some-secret", redirect_uri),
-        build_oidc_client("other-id", "other-secret", redirect_uri),
-    ]
+    oidc_client_one = await register_oidc_client(factory, redirect_uri)
+    oidc_client_two = await register_oidc_client(factory, redirect_uri)
     token_data = await create_session_token(factory)
     token = token_data.token
     oidc_service = factory.create_oidc_service()
     code = await oidc_service.issue_code(
-        client_id="some-id",
+        client_id=oidc_client_one.client_id,
         redirect_uri=redirect_uri,
         token=token,
         scopes=[OIDCScope.openid],
@@ -562,6 +556,7 @@ async def test_token_errors(
                 "requestUrl": f"https://{TEST_HOSTNAME}/auth/openid/token",
                 "remoteIp": "127.0.0.1",
             },
+            "oidc_client": "other-client",
             "severity": "warning",
         }
     ]
@@ -594,6 +589,7 @@ async def test_token_errors(
                 "requestUrl": f"https://{TEST_HOSTNAME}/auth/openid/token",
                 "remoteIp": "127.0.0.1",
             },
+            "oidc_client": "other-client",
             "severity": "warning",
         }
     ]
@@ -608,16 +604,16 @@ async def test_token_errors(
     }
 
     # Incorrect client_secret.
-    request["client_id"] = "some-id"
+    request["client_id"] = oidc_client_one.client_id
     r = await client.post("/auth/openid/token", data=request)
     assert r.status_code == 400
     assert r.json() == {
         "error": "invalid_client",
-        "error_description": "Invalid secret for some-id",
+        "error_description": f"Invalid secret for {oidc_client_one.client_id}",
     }
 
     # No stored data.
-    request["client_secret"] = "some-secret"
+    request["client_secret"] = oidc_client_one.client_secret.get_secret_value()
     bogus_code = OIDCAuthorizationCode()
     request["code"] = str(bogus_code)
     caplog.clear()
@@ -642,7 +638,7 @@ async def test_token_errors(
 
     # Correct code, but invalid client_id for that code.
     bogus_code = await oidc_service.issue_code(
-        client_id="other-id",
+        client_id=oidc_client_two.client_id,
         redirect_uri=redirect_uri,
         token=token,
         scopes=[OIDCScope.openid],
@@ -705,13 +701,11 @@ async def test_invalid(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     redirect_uri = "https://example.com/"
-    assert config.oidc_server
-    clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
-    config.oidc_server.clients = clients
+    oidc_client = await register_oidc_client(factory, redirect_uri)
     token_data = await create_session_token(factory)
     oidc_service = factory.create_oidc_service()
     authorization = OIDCAuthorization(
-        client_id="some-id",
+        client_id=oidc_client.client_id,
         redirect_uri=redirect_uri,
         token=token_data.token,
         scopes=[OIDCScope.openid],
@@ -831,13 +825,10 @@ async def test_well_known_jwks(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     assert config.oidc_server
-    config.oidc_server.clients = [
-        build_oidc_client("some-id", "some-secret", "https://example.com/")
-    ]
+
     r = await client.get("/.well-known/jwks.json")
     assert r.status_code == 200
     result = r.json()
-
     keypair = config.oidc_server.keypair
     assert result == {
         "keys": [
@@ -864,9 +855,6 @@ async def test_well_known_oidc(
     config: Config, client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     assert config.oidc_server
-    config.oidc_server.clients = [
-        build_oidc_client("some-id", "some-secret", "https://example.com/")
-    ]
     r = await client.get("/.well-known/openid-configuration")
     assert r.status_code == 200
 
@@ -899,10 +887,9 @@ async def test_nonce(
     factory: Factory,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    redirect_uri = "https://example.org/"
-    clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
     assert config.oidc_server
-    config.oidc_server.clients = clients
+    redirect_uri = "https://example.org/"
+    oidc_client = await register_oidc_client(factory, redirect_uri)
     token_data = await create_session_token(factory)
     assert token_data.expires
     await set_session_cookie(client, token_data.token)
@@ -915,17 +902,18 @@ async def test_nonce(
         {
             "response_type": "code",
             "scope": "openid",
-            "client_id": "some-id",
+            "client_id": oidc_client.client_id,
             "state": "random-state",
             "redirect_uri": redirect_uri,
             "nonce": nonce,
         },
-        client_secret="some-secret",
+        client_secret=oidc_client.client_secret.get_secret_value(),
         expires=token_data.expires,
     )
-    id_token = oidc_service.verify_token(OIDCToken(encoded=reply.id_token))
+    encoded_token = OIDCToken(encoded=reply.id_token)
+    id_token = await oidc_service.verify_token(encoded_token)
     assert id_token.claims == {
-        "aud": "some-id",
+        "aud": oidc_client.client_id,
         "exp": int(token_data.expires.timestamp()),
         "iat": ANY,
         "iss": str(config.oidc_server.issuer),
@@ -941,6 +929,7 @@ async def assert_data_rights_for_groups(
     client: AsyncClient,
     factory: Factory,
     *,
+    oidc_client: OIDCClientWithSecret,
     groups: list[str],
     data_rights: str | None,
 ) -> None:
@@ -956,16 +945,17 @@ async def assert_data_rights_for_groups(
         {
             "response_type": "code",
             "scope": "openid rubin",
-            "client_id": config.oidc_server.clients[0].id,
+            "client_id": oidc_client.client_id,
             "state": "random-state",
-            "redirect_uri": str(config.oidc_server.clients[0].return_uri),
+            "redirect_uri": oidc_client.return_uri,
         },
-        client_secret="some-secret",
+        client_secret=oidc_client.client_secret.get_secret_value(),
         expires=token_data.expires,
     )
-    id_token = oidc_service.verify_token(OIDCToken(encoded=reply.id_token))
+    encoded_token = OIDCToken(encoded=reply.id_token)
+    id_token = await oidc_service.verify_token(encoded_token)
     expected_claims = {
-        "aud": config.oidc_server.clients[0].id,
+        "aud": oidc_client.client_id,
         "exp": int(token_data.expires.timestamp()),
         "iat": ANY,
         "iss": str(config.oidc_server.issuer),
@@ -1004,25 +994,39 @@ async def test_data_rights(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     redirect_uri = "https://www.example.org/"
-    assert config.oidc_server
-    clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
-    config.oidc_server.clients = clients
+    oidc_client = await register_oidc_client(factory, redirect_uri)
 
     await assert_data_rights_for_groups(
-        config, client, factory, groups=["foo"], data_rights="dp0.2 dp0.3"
-    )
-    await assert_data_rights_for_groups(
-        config, client, factory, groups=["admin"], data_rights="dp0.1"
+        config,
+        client,
+        factory,
+        oidc_client=oidc_client,
+        groups=["foo"],
+        data_rights="dp0.2 dp0.3",
     )
     await assert_data_rights_for_groups(
         config,
         client,
         factory,
+        oidc_client=oidc_client,
+        groups=["admin"],
+        data_rights="dp0.1",
+    )
+    await assert_data_rights_for_groups(
+        config,
+        client,
+        factory,
+        oidc_client=oidc_client,
         groups=["foo", "admin"],
         data_rights="dp0.1 dp0.2 dp0.3",
     )
     await assert_data_rights_for_groups(
-        config, client, factory, groups=["org-a-team"], data_rights=None
+        config,
+        client,
+        factory,
+        oidc_client=oidc_client,
+        groups=["org-a-team"],
+        data_rights=None,
     )
 
 
@@ -1035,10 +1039,9 @@ async def test_basic_auth(
     factory: Factory,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    redirect_uri = "https://example.org/"
     assert config.oidc_server
-    clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
-    config.oidc_server.clients = clients
+    redirect_uri = "https://example.org/"
+    oidc_client = await register_oidc_client(factory, redirect_uri)
     token_data = await create_session_token(factory)
     assert token_data.expires
     await set_session_cookie(client, token_data.token)
@@ -1050,17 +1053,18 @@ async def test_basic_auth(
         {
             "response_type": "code",
             "scope": "openid",
-            "client_id": "some-id",
+            "client_id": oidc_client.client_id,
             "state": "random-state",
             "redirect_uri": redirect_uri,
         },
-        client_secret="some-secret",
+        client_secret=oidc_client.client_secret.get_secret_value(),
         expires=token_data.expires,
         use_basic_auth=True,
     )
-    id_token = oidc_service.verify_token(OIDCToken(encoded=reply.id_token))
+    encoded_token = OIDCToken(encoded=reply.id_token)
+    id_token = await oidc_service.verify_token(encoded_token)
     assert id_token.claims == {
-        "aud": "some-id",
+        "aud": oidc_client.client_id,
         "exp": int(token_data.expires.timestamp()),
         "iat": ANY,
         "iss": str(config.oidc_server.issuer),
@@ -1080,10 +1084,6 @@ async def test_userinfo_internal(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test passing internal tokens to the userinfo endpoint."""
-    redirect_uri = "https://example.org/"
-    assert config.oidc_server
-    clients = [build_oidc_client("some-id", "some-secret", redirect_uri)]
-    config.oidc_server.clients = clients
     token_data = await create_session_token(factory, scopes={"read:all"})
     token_service = factory.create_token_service()
     internal_token = await token_service.get_internal_token(
@@ -1114,10 +1114,7 @@ async def test_database_desync(
     cannot be generated for it. Test error handling in that case.
     """
     redirect_uri = f"https://{TEST_HOSTNAME}/foo"
-    assert config.oidc_server
-    config.oidc_server.clients = [
-        build_oidc_client("some-id", "some-secret", redirect_uri)
-    ]
+    oidc_client = await register_oidc_client(factory, redirect_uri)
     token_data = await create_session_token(factory, scopes={"read:all"})
     await set_session_cookie(client, token_data.token)
     token_store = TokenDatabaseStore(factory.session)
@@ -1129,7 +1126,7 @@ async def test_database_desync(
         params={
             "response_type": "code",
             "scope": "openid",
-            "client_id": "some-id",
+            "client_id": oidc_client.client_id,
             "state": "random-state",
             "redirect_uri": redirect_uri,
         },
@@ -1144,7 +1141,7 @@ async def test_database_desync(
         data={
             "grant_type": "authorization_code",
             "client_id": "some-id",
-            "client_secret": "some-secret",
+            "client_secret": oidc_client.client_secret,
             "code": code,
             "redirect_uri": redirect_uri,
         },

@@ -15,6 +15,7 @@ from fastapi import (
     HTTPException,
     Path,
     Query,
+    Request,
     Response,
     status,
 )
@@ -31,6 +32,7 @@ from ..models.admin import Admin
 from ..models.auth import APIConfig, APILoginResponse, Scope
 from ..models.enums import TokenType
 from ..models.history import TokenChangeHistoryCursor, TokenChangeHistoryEntry
+from ..models.oidc import OIDCClient, OIDCClientUpdate, OIDCClientWithSecret
 from ..models.quota import QuotaConfig
 from ..models.token import (
     AdminTokenRequest,
@@ -55,6 +57,12 @@ authenticate_admin_read = AuthenticateRead(
 )
 authenticate_admin_write = AuthenticateWrite(
     require_scope="admin:token", allow_bootstrap_token=True
+)
+authenticate_oidc_admin_read = AuthenticateRead(
+    require_scope="admin:oidc", allow_bootstrap_token=True
+)
+authenticate_oidc_admin_write = AuthenticateWrite(
+    require_scope="admin:oidc", allow_bootstrap_token=True
 )
 authenticate_session_read = AuthenticateRead(require_session=True)
 
@@ -319,6 +327,137 @@ async def get_login(
         scopes=auth_data.scopes,
         config=api_config,
     )
+
+
+def get_oidc_client_url(request: Request, client_id: str) -> str:
+    """Return the URL for a given registered OpenID Connect client."""
+    return str(request.url_for("get_oidc_client", client_id=client_id))
+
+
+@router.get(
+    "/auth/api/v1/oidc-clients",
+    description="List the current registered OpenID Connect clients",
+    response_model_exclude_none=True,
+    responses={
+        404: {
+            "description": "OpenID Connect server not configured",
+            "model": ErrorModel,
+        },
+    },
+    summary="Get OIDC clients",
+    tags=["admin"],
+)
+async def get_oidc_clients(
+    *,
+    auth_data: Annotated[TokenData, Depends(authenticate_oidc_admin_read)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+) -> list[OIDCClient]:
+    oidc_service = context.factory.create_oidc_service()
+    clients = await oidc_service.list_clients()
+    for client in clients:
+        client.url = get_oidc_client_url(context.request, client.client_id)
+    return clients
+
+
+@router.post(
+    "/auth/api/v1/oidc-clients",
+    description="Register a new OpenID Connect client",
+    response_model_exclude_none=True,
+    responses={
+        404: {
+            "description": "OpenID Connect server not configured",
+            "model": ErrorModel,
+        },
+    },
+    status_code=201,
+    summary="Add OIDC client",
+    tags=["admin"],
+)
+async def add_oidc_client(
+    *,
+    create_request: OIDCClientUpdate,
+    auth_data: Annotated[TokenData, Depends(authenticate_oidc_admin_write)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+    response: Response,
+) -> OIDCClientWithSecret:
+    oidc_service = context.factory.create_oidc_service()
+    client = await oidc_service.register_client(auth_data, create_request)
+    client.url = get_oidc_client_url(context.request, client.client_id)
+    response.headers["Location"] = client.url
+    return client
+
+
+@router.get(
+    "/auth/api/v1/oidc-clients/{client_id}",
+    description="Get details about an OpenID Connect client",
+    response_model_exclude_none=True,
+    responses={
+        404: {
+            "description": "OpenID Connect client not found",
+            "model": ErrorModel,
+        },
+    },
+    summary="Get an OIDC client",
+    tags=["admin"],
+)
+async def get_oidc_client(
+    *,
+    client_id: str,
+    auth_data: Annotated[TokenData, Depends(authenticate_oidc_admin_read)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+) -> OIDCClient:
+    oidc_service = context.factory.create_oidc_service()
+    client = await oidc_service.get_client(auth_data, client_id)
+    client.url = get_oidc_client_url(context.request, client.client_id)
+    return client
+
+
+@router.delete(
+    "/auth/api/v1/oidc-clients/{client_id}",
+    description="Delete an OpenID Connect client",
+    responses={
+        404: {
+            "description": "OpenID Connect client not found",
+            "model": ErrorModel,
+        },
+    },
+    status_code=204,
+    summary="Delete an OIDC client",
+    tags=["admin"],
+)
+async def delete_oidc_client(
+    *,
+    client_id: str,
+    auth_data: Annotated[TokenData, Depends(authenticate_oidc_admin_write)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+) -> None:
+    oidc_service = context.factory.create_oidc_service()
+    await oidc_service.delete_client(auth_data, client_id)
+
+
+@router.patch(
+    "/auth/api/v1/oidc-clients/{client_id}",
+    description="Delete an OpenID Connect client",
+    responses={
+        404: {
+            "description": "OpenID Connect client not found",
+            "model": ErrorModel,
+        },
+    },
+    summary="Update an OIDC client",
+    tags=["admin"],
+)
+async def patch_oidc_client(
+    *,
+    client_id: str,
+    update: OIDCClientUpdate,
+    auth_data: Annotated[TokenData, Depends(authenticate_oidc_admin_write)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+) -> OIDCClient:
+    oidc_service = context.factory.create_oidc_service()
+    client = await oidc_service.update_client(auth_data, client_id, update)
+    client.url = get_oidc_client_url(context.request, client.client_id)
+    return client
 
 
 @router.get(

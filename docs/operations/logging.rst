@@ -82,3 +82,9 @@ Routes that create or modify tokens will log the new details of the token in som
 ``token_username``
     The username of the new token.
     This is often omitted when a user is creating a token for themselves, and the username of the token therefore matches ``user``.
+
+OpenID Connect server routes will add the following attributes when available:
+
+``oidc_client``
+    The identifier of the OpenID Connect client.
+    Be aware that this may be the unverified input from the client and should not be relied upon unless the request has already passed client authentication.

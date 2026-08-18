@@ -1,5 +1,6 @@
 """OpenID Connect identity provider support."""
 
+import os
 import time
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
@@ -11,6 +12,7 @@ from pydantic import HttpUrl
 from safir.redis import DeserializeError
 from safir.sentry import report_exception
 from safir.slack.webhook import SlackWebhookClient
+from sqlalchemy.ext.asyncio import AsyncSession
 from structlog.stdlib import BoundLogger
 
 from ..config import OIDCServerConfig
@@ -21,13 +23,19 @@ from ..exceptions import (
     InvalidGrantError,
     InvalidRequestError,
     InvalidTokenError,
+    NotFoundError,
     ReturnUriMismatchError,
     UnsupportedGrantTypeError,
 )
 from ..models.oidc import (
     JWKS,
+    OIDCAuthenticateStatus,
     OIDCAuthorization,
     OIDCAuthorizationCode,
+    OIDCClient,
+    OIDCClientCreate,
+    OIDCClientUpdate,
+    OIDCClientWithSecret,
     OIDCConfig,
     OIDCScope,
     OIDCToken,
@@ -36,7 +44,7 @@ from ..models.oidc import (
 )
 from ..models.token import Token, TokenData
 from ..models.userinfo import UserInfo
-from ..storage.oidc import OIDCAuthorizationStore
+from ..storage.oidc import OIDCAuthorizationStore, OIDCClientStore
 from .token import TokenService
 from .userinfo import UserInfoService
 
@@ -76,6 +84,8 @@ class OIDCService:
     slack_client
         If provided, a Slack webhook client to use to report corruption of the
         underlying Redis store.
+    session
+        Database session.
     logger
         Logger for diagnostics.
 
@@ -100,22 +110,74 @@ class OIDCService:
         config: OIDCServerConfig,
         token_lifetime: timedelta,
         authorization_store: OIDCAuthorizationStore,
+        client_store: OIDCClientStore,
         token_service: TokenService,
         user_info_service: UserInfoService,
         slack_client: SlackWebhookClient | None = None,
+        session: AsyncSession,
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._token_lifetime = token_lifetime
         self._authorization_store = authorization_store
+        self._client_store = client_store
         self._token_service = token_service
         self._user_info = user_info_service
         self._slack = slack_client
+        self._session = session
         self._logger = logger
 
     async def delete_all_codes(self) -> None:
         """Invalidate all issued OpenID Connect codes."""
         await self._authorization_store.delete_all()
+
+    async def delete_client(
+        self, auth_data: TokenData, client_id: str
+    ) -> None:
+        """Delete a registered OpenID Connect client.
+
+        Parameters
+        ----------
+        auth_data
+            Token information for the person requesting this client.
+        client_id
+            Identifier of the client.
+
+        Raises
+        ------
+        NotFoundError
+            Raised if the client could not be found.
+        """
+        async with self._session.begin():
+            await self._client_store.delete(client_id)
+
+    async def get_client(
+        self, auth_data: TokenData, client_id: str
+    ) -> OIDCClient:
+        """Get the metadata for a registered OpenID Connect client.
+
+        Parameters
+        ----------
+        auth_data
+            Token information for the person requesting this client.
+        client_id
+            Identifier of the client.
+
+        Returns
+        -------
+        OIDCClient
+            The registered OpenID Connect client.
+
+        Raises
+        ------
+        NotFoundError
+            Raised if the client could not be found.
+        """
+        async with self._session.begin():
+            oidc_client = await self._client_store.get(client_id)
+        if not oidc_client:
+            raise NotFoundError(f"Client {client_id} not found")
+        return oidc_client
 
     def get_jwks(self) -> JWKS:
         """Return the key set for the OpenID Connect server."""
@@ -171,7 +233,7 @@ class OIDCService:
             Raised if the provided redirect URI does not match the one
             registered for this client.
         """
-        self.validate_client(client_id, redirect_uri)
+        await self.validate_client(client_id, redirect_uri)
         authorization = OIDCAuthorization(
             client_id=client_id,
             redirect_uri=redirect_uri,
@@ -240,6 +302,17 @@ class OIDCService:
             encoded=encoded_token, claims=payload, jti=payload.get("jti")
         )
 
+    async def list_clients(self) -> list[OIDCClient]:
+        """List all registered OpenID Connect clients.
+
+        Returns
+        -------
+        list of OIDCClient
+            List of registered OpenID Connect clients.
+        """
+        async with self._session.begin():
+            return await self._client_store.list()
+
     async def redeem_code(
         self,
         *,
@@ -295,7 +368,7 @@ class OIDCService:
         auth_code = OIDCAuthorizationCode.from_str(code)
 
         # Authorize the client.
-        self._check_client_secret(client_id, client_secret, redirect_uri)
+        await self._check_client_secret(client_id, client_secret, redirect_uri)
 
         # Retrieve the metadata associated with the authorization code.
         try:
@@ -351,6 +424,28 @@ class OIDCService:
             scope=id_token.claims["scope"],
         )
 
+    async def register_client(
+        self, auth_data: TokenData, request: OIDCClientUpdate
+    ) -> OIDCClientWithSecret:
+        """Register a new OpenID Connect client.
+
+        Parameters
+        ----------
+        auth_data
+            Token information for the person adding this client.
+        request
+            OpenID Connect client information.
+        """
+        create = OIDCClientCreate(
+            client_id=os.urandom(16).hex() + self._config.client_suffix,
+            return_uri=request.return_uri,
+            description=request.description,
+            notes=request.notes,
+            last_modified_by=auth_data.username,
+        )
+        async with self._session.begin():
+            return await self._client_store.register(create)
+
     async def token_to_userinfo_claims(
         self, token_data: TokenData
     ) -> dict[str, Any]:
@@ -371,7 +466,37 @@ class OIDCService:
         }
         return {k: v for k, v in claims.items() if v is not None}
 
-    def validate_client(self, client_id: str, redirect_uri: str) -> None:
+    async def update_client(
+        self, auth_data: TokenData, client_id: str, update: OIDCClientUpdate
+    ) -> OIDCClient:
+        """Get the metadata for a registered OpenID Connect client.
+
+        Parameters
+        ----------
+        auth_data
+            Token information for the person requesting this client.
+        client_id
+            Identifier of the client.
+        update
+            Updated information to replace in the client metadata.
+
+        Returns
+        -------
+        OIDCClient
+            The updated OpenID Connect client.
+
+        Raises
+        ------
+        NotFoundError
+            Raised if the client could not be found.
+        """
+        async with self._session.begin():
+            oidc_client = await self._client_store.update(client_id, update)
+        if not oidc_client:
+            raise NotFoundError(f"Client {client_id} not found")
+        return oidc_client
+
+    async def validate_client(self, client_id: str, redirect_uri: str) -> None:
         """Check that the provided client and redirect URI are valid.
 
         Raises exceptions on any errors.
@@ -391,16 +516,12 @@ class OIDCService:
             Raised if the provided return URI doesn't match the one registered
             with the client.
         """
-        clients = [c for c in self._config.clients if c.id == client_id]
-        if not clients:
+        async with self._session.begin():
+            client = await self._client_store.get(client_id)
+        if not client:
             msg = f"Unknown client ID {client_id} in OpenID Connect request"
             self._logger.warning("Invalid request", error=msg)
             raise InvalidClientIdError(msg)
-        if len(clients) > 1:
-            msg = f"Duplicate client ID {client_id}"
-            self._logger.warning("Invalid request", error=msg)
-            raise InvalidClientIdError(f"Duplicate client ID {client_id}")
-        client = clients[0]
         if not self._return_uri_matches(client.return_uri, redirect_uri):
             msg = (
                 f"Invalid return URI for client {client_id} in OpenID Connect"
@@ -409,7 +530,7 @@ class OIDCService:
             self._logger.warning("Invalid request", error=msg)
             raise ReturnUriMismatchError(msg)
 
-    def verify_token(self, token: OIDCToken) -> OIDCVerifiedToken:
+    async def verify_token(self, token: OIDCToken) -> OIDCVerifiedToken:
         """Verify a token issued by the internal OpenID Connect server.
 
         Any currently-registered client audience is accepted as a valid
@@ -431,7 +552,7 @@ class OIDCService:
             The issuer of this token is unknown and therefore the token cannot
             be verified.
         """
-        audiences = (c.id for c in self._config.clients)
+        audiences = (c.client_id for c in await self.list_clients())
         try:
             payload = jwt.decode(
                 token.encoded,
@@ -476,7 +597,7 @@ class OIDCService:
             return None
         return " ".join(sorted(releases))
 
-    def _check_client_secret(
+    async def _check_client_secret(
         self, client_id: str, client_secret: str | None, return_uri: str
     ) -> None:
         """Check the client authentication and return URI.
@@ -486,7 +607,8 @@ class OIDCService:
         client_id
             OpenID Connect client ID.
         client_secret
-            Secret for that client ID.
+            Secret for that client ID. `None` is accepted as a parameter but
+            always results in an error, to save the caller some work.
         return_uri
             Return URI for this request.
 
@@ -500,18 +622,21 @@ class OIDCService:
         """
         if not client_secret:
             raise InvalidClientError("No client_secret provided")
-        for client in self._config.clients:
-            if client.id != client_id:
-                continue
-            if client.secret.get_secret_value() == client_secret:
-                if not self._return_uri_matches(client.return_uri, return_uri):
-                    msg = f"Invalid return URI for {client_id}: {return_uri}"
-                    raise InvalidGrantError(msg)
-                return
-            else:
-                msg = f"Invalid secret for {client_id}"
-                raise InvalidClientError(msg)
-        raise InvalidClientError(f"Unknown client ID {client_id}")
+        store = self._client_store
+        async with self._session.begin():
+            match await store.authenticate(client_id, client_secret):
+                case OIDCAuthenticateStatus.BAD_CLIENT:
+                    raise InvalidClientError(f"Unknown client ID {client_id}")
+                case OIDCAuthenticateStatus.BAD_SECRET:
+                    raise InvalidClientError(f"Invalid secret for {client_id}")
+                case OIDCAuthenticateStatus.VALID:
+                    pass
+            client = await self._client_store.get(client_id)
+        if not client:
+            raise InvalidClientError(f"Unknown client ID {client_id}")
+        if not self._return_uri_matches(client.return_uri, return_uri):
+            msg = f"Invalid return URI for {client_id}: {return_uri}"
+            raise InvalidGrantError(msg)
 
     def _filter_claims(
         self,

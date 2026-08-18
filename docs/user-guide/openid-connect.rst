@@ -7,22 +7,48 @@ Configuring OpenID Connect
 Configure Gafaelfawr
 ====================
 
-To protect a service that uses OpenID Connect, first set ``oidcServer.enabled`` to true in the :ref:`helm-settings`.
-Then, create (or add to, if already existing) an ``oidc-server-secrets`` secret for the ``gafaelfawr`` Phalanx application.
+To protect a service that uses OpenID Connect, first set ``oidcServer.enabled`` to true.
+For more details on the available settings, see :ref:`helm-oidc-server`.
 
-The value of the secret must be a JSON list, with each list member representing one OpenID Connect client.
-Each list member must be an object with the following keys:
+Then, register one or more OpenID Connect clients.
 
-``id``
-    The unique OpenID Connect client ID (the ``client_id`` parameter in the OpenID Connect protocol) that the client will present during authentication.
+.. _openid-connect-register:
 
-``secret``
-    A randomly-generated secret that the client will use to authenticate via the ``client_secret`` POST parameter.
+Register an OpenID Connect client
+=================================
+
+Clients are registered via ``POST`` of a JSON object to the ``/auth/api/v1/oidc-clients`` route.
+OpenID Connect server support must be enabled for that route to be available.
+The token or cookie used to authenticate to this route must have the ``admin:oidc`` scope.
+
+The body of the registration request contains the following fields:
 
 ``return_uri``
     The acceptable return URL for this client.
     The actual return URL (the ``redirect_uri`` parameter) of any authentication must exactly match this return URL except for query parameters and fragments.
     The path portion of this URL may not contain semicolons (``;``) to avoid potentially confusing parsing as either part of the path or as path parameters.
+
+``description``
+    A human-readable, free-form description of this client.
+    This is the primary identification for how this client will be used (the client identifier is randomly generated), so provide enough information to help someone reviewing OpenID Connect clients several years in the future.
+
+``notes`` (optional)
+    Additional notes about this OpenID Connect client useful for other humans.
+
+On successful registration, the response will contain those fields, creation and last modified information, and two other important fields:
+
+``client_id``
+    The identifier this client must use when initiating an OpenID Connect authentication.
+    This will also be used as the ``aud`` claim in all ID tokens returned to this client.
+
+``client_secret``
+    The secret this client must use to authenticate.
+    This secret is not recoverable once the client has been created, since only a hashed version of the secret is kept by Gafaelfawr.
+    The caller is responsible for storing this somewhere safe that is suitable for storing authentication secrets.
+    If it needs to be changed, the client must be deleted and recreated.
+
+The ``return_uri``, ``description``, and ``notes`` fields can be modified after creation via a ``PATCH`` request, and a client can be deleted via a ``DELETE`` request.
+See the :doc:`REST API documentation </api/rest>` for more information.
 
 Configure the OpenID client
 ===========================
@@ -76,7 +102,7 @@ Chronograf
 
 Assuming that Gafaelfawr and Chronograf are deployed on the host ``example.com`` and Chronograf is at the URL ``/chronograf``, here are the environment variables required to configure `Chronograf <https://docs.influxdata.com/chronograf/v1/administration/managing-security/#configure-chronograf-to-use-any-oauth-20-provider>`__:
 
-* ``GENERIC_CLIENT_ID``: ``chronograf-client-id``
+* ``GENERIC_CLIENT_ID``: ``fb7518beb61d27aaf20675d62778dea9.clients.example.com``
 * ``GENERIC_CLIENT_SECRET``: ``fb7518beb61d27aaf20675d62778dea9``
 * ``GENERIC_AUTH_URL``: ``https://example.com/auth/openid/login``
 * ``GENERIC_TOKEN_URL``: ``https://example.com/auth/openid/token``
@@ -88,8 +114,8 @@ Assuming that Gafaelfawr and Chronograf are deployed on the host ``example.com``
 * ``PUBLIC_URL``: ``https://example.com/chronograf``
 * ``TOKEN_SECRET``: ``pCY29u3qMTdWCNetOUD3OShsqwPm+pYKDNt6dqy01qw=``
 
-``GENERIC_CLIENT_ID`` and ``GENERIC_CLIENT_SECRET`` should match a client ID and secret configured in the ``oidc-server-secrets`` Vault key.
-The ``return_uri`` value for this entry in the ``oidc-server-secrets`` Vault key should be set to the ``PUBLIC_URL`` value above with ``/oauth/OIDC/callback`` appended.
+``GENERIC_CLIENT_ID`` and ``GENERIC_CLIENT_SECRET`` should match a client ID and secret returned when the client was registered (see :ref:`openid-connect-register` above).
+The ``PUBLIC_URL`` value must match the ``return_uri`` value registered with the client.
 
 Be aware that this uses the ``sub`` token claim, which corresponds to the user's username, for authentication, rather than the default of the user's email address.
 Gafaelfawr does not always have an email address for a user.
