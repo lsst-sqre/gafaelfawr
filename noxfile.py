@@ -14,8 +14,8 @@ from typing import Self
 import nox
 from nox.command import CommandFailed
 from nox_uv import session
-from testcontainers.postgres import PostgresContainer
-from testcontainers.redis import RedisContainer
+from testcontainers.community.postgres import PostgresContainer
+from testcontainers.community.redis import RedisContainer
 
 # Default sessions.
 nox.options.sessions = ["lint", "typing", "test", "docs"]
