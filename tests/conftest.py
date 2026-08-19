@@ -16,8 +16,8 @@ from safir.database import create_database_engine, stamp_database_async
 from safir.testing.data import Data
 from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
 from sqlalchemy.ext.asyncio import AsyncEngine
-from testcontainers.postgres import PostgresContainer
-from testcontainers.redis import RedisContainer
+from testcontainers.community.postgres import PostgresContainer
+from testcontainers.community.redis import RedisContainer
 
 from gafaelfawr.config import Config
 from gafaelfawr.database import initialize_gafaelfawr_database
