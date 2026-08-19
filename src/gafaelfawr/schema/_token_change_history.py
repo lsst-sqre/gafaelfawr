@@ -7,7 +7,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..models.enums import TokenChange, TokenType
-from .base import SchemaBase
+from ._base import SchemaBase
 
 __all__ = ["TokenChangeHistory"]
 

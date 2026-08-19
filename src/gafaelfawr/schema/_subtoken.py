@@ -3,7 +3,7 @@
 from sqlalchemy import ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .base import SchemaBase
+from ._base import SchemaBase
 
 __all__ = ["Subtoken"]
 

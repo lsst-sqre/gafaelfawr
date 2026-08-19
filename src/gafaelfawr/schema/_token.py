@@ -6,7 +6,7 @@ from sqlalchemy import Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..models.enums import TokenType
-from .base import SchemaBase
+from ._base import SchemaBase
 
 __all__ = ["Token"]
 

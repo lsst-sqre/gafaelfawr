@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import Index
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .base import SchemaBase
+from ._base import SchemaBase
 
 __all__ = ["OIDCClient"]
 
