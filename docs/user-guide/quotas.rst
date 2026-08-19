@@ -9,8 +9,9 @@ These quotas can be temporarily overridden by using the Gafaelfawr REST API.
 Types of quota
 ==============
 
-Gafaelfawr tracks two types of quota for each user: API quotas and notebook quotas.
-The notebook quotas are only calculated in Gafaelfawr and must be queried and enforced by some other system (normally Nublado_).
+Gafaelfawr tracks four types of quota for each user: API quotas, disk quotas, notebook quotas, and TAP quotas.
+All quotas except for the API quotas are only calculated in Gafaelfawr and must be queried and enforced by some other system.
+For example, notebook quotas are applied by Nublado_.
 
 API quotas
 ----------
@@ -40,6 +41,15 @@ Setting the API quota to zero is a special case.
 This is treated as an administrative block of the accesses to the service that it affects, and all requests are rejected with a 403 error (not a 429 error).
 
 This is normally only useful when done in quota overrides (see :ref:`quota-overrides`).
+
+Disk quotas
+-----------
+
+Disk quotas are a mapping of mount points to the user's available quota in bytes.
+
+This quota is only calculated by Gafaelfawr, not imposed, and often the quotas set in file systems cannot be set directly from Gafaelfawr information.
+Often, the disk quota information will be set manually in the Gafaelfawr configuration (see :ref:`helm-quota`) to document quotas managed externally.
+This allows retrieved of disk quotas via the same API as other quotas by user interfaces that want to display user quotas.
 
 Notebook quotas
 ---------------
@@ -86,8 +96,8 @@ These routes require a token with ``admin:token`` scope.
 The body sent via ``PUT`` and returned by ``GET`` is the same format as the ``config.quota`` key for the Gafaelfawr configuration except in JSON format.
 
 Quota overrides, unlike group quotas, are not additive.
-Instead, if there is a quota override and it generates a quota for a particular service for a user, that overrides the corresponding quota from the Gafaelfawr configuration.
-If the quota override does not generate quota for a particular service (if, for example, it contains no notebook quota), then the quota from the Gafaelfawr configuration is used.
+Instead, if there is a quota override and it generates a quota for a particular service or disk mount point for a user, that overrides the corresponding quota from the Gafaelfawr configuration.
+If the quota override does not generate quota for a particular service or mount point (if, for example, it contains no notebook quota), then the quota from the Gafaelfawr configuration is used.
 
 Override example
 ----------------

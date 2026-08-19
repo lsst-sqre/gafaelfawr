@@ -75,6 +75,15 @@ class Quota(BaseModel):
         ],
     )
 
+    disk: dict[str, int] = Field(
+        {},
+        title="Disk quotas",
+        description=(
+            "Mapping of mount points to disk quota allocations in bytes"
+        ),
+        examples=[{"/home": 32212254720}],
+    )
+
     notebook: NotebookQuota | None = Field(
         None, title="Notebook Aspect quotas"
     )
@@ -82,6 +91,15 @@ class Quota(BaseModel):
     tap: dict[str, TapQuota] = Field(
         {}, title="TAP quotas", examples=[{"qserv": {"concurrent": 5}}]
     )
+
+    def is_empty(self) -> bool:
+        """Whether this quota contains no rules."""
+        return (
+            not self.api
+            and not self.disk
+            and not self.notebook
+            and not self.tap
+        )
 
 
 class QuotaConfig(BaseModel):
@@ -128,30 +146,50 @@ class QuotaConfig(BaseModel):
 
         # Start with the defaults.
         default = self.default
-        api = dict(default.api)
         notebook = default.notebook.model_copy() if default.notebook else None
-        tap = dict(default.tap)
+        quota = Quota(
+            api=dict(default.api),
+            disk=dict(default.disk),
+            notebook=notebook,
+            tap=dict(default.tap),
+        )
 
-        # Look for group-specific rules.
+        # Merge in group-specific rules.
         for group in groups & set(self.groups.keys()):
-            extra = self.groups[group]
-            if notebook:
-                notebook = notebook.add(extra.notebook)
-            else:
-                notebook = extra.notebook
-            for service, rule in extra.tap.items():
-                if service in tap:
-                    tap[service] = tap[service].add(rule)
-                else:
-                    tap[service] = rule
-            for service, quota in extra.api.items():
-                if service in api:
-                    api[service] += quota
-                else:
-                    api[service] = quota
+            self._merge_group_quota(quota, self.groups[group])
 
         # Return the results.
-        if not notebook and not api:
+        if quota.is_empty():
             return None
         else:
-            return Quota(api=api, notebook=notebook, tap=tap)
+            return quota
+
+    def _merge_group_quota(self, base: Quota, extra: Quota) -> None:
+        """Merge quota for a group into an existing quota.
+
+        Parameters
+        ----------
+        base
+            Quota being constructed.
+        extra
+            Additional quota allocated to a group.
+        """
+        if base.notebook:
+            base.notebook = base.notebook.add(extra.notebook)
+        else:
+            base.notebook = extra.notebook
+        for service, rule in extra.tap.items():
+            if service in base.tap:
+                base.tap[service] = base.tap[service].add(rule)
+            else:
+                base.tap[service] = rule
+        for mount, quota in extra.disk.items():
+            if mount in base.disk:
+                base.disk[mount] += quota
+            else:
+                base.disk[mount] = quota
+        for service, quota in extra.api.items():
+            if service in base.api:
+                base.api[service] += quota
+            else:
+                base.api[service] = quota

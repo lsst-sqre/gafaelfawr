@@ -14,6 +14,9 @@
       "other": 2,
       "test": 2
     },
+    "disk": {
+      "/home": 42949672960
+    },
     "notebook": {
       "cpu": 8.0,
       "memory": 8.0,
