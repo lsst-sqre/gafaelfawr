@@ -1,6 +1,6 @@
 """The subtoken database table."""
 
-from sqlalchemy import ForeignKey, Index, String
+from sqlalchemy import ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ._base import SchemaBase
@@ -14,12 +14,11 @@ class Subtoken(SchemaBase):
     __tablename__ = "subtoken"
 
     child: Mapped[str] = mapped_column(
-        String(64),
         ForeignKey("token.token", ondelete="CASCADE"),
         primary_key=True,
     )
     parent: Mapped[str | None] = mapped_column(
-        String(64), ForeignKey("token.token", ondelete="SET NULL")
+        ForeignKey("token.token", ondelete="SET NULL")
     )
 
     __table_args__ = (Index("subtoken_by_parent", "parent"),)

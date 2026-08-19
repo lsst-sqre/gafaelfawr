@@ -6,7 +6,7 @@ group system and a group-based authorization system up and running.
 
 from datetime import datetime
 
-from sqlalchemy import Index, String
+from sqlalchemy import Index, Text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -22,11 +22,11 @@ class AdminHistory(SchemaBase):
     __tablename__ = "admin_history"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    username: Mapped[str] = mapped_column(String(64))
+    username: Mapped[str]
     action: Mapped[AdminChange]
-    actor: Mapped[str] = mapped_column(String(64))
+    actor: Mapped[str]
     ip_address: Mapped[str] = mapped_column(
-        String(64).with_variant(postgresql.INET, "postgresql")
+        Text().with_variant(postgresql.INET, "postgresql")
     )
     event_time: Mapped[datetime]
 

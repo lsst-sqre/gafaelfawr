@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import Index, String
+from sqlalchemy import Index, Text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -18,21 +18,21 @@ class TokenChangeHistory(SchemaBase):
     __tablename__ = "token_change_history"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    token: Mapped[str] = mapped_column(String(64))
-    username: Mapped[str] = mapped_column(String(64))
+    token: Mapped[str]
+    username: Mapped[str]
     token_type: Mapped[TokenType]
-    token_name: Mapped[str | None] = mapped_column(String(64))
-    parent: Mapped[str | None] = mapped_column(String(64))
-    scopes: Mapped[str] = mapped_column(String(512))
-    service: Mapped[str | None] = mapped_column(String(64))
+    token_name: Mapped[str | None]
+    parent: Mapped[str | None]
+    scopes: Mapped[str]
+    service: Mapped[str | None]
     expires: Mapped[datetime | None]
-    actor: Mapped[str | None] = mapped_column(String(64))
+    actor: Mapped[str | None]
     action: Mapped[TokenChange]
-    old_token_name: Mapped[str | None] = mapped_column(String(64))
-    old_scopes: Mapped[str | None] = mapped_column(String(512))
+    old_token_name: Mapped[str | None]
+    old_scopes: Mapped[str | None]
     old_expires: Mapped[datetime | None]
     ip_address: Mapped[str | None] = mapped_column(
-        String(64).with_variant(postgresql.INET, "postgresql")
+        Text().with_variant(postgresql.INET, "postgresql")
     )
     event_time: Mapped[datetime]
 
