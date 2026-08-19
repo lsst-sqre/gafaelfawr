@@ -501,13 +501,13 @@ class UserInfoService:
         elif overrides.bypass & group_names:
             return Quota()
         else:
-            api = quota.api
-            api.update(override_quota.api)
-            return Quota(
-                notebook=override_quota.notebook or quota.notebook,
-                api=api,
-                tap=override_quota.tap or quota.tap,
-            )
+            quota.api.update(override_quota.api)
+            quota.disk.update(override_quota.disk)
+            if override_quota.notebook:
+                quota.notebook = override_quota.notebook
+            if override_quota.tap:
+                quota.tap = override_quota.tap
+            return quota
 
     def _check_authorization(
         self, auth_data: TokenData, username: str | None = None

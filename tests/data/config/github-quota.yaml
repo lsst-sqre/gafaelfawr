@@ -23,6 +23,8 @@ quota:
       datalinker: 1000
       test: 1
       other: 2
+    disk:
+      "/home": 32212254720
     notebook:
       cpu: 8
       memory: 4.0
@@ -38,6 +40,8 @@ quota:
     foo:
       api:
         test: 1
+      disk:
+        "/home": 10737418240
       notebook:
         cpu: 0.0
         memory: 4.0

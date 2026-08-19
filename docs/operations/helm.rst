@@ -605,6 +605,8 @@ The keys for API quotas are names of services.
 This is the same name the service should use in the ``config.service`` key of a ``GafaelfawrIngress`` resource (see :ref:`ingress`).
 If a service name has no corresponding quota setting, access to that service will be unrestricted.
 
+The ``disk`` key should contain a mapping of mount points to bytes of quota in that file system.
+
 The ``notebook`` key should contain ``cpu`` and ``memory`` keys specifying the default CPU and memory limits.
 The memory limit is given in a floating point number of GiB.
 
@@ -620,6 +622,8 @@ For example:
        default:
          api:
            datalinker: 100
+         disk:
+           "/home": 32212254720
          notebook:
            cpu: 2.0
            memory: 4.0
@@ -647,11 +651,13 @@ For example:
          g_developers:
            api:
              datalinker: 50
+           disk:
+             "/home": 10737418240
            notebook:
              cpu: 0.0
              memory: 4.0
 
-If this were combined with the above default quota, members of the ``g_developers`` group would receive a total of 150 requests per minute for datalinker, and a total of 8.0 GiB of memory for notebooks.
+If this were combined with the above default quota, members of the ``g_developers`` group would receive a total of 150 requests per minute for datalinker, 40GiB of quota in :file:`/home`, and a total of 8.0 GiB of memory for notebooks.
 The CPU quota for notebooks and the quota for TAP queries would be unchanged.
 
 Members of specific groups cannot be granted unrestricted access to an API service since a missing key for a service instead means that this group contributes no additional quota for that service.

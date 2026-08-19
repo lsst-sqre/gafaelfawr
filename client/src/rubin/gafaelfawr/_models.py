@@ -84,7 +84,17 @@ class GafaelfawrQuota(BaseModel):
         dict[str, int],
         Field(
             title="API quotas",
-            description=("Mapping of service names to requests per minute"),
+            description="Mapping of service names to requests per minute",
+        ),
+    ] = {}
+
+    disk: Annotated[
+        dict[str, int],
+        Field(
+            title="Disk quotas",
+            description=(
+                "Mapping of mount points to disk quota allocations in bytes"
+            ),
         ),
     ] = {}
 
