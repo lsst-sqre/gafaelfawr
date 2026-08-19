@@ -30,10 +30,15 @@ from gafaelfawr.factory import Factory
 from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.enums import TokenChange, TokenType
 from gafaelfawr.models.history import TokenChangeHistoryEntry
-from gafaelfawr.models.oidc import OIDCAuthorizationCode, OIDCScope
+from gafaelfawr.models.oidc import (
+    OIDCAuthenticateStatus,
+    OIDCAuthorizationCode,
+    OIDCScope,
+)
 from gafaelfawr.models.token import Token, TokenData, TokenUserInfo
 from gafaelfawr.schema import SchemaBase
 from gafaelfawr.storage.history import TokenChangeHistoryStore
+from gafaelfawr.storage.oidc import OIDCClientStore
 from gafaelfawr.storage.token import TokenDatabaseStore
 
 from .support.database import create_old_database
@@ -317,9 +322,24 @@ def test_openapi_schema(tmp_path: Path) -> None:
     assert "Return to Gafaelfawr documentation" in result.output
 
 
-def test_update_schema(engine: AsyncEngine, config: Config) -> None:
+@pytest.mark.parametrize("config", ["github-oidc-server"], indirect=True)
+def test_update_schema(
+    engine: AsyncEngine, config: Config, monkeypatch: pytest.MonkeyPatch
+) -> None:
     event_loop = asyncio.new_event_loop()
     runner = CliRunner()
+
+    # Create some old-style OpenID Connect clients, which should be added to
+    # the database as part of a schema migration when the oidc_client table is
+    # empty.
+    return_uri = "https://example.com/service"
+    oidc_clients = [
+        {"id": "some-id", "secret": "secret", "return_uri": return_uri},
+        {"id": "other-id", "secret": "other", "return_uri": return_uri + "/a"},
+    ]
+    monkeypatch.setenv(
+        "GAFAELFAWR_OIDC_SERVER_CLIENTS", json.dumps(oidc_clients)
+    )
 
     # Start with an empty database. This should produce exactly the same
     # results as gafaelfawr init.
@@ -343,6 +363,17 @@ def test_update_schema(engine: AsyncEngine, config: Config) -> None:
             token_service = factory.create_token_service()
             bootstrap = TokenData.bootstrap_token()
             assert await token_service.list_tokens(bootstrap) == []
+            oidc_service = factory.create_oidc_service()
+            oidc_clients = {
+                c.client_id for c in await oidc_service.list_clients()
+            }
+            assert oidc_clients == {"some-id", "other-id"}
+            oidc_store = OIDCClientStore(factory.session)
+            async with factory.session.begin():
+                result = await oidc_store.authenticate("some-id", "secret")
+                assert result == OIDCAuthenticateStatus.VALID
+                result = await oidc_store.authenticate("other-id", "other")
+                assert result == OIDCAuthenticateStatus.VALID
 
     event_loop.run_until_complete(check_database())
 

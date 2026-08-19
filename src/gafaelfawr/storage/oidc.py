@@ -8,10 +8,12 @@ from typing import cast
 import bcrypt
 from pydantic import SecretStr
 from safir.database import datetime_to_db
+from safir.datetime import format_datetime_for_logging
 from safir.redis import EncryptedPydanticRedisStorage
 from sqlalchemy import CursorResult, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..config import OIDCClientConfig
 from ..constants import OIDC_AUTHORIZATION_LIFETIME
 from ..exceptions import InvalidGrantError
 from ..models.oidc import (
@@ -198,6 +200,31 @@ class OIDCClientStore:
             OIDCClient.model_validate(a, from_attributes=True)
             for a in result.all()
         ]
+
+    async def migrate(self, client: OIDCClientConfig) -> None:
+        """Migrate an old-style configured client into the database.
+
+        Parameters
+        ----------
+        config
+            Client configuration.
+        """
+        created = datetime.now(tz=UTC)
+        migration_date = format_datetime_for_logging(created)
+        description = f"Migrated from secret on {migration_date}"
+        secret = client.secret.get_secret_value()
+        hashed_secret = bcrypt.hashpw(secret.encode(), bcrypt.gensalt())
+        new = SQLOIDCClient(
+            client_id=client.id,
+            client_secret_hash=hashed_secret,
+            return_uri=str(client.return_uri),
+            description=description,
+            notes=None,
+            created=datetime_to_db(created),
+            last_modified=datetime_to_db(created),
+            last_modified_by="<internal>",
+        )
+        self._session.add(new)
 
     async def register(self, create: OIDCClientCreate) -> OIDCClientWithSecret:
         """Register a new OpenID Connect client.

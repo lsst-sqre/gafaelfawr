@@ -15,7 +15,7 @@ from safir.slack.webhook import SlackWebhookClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from structlog.stdlib import BoundLogger
 
-from ..config import OIDCServerConfig
+from ..config import OIDCClientConfig, OIDCServerConfig
 from ..constants import ALGORITHM
 from ..exceptions import (
     InvalidClientError,
@@ -312,6 +312,25 @@ class OIDCService:
         """
         async with self._session.begin():
             return await self._client_store.list()
+
+    async def migrate_clients(self, clients: list[OIDCClientConfig]) -> None:
+        """Migrate clients from the old configuration into the database.
+
+        Parameters
+        ----------
+        clients
+            Clients to migrate.
+        """
+        async with self._session.begin():
+            db_clients = await self._client_store.list()
+            if db_clients:
+                self._logger.warning(
+                    "OpenID Connect clients already found in the database,"
+                    " so not migrating clients configured via a secret"
+                )
+                return
+            for client in clients:
+                await self._client_store.migrate(client)
 
     async def redeem_code(
         self,

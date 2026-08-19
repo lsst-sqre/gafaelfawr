@@ -22,6 +22,7 @@ from safir.slack.blockkit import SlackMessage
 from sqlalchemy import text
 
 from . import __version__
+from .config import OIDCClientConfig
 from .database import (
     generate_schema_sql,
     initialize_gafaelfawr_database,
@@ -35,19 +36,7 @@ from .main import create_openapi
 from .models.token import Token
 from .schema import SchemaBase
 
-__all__ = [
-    "audit",
-    "delete_all_data",
-    "generate_key",
-    "generate_schema",
-    "generate_token",
-    "help",
-    "init",
-    "main",
-    "maintenance",
-    "openapi_schema",
-    "run",
-]
+__all__ = ["main"]
 
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
@@ -342,8 +331,23 @@ def update_schema(
         asyncio.run(initialize_gafaelfawr_database(config, logger))
         stamp_database(alembic_config_path)
         logger.debug("Finished initializing data stores")
-        return
-    subprocess.run(["alembic", "upgrade", "head"], check=True, env=env)
+    else:
+        subprocess.run(["alembic", "upgrade", "head"], check=True, env=env)
+
+    # Support code to migrate old OpenID Connect clients.
+    async def migrate_oidc_clients(clients: list[OIDCClientConfig]) -> None:
+        engine = create_database_engine(
+            config.database_url, config.database_password
+        )
+        async with Factory.standalone(config, engine) as factory:
+            oidc_service = factory.create_oidc_service()
+            await oidc_service.migrate_clients(clients)
+        await engine.dispose()
+
+    # If there are OpenID Connect clients configured using the old approach,
+    # migrate them into the database.
+    if config.oidc_server and config.oidc_server.clients:
+        asyncio.run(migrate_oidc_clients(config.oidc_server.clients))
 
 
 @main.command()
