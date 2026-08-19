@@ -32,7 +32,7 @@ from gafaelfawr.models.token import (
     TokenUserInfo,
 )
 from gafaelfawr.models.userinfo import Group
-from gafaelfawr.schema.subtoken import Subtoken
+from gafaelfawr.schema import Subtoken
 from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
 

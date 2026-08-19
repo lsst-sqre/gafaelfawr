@@ -16,8 +16,8 @@ from structlog.stdlib import BoundLogger
 from ..exceptions import DuplicateTokenNameError
 from ..models.enums import TokenType
 from ..models.token import Token, TokenData, TokenInfo
-from ..schema.subtoken import Subtoken as SQLSubtoken
-from ..schema.token import Token as SQLToken
+from ..schema import Subtoken as SQLSubtoken
+from ..schema import Token as SQLToken
 
 __all__ = ["TokenDatabaseStore", "TokenRedisStore"]
 

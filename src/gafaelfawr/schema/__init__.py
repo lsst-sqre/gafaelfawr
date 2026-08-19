@@ -1,13 +1,13 @@
 """All database schema objects."""
 
-from .admin import Admin
-from .admin_history import AdminHistory
-from .base import SchemaBase
-from .oidc_client import OIDCClient
-from .subtoken import Subtoken
-from .token import Token
-from .token_auth_history import TokenAuthHistory
-from .token_change_history import TokenChangeHistory
+from ._admin import Admin
+from ._admin_history import AdminHistory
+from ._base import SchemaBase
+from ._oidc_client import OIDCClient
+from ._subtoken import Subtoken
+from ._token import Token
+from ._token_auth_history import TokenAuthHistory
+from ._token_change_history import TokenChangeHistory
 
 __all__ = [
     "Admin",
