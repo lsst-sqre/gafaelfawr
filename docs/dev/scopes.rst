@@ -25,6 +25,7 @@ Reserved scopes
 Gafaelfawr reserves scopes beginning with ``admin:`` and ``user:`` for internal use by the identity management system.
 Currently, three scopes in that reserved namespace are used:
 
+* ``admin:oidc`` grants the ability to add and manage OpenID Connect clients if the OpenID Connect server is enabled (see :ref:`helm-oidc-server`).
 * ``admin:token`` grants token administrator powers.
   Users authenticated with a token with this scope can view, create, modify, and delete tokens for any user.
   Administrators are automatically granted this scope when they authenticate.

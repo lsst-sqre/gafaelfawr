@@ -501,6 +501,7 @@ The default includes:
 
    config:
      knownScopes:
+       "admin:oidc": "Can create and manage OpenID Connect clients"
        "admin:token": "Can create and modify tokens for any user"
        "admin:userinfo": "Can see user information for any user"
        "user:token": "Can create and modify user tokens"
@@ -531,6 +532,10 @@ A complete setting for GitHub might look something like this:
 
    config:
      groupMapping:
+       "admin:oidc":
+         - github:
+             organization: "lsst-sqre"
+             team: "square"
        "admin:token":
          - github:
              organization: "lsst-sqre"
@@ -580,7 +585,9 @@ A user who is a member of the ``bar`` and ``other`` groups will have the ``exec:
 Regardless of the ``config.groupMapping`` configuration, the ``user:token`` scope will be automatically added to the session token of any user authenticating via OpenID Connect or GitHub.
 The ``admin:token`` scope will be automatically added to any user marked as an admin in Gafaelfawr.
 
-You will probably want to grant ``admin:userinfo`` scope to platform administrators so that they can use the :samp:`/auth/api/v1/groups` and :samp:`/auth/api/v1/users` routes to retrieve user and group information for a user from LDAP while debugging problems.
+You will probably want to grant the ``admin:userinfo`` scope to platform administrators so that they can use the :samp:`/auth/api/v1/groups` and :samp:`/auth/api/v1/users` routes to retrieve user and group information for a user from LDAP while debugging problems.
+
+If the OpenID Connect server is enabled (see :ref:`helm-oidc-server`), You will need to grant the ``admin:oidc`` scope to people who manage OpenID Connect clients.
 
 .. _helm-quota:
 
