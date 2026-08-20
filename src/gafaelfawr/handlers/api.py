@@ -283,7 +283,7 @@ async def get_oidc_clients(
     context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> list[OIDCClient]:
     oidc_service = context.factory.create_oidc_service()
-    clients = await oidc_service.list_clients()
+    clients = await oidc_service.list_clients(auth_data)
     for client in clients:
         client.url = get_oidc_client_url(context.request, client.client_id)
     return clients

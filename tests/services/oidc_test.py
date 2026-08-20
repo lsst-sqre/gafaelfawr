@@ -39,7 +39,7 @@ async def test_issue_code(
 ) -> None:
     redirect_uri = "https://example.com/"
     oidc_service = factory.create_oidc_service()
-    token_data = await create_session_token(factory)
+    token_data = await create_session_token(factory, scopes={"admin:oidc"})
     client = await register_oidc_client(factory, redirect_uri, token_data)
 
     with pytest.raises(InvalidClientIdError):
@@ -86,7 +86,9 @@ async def test_redeem_code(
 ) -> None:
     assert config.oidc_server
     redirect_uri = "https://example.com/"
-    token_data = await create_session_token(factory)
+    token_data = await create_session_token(
+        factory, scopes={"admin:oidc", "user:token"}
+    )
     assert token_data.expires
     client = await register_oidc_client(factory, redirect_uri, token_data)
     oidc_service = factory.create_oidc_service()
@@ -166,7 +168,7 @@ async def test_redeem_code_errors(
     expires = int(timedelta(minutes=60).total_seconds())
     redirect_uri = "https://example.com/"
     oidc_service = factory.create_oidc_service()
-    token_data = await create_session_token(factory)
+    token_data = await create_session_token(factory, scopes={"admin:oidc"})
     client_1 = await register_oidc_client(factory, redirect_uri, token_data)
     client_2 = await register_oidc_client(factory, redirect_uri, token_data)
     code = await oidc_service.issue_code(
@@ -339,7 +341,7 @@ async def test_issue_id_token(
     assert config.oidc_server
     redirect_uri = "https://example.com/"
     oidc_service = factory.create_oidc_service()
-    token_data = await create_session_token(factory)
+    token_data = await create_session_token(factory, scopes={"admin:oidc"})
     assert token_data.expires
     client = await register_oidc_client(factory, redirect_uri, token_data)
     authorization = OIDCAuthorization(

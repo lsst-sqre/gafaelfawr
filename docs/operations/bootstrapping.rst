@@ -14,6 +14,6 @@ This token must be generated with :command:`gafaelfawr generate-token` and then 
 See :ref:`vault-secrets` for more details.
 It can then be used with API calls as a bearer token in the ``Authenticate`` header.
 
-The bootstrap token acts like the token of a service or user with the ``admin:token`` scope, but can only access specific routes, namely ``/auth/api/v1/tokens``.
+The bootstrap token acts like the token of a service or user with the ``admin:token`` scope, but can only access specific routes, namely ``/auth/api/v1/tokens`` and ``/auth/api/v1/oidc-clients``.
 This allows it to be used to create user tokens for arbitrary users and with arbitrary scopes, including privileged scopes such as ``admin:token``
 Those tokens can then be used to access all of the Gafaelfawr API regardless of the state of the user information service.
