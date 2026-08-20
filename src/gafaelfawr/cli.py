@@ -124,12 +124,10 @@ async def delete_all_data(*, config_path: Path | None) -> None:
     )
     tables = (t.name for t in SchemaBase.metadata.sorted_tables)
     async with Factory.standalone(config, engine) as factory:
-        admin_service = factory.create_admin_service()
         async with factory.session.begin():
             stmt = text(f"TRUNCATE TABLE {', '.join(tables)}")
             logger.info("Truncating all tables")
             await factory.session.execute(stmt)
-        await admin_service.add_initial_admins(config.initial_admins)
         token_service = factory.create_token_service()
         logger.info("Deleting all tokens from Redis")
         await token_service.delete_all_tokens()

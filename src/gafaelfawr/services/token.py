@@ -43,7 +43,6 @@ from ..models.token import (
     TokenInfo,
     TokenUserInfo,
 )
-from ..storage.admin import AdminStore
 from ..storage.history import TokenChangeHistoryStore
 from ..storage.token import TokenDatabaseStore, TokenRedisStore
 from ..util import is_bot_user
@@ -67,8 +66,6 @@ class TokenService:
         Redis backing store for tokens.
     token_change_store
         Backing store for history of changes to tokens.
-    admin_store
-        Backing store for Gafaelfawr admins.
     session
         Database session.
     logger
@@ -83,7 +80,6 @@ class TokenService:
         token_db_store: TokenDatabaseStore,
         token_redis_store: TokenRedisStore,
         token_change_store: TokenChangeHistoryStore,
-        admin_store: AdminStore,
         session: AsyncSession,
         logger: BoundLogger,
     ) -> None:
@@ -92,7 +88,6 @@ class TokenService:
         self._token_db_store = token_db_store
         self._token_redis_store = token_redis_store
         self._token_change_store = token_change_store
-        self._admin_store = admin_store
         self._session = session
         self._logger = logger
 
@@ -201,10 +196,6 @@ class TokenService:
         token = Token()
         created = datetime.now(tz=UTC).replace(microsecond=0)
         expires = created + self._config.token_lifetime
-        async with self._session.begin():
-            admins = await self._admin_store.list()
-        if any(user_info.username == a.username for a in admins):
-            scopes.add("admin:token")
 
         data = TokenData(
             token=token,

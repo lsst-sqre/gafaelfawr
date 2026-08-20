@@ -82,11 +82,6 @@ def test_config_both_providers(
         parse_config(config_path(data, "both-providers"))
 
 
-def test_config_invalid_admin(data: Data) -> None:
-    with pytest.raises(ValidationError, match="invalid username"):
-        parse_config(config_path(data, "bad-admin"))
-
-
 def test_config_invalid_log_level(data: Data) -> None:
     with pytest.raises(ValidationError, match="logLevel"):
         parse_config(config_path(data, "bad-log-level"))

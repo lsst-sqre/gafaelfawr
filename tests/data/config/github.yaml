@@ -1,7 +1,6 @@
 # Use GitHub as the authentication provider.
 
 slackAlerts: true
-initialAdmins: ["admin"]
 proxies:
   - "10.0.0.0/8"
 afterLogoutUrl: "https://example.com/landing"

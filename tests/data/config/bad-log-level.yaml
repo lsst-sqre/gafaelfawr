@@ -1,7 +1,6 @@
 # Bad configuration file with invalid logLevel setting.
 
 logLevel: "INVALID"
-initialAdmins: ["admin"]
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
   "exec:admin": ["admin"]

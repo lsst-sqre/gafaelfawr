@@ -1,6 +1,5 @@
 # Bad configuration file with invalid scope.
 
-initialAdmins: ["admin"]
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
   "exec:admin": ["admin"]

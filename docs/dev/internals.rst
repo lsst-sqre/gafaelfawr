@@ -44,9 +44,6 @@ Python internal API
 .. automodapi:: gafaelfawr.middleware.state
    :include-all-objects:
 
-.. automodapi:: gafaelfawr.models.admin
-   :include-all-objects:
-
 .. automodapi:: gafaelfawr.models.auth
    :include-all-objects:
 
@@ -98,9 +95,6 @@ Python internal API
 .. automodapi:: gafaelfawr.providers.oidc
    :include-all-objects:
 
-.. automodapi:: gafaelfawr.services.admin
-   :include-all-objects:
-
 .. automodapi:: gafaelfawr.services.firestore
    :include-all-objects:
 
@@ -123,9 +117,6 @@ Python internal API
    :include-all-objects:
 
 .. automodapi:: gafaelfawr.services.userinfo
-   :include-all-objects:
-
-.. automodapi:: gafaelfawr.storage.admin
    :include-all-objects:
 
 .. automodapi:: gafaelfawr.storage.firestore

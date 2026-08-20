@@ -13,40 +13,13 @@ from sqlalchemy.sql import Select, text
 
 from ..models.enums import TokenType
 from ..models.history import (
-    AdminHistoryEntry,
     TokenChangeHistoryCursor,
     TokenChangeHistoryEntry,
     TokenChangeHistoryRecord,
 )
-from ..schema import AdminHistory as SQLAdminHistory
 from ..schema import TokenChangeHistory as SQLTokenChangeHistory
 
-__all__ = ["AdminHistoryStore", "TokenChangeHistoryStore"]
-
-
-class AdminHistoryStore:
-    """Stores and retrieves the history of changes to token administrators.
-
-    Parameters
-    ----------
-    session
-        The database session proxy.
-    """
-
-    def __init__(self, session: AsyncSession) -> None:
-        self._session = session
-
-    async def add(self, entry: AdminHistoryEntry) -> None:
-        """Record a change to the token administrators.
-
-        Parameters
-        ----------
-        entry
-            The change to record.
-        """
-        new = SQLAdminHistory(**entry.model_dump())
-        new.event_time = datetime_to_db(entry.event_time)
-        self._session.add(new)
+__all__ = ["TokenChangeHistoryStore"]
 
 
 class TokenChangeHistoryStore:

@@ -45,8 +45,7 @@ from .models.userinfo import Group
 from .providers.base import Provider
 from .providers.github import GitHubProvider
 from .providers.oidc import OIDCProvider, OIDCTokenVerifier
-from .schema import Admin as SQLAdmin
-from .services.admin import AdminService
+from .schema import Token as SQLToken
 from .services.firestore import FirestoreService
 from .services.health import HealthCheckService
 from .services.kubernetes import (
@@ -58,9 +57,8 @@ from .services.oidc import OIDCService
 from .services.token import TokenService
 from .services.token_cache import TokenCacheService
 from .services.userinfo import UserInfoService
-from .storage.admin import AdminStore
 from .storage.firestore import FirestoreStorage
-from .storage.history import AdminHistoryStore, TokenChangeHistoryStore
+from .storage.history import TokenChangeHistoryStore
 from .storage.kubernetes import (
     KubernetesIngressStorage,
     KubernetesTokenStorage,
@@ -283,7 +281,7 @@ class Factory:
             returned object during shutdown.
         """
         logger = structlog.get_logger("gafaelfawr")
-        statement = select(SQLAdmin) if check_db else None
+        statement = select(SQLToken) if check_db else None
         session = await create_async_session(engine, statement=statement)
         return cls(context, session, logger)
 
@@ -357,23 +355,6 @@ class Factory:
         must not be used.
         """
         await self.session.close()
-
-    def create_admin_service(self) -> AdminService:
-        """Create a new manager object for token administrators.
-
-        Returns
-        -------
-        AdminService
-            The new token administrator manager.
-        """
-        admin_store = AdminStore(self.session)
-        admin_history_store = AdminHistoryStore(self.session)
-        return AdminService(
-            admin_store=admin_store,
-            admin_history_store=admin_history_store,
-            session=self.session,
-            logger=self._logger,
-        )
 
     def create_firestore_service(self) -> FirestoreService:
         """Create the Firestore service layer.
@@ -637,7 +618,6 @@ class Factory:
             token_db_store=token_db_store,
             token_redis_store=token_redis_store,
             token_change_store=token_change_store,
-            admin_store=AdminStore(self.session),
             session=self.session,
             logger=self._logger,
         )

@@ -27,7 +27,6 @@ from gafaelfawr.config import Config
 from gafaelfawr.constants import CHANGE_HISTORY_RETENTION
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import Factory
-from gafaelfawr.models.admin import Admin
 from gafaelfawr.models.enums import TokenChange, TokenType
 from gafaelfawr.models.history import TokenChangeHistoryEntry
 from gafaelfawr.models.oidc import (
@@ -150,9 +149,6 @@ def test_delete_all_data(
 
     async def check_data() -> None:
         async with Factory.standalone(config, engine) as factory:
-            admin_service = factory.create_admin_service()
-            expected = [Admin(username=u) for u in config.initial_admins]
-            assert await admin_service.get_admins() == expected
             token_service = factory.create_token_service()
             bootstrap = TokenData.bootstrap_token()
             assert await token_service.list_tokens(bootstrap) == []
@@ -230,9 +226,6 @@ def test_init(engine: AsyncEngine, config: Config) -> None:
 
     async def check_database() -> None:
         async with Factory.standalone(config, engine) as factory:
-            admin_service = factory.create_admin_service()
-            expected = [Admin(username=u) for u in config.initial_admins]
-            assert await admin_service.get_admins() == expected
             token_service = factory.create_token_service()
             bootstrap = TokenData.bootstrap_token()
             assert await token_service.list_tokens(bootstrap) == []
@@ -357,9 +350,6 @@ def test_update_schema(
 
     async def check_database() -> None:
         async with Factory.standalone(config, engine) as factory:
-            admin_service = factory.create_admin_service()
-            expected = [Admin(username=u) for u in config.initial_admins]
-            assert await admin_service.get_admins() == expected
             token_service = factory.create_token_service()
             bootstrap = TokenData.bootstrap_token()
             assert await token_service.list_tokens(bootstrap) == []

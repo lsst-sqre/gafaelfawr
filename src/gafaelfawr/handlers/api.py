@@ -28,7 +28,6 @@ from ..constants import ACTOR_REGEX, CURSOR_REGEX, USERNAME_REGEX
 from ..dependencies.auth import AuthenticateRead, AuthenticateWrite
 from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import ExternalUserInfoError, NotFoundError
-from ..models.admin import Admin
 from ..models.auth import APIConfig, APILoginResponse, Scope
 from ..models.enums import TokenType
 from ..models.history import TokenChangeHistoryCursor, TokenChangeHistoryEntry
@@ -84,75 +83,6 @@ _pagination_headers = {
         "schema": {"type": "integer"},
     },
 }
-
-
-@router.get(
-    "/auth/api/v1/admins",
-    dependencies=[Depends(authenticate_admin_read)],
-    summary="List all administrators",
-    tags=["admin"],
-)
-async def get_admins(
-    *,
-    context: Annotated[RequestContext, Depends(context_dependency)],
-) -> list[Admin]:
-    admin_service = context.factory.create_admin_service()
-    return await admin_service.get_admins()
-
-
-@router.post(
-    "/auth/api/v1/admins",
-    status_code=204,
-    summary="Add new administrator",
-    tags=["admin"],
-)
-async def add_admin(
-    *,
-    admin: Admin,
-    auth_data: Annotated[TokenData, Depends(authenticate_admin_write)],
-    context: Annotated[RequestContext, Depends(context_dependency)],
-) -> None:
-    admin_service = context.factory.create_admin_service()
-    await admin_service.add_admin(
-        admin.username,
-        actor=auth_data.username,
-        ip_address=context.ip_address,
-    )
-
-
-@router.delete(
-    "/auth/api/v1/admins/{username}",
-    responses={
-        403: {"description": "Permission denied", "model": ErrorModel},
-        404: {"description": "Specified user is not an administrator"},
-    },
-    status_code=204,
-    summary="Delete an administrator",
-    tags=["admin"],
-)
-async def delete_admin(
-    *,
-    username: Annotated[
-        str,
-        Path(
-            title="Administrator",
-            description="Username of administrator to delete",
-            examples=["adminuser"],
-            min_length=1,
-            max_length=64,
-            pattern=USERNAME_REGEX,
-        ),
-    ],
-    auth_data: Annotated[TokenData, Depends(authenticate_admin_write)],
-    context: Annotated[RequestContext, Depends(context_dependency)],
-) -> None:
-    admin_service = context.factory.create_admin_service()
-    success = await admin_service.delete_admin(
-        username, actor=auth_data.username, ip_address=context.ip_address
-    )
-    if not success:
-        msg = "Specified user is not an administrator"
-        raise NotFoundError(msg, ErrorLocation.path, ["username"])
 
 
 @router.get(
