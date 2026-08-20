@@ -24,6 +24,7 @@ from ..exceptions import (
     InvalidRequestError,
     InvalidTokenError,
     NotFoundError,
+    PermissionDeniedError,
     ReturnUriMismatchError,
     UnsupportedGrantTypeError,
 )
@@ -148,6 +149,7 @@ class OIDCService:
         NotFoundError
             Raised if the client could not be found.
         """
+        self._check_authorization(auth_data)
         async with self._session.begin():
             await self._client_store.delete(client_id)
 
@@ -173,6 +175,7 @@ class OIDCService:
         NotFoundError
             Raised if the client could not be found.
         """
+        self._check_authorization(auth_data)
         async with self._session.begin():
             oidc_client = await self._client_store.get(client_id)
         if not oidc_client:
@@ -302,14 +305,20 @@ class OIDCService:
             encoded=encoded_token, claims=payload, jti=payload.get("jti")
         )
 
-    async def list_clients(self) -> list[OIDCClient]:
+    async def list_clients(self, auth_data: TokenData) -> list[OIDCClient]:
         """List all registered OpenID Connect clients.
+
+        Parameters
+        ----------
+        auth_data
+            Token information for the person requesting the client list.
 
         Returns
         -------
         list of OIDCClient
             List of registered OpenID Connect clients.
         """
+        self._check_authorization(auth_data)
         async with self._session.begin():
             return await self._client_store.list()
 
@@ -455,6 +464,7 @@ class OIDCService:
         request
             OpenID Connect client information.
         """
+        self._check_authorization(auth_data)
         create = OIDCClientCreate(
             client_id=os.urandom(16).hex() + self._config.client_suffix,
             return_uri=request.return_uri,
@@ -509,6 +519,7 @@ class OIDCService:
         NotFoundError
             Raised if the client could not be found.
         """
+        self._check_authorization(auth_data)
         async with self._session.begin():
             oidc_client = await self._client_store.update(client_id, update)
         if not oidc_client:
@@ -571,7 +582,8 @@ class OIDCService:
             The issuer of this token is unknown and therefore the token cannot
             be verified.
         """
-        audiences = (c.client_id for c in await self.list_clients())
+        async with self._session.begin():
+            audiences = [c.client_id for c in await self._client_store.list()]
         try:
             payload = jwt.decode(
                 token.encoded,
@@ -615,6 +627,25 @@ class OIDCService:
         if not releases:
             return None
         return " ".join(sorted(releases))
+
+    def _check_authorization(self, auth_data: TokenData) -> None:
+        """Check authorization for manipulating OpenID Connect clients.
+
+        Arguments
+        ---------
+        auth_data
+            Aauthenticated user performing the action.
+
+        Raises
+        ------
+        PermissionDeniedError
+            Raised if the authenticated user doesn't have permission to
+            manipulate tokens for that user.
+        """
+        if "admin:oidc" not in auth_data.scopes:
+            msg = "Missing required admin:oidc scope"
+            self._logger.warning("Permission denied", error=msg)
+            raise PermissionDeniedError(msg)
 
     async def _check_client_secret(
         self, client_id: str, client_secret: str | None, return_uri: str

@@ -313,7 +313,7 @@ class TokenData(TokenBase, TokenUserInfo):
             token=Token(),
             username="<bootstrap>",
             token_type=TokenType.service,
-            scopes={"admin:token"},
+            scopes={"admin:oidc", "admin:token"},
         )
 
     @classmethod
@@ -321,7 +321,7 @@ class TokenData(TokenBase, TokenUserInfo):
         """Build authentication data for the internal token.
 
         Similar to the bootstrap token, this does not exist in the backing
-        store.  It is used by background jobs internal to Gafaelfawr.
+        store. It is used by background jobs internal to Gafaelfawr.
 
         Returns
         -------

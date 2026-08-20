@@ -153,7 +153,7 @@ def test_delete_all_data(
             bootstrap = TokenData.bootstrap_token()
             assert await token_service.list_tokens(bootstrap) == []
             oidc_service = factory.create_oidc_service()
-            assert await oidc_service.list_clients() == []
+            assert await oidc_service.list_clients(bootstrap) == []
             oidc_storage = factory.create_oidc_authorization_store()
             async with factory.session.begin():
                 assert await oidc_storage.get(code) is None
@@ -355,7 +355,7 @@ def test_update_schema(
             assert await token_service.list_tokens(bootstrap) == []
             oidc_service = factory.create_oidc_service()
             oidc_clients = {
-                c.client_id for c in await oidc_service.list_clients()
+                c.client_id for c in await oidc_service.list_clients(bootstrap)
             }
             assert oidc_clients == {"some-id", "other-id"}
             oidc_store = OIDCClientStore(factory.session)
