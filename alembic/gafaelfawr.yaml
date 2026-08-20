@@ -24,10 +24,6 @@ github:
   clientId: "<github-client-id>"
   clientSecret: "<github-client-secret>"
 
-# Add a random administrator because the code doesn't like this to be empty.
-initialAdmins:
-  - "example"
-
 # Only the built-in scopes.
 knownScopes:
   "admin:token": "Can create and modify tokens for any user"

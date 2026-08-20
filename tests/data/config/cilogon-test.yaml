@@ -1,6 +1,5 @@
 # Use CILogon test environment as the authentication provider.
 
-initialAdmins: ["admin"]
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
   "exec:admin": ["admin"]

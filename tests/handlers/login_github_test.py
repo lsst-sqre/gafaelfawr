@@ -16,7 +16,6 @@ from gafaelfawr.config import Config
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.dependencies.context import context_dependency
-from gafaelfawr.factory import Factory
 from gafaelfawr.models.github import GitHubTeam, GitHubUserInfo
 from gafaelfawr.models.state import State
 from gafaelfawr.providers.github import GitHubProvider
@@ -366,31 +365,6 @@ async def test_github_uppercase(
             {"name": "someuser", "id": 1000},
         ],
     }
-
-
-@pytest.mark.asyncio
-async def test_github_admin(
-    client: AsyncClient, respx_mock: respx.Router, factory: Factory
-) -> None:
-    """Test that a token administrator gets the admin:token scope."""
-    admin_service = factory.create_admin_service()
-    await admin_service.add_admin(
-        "someuser", actor="admin", ip_address="127.0.0.1"
-    )
-    user_info = GitHubUserInfo(
-        name="A User",
-        username="someuser",
-        uid=1000,
-        email="user@example.com",
-        teams=[GitHubTeam(slug="a-team", gid=1000, organization="ORG")],
-    )
-
-    r = await simulate_github_login(client, respx_mock, user_info)
-    assert r.status_code == 307
-
-    # The user should have admin:token scope.
-    r = await client.get("/ingress/auth", params={"scope": "admin:token"})
-    assert r.status_code == 200
 
 
 @pytest.mark.asyncio

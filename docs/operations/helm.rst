@@ -277,24 +277,6 @@ This string will be embedded verbatim, inside a ``<p>`` tag, in all login error 
 It may include HTML and will not be escaped.
 This is a suitable place to direct the user to support information or bug reporting instructions.
 
-.. _helm-administrators:
-
-Administrators
-==============
-
-You may want to define the initial set of administrators:
-
-.. code-block:: yaml
-
-   config:
-     initialAdmins:
-       - "username"
-       - "otheruser"
-
-This makes the users ``username`` and ``otheruser`` (as authenticated by the upstream authentication provider configured below) admins, meaning that they can create, delete, and modify any authentication tokens.
-This value is only used when initializing a new Gafaelfawr database that does not contain any admins.
-Setting this is optional; you can instead use the bootstrap token (see :ref:`bootstrapping`) to perform any administrative actions through the API.
-
 .. _ldap:
 
 LDAP
@@ -511,8 +493,12 @@ You can add additional scopes by adding more key/value pairs to the ``config.kno
 
 Once the scopes are configured, you will need to set up a mapping from groups to scope names using the ``groupMapping`` setting.
 This is a dictionary of scope names to lists of groups that provide that scope.
+The group can be given in one of two ways: either a simple string giving the name of the group (used for CILogon and OpenID Connect authentication providers), or the GitHub organization and team.
 
-The group can be given in one of two ways: either a simple string giving the name of the group (used for CILogon and OpenID Connect authentication providers), or the GitHub organization and team specified with the following syntax:
+GitHub groups
+-------------
+
+If GitHub is used as an authentication provider, groups must be specified as a combination of the GitHub organiztaion and team using the following syntax:
 
 .. code-block:: yaml
 
@@ -551,13 +537,6 @@ A complete setting for GitHub might look something like this:
          - github:
              organization: "lsst-sqre"
              team: "friends"
-       "exec:portal":
-         - github:
-             organization: "lsst-sqre"
-             team: "square"
-         - github:
-             organization: "lsst-sqre"
-             team: "friends"
        "read:tap":
          - github:
              organization: "lsst-sqre"
@@ -568,6 +547,9 @@ A complete setting for GitHub might look something like this:
 
 Be aware that Gafaelfawr will convert these organization and team pairs to group names internally, and applications will see only the converted group names.
 See :ref:`github-groups` for more information.
+
+LDAP groups
+-----------
 
 When CILogon or generic OpenID Connect are used as the providers, the group information comes from LDAP.
 That group membership will then be used to determine scopes via the ``groupMapping`` configuration.
@@ -582,8 +564,14 @@ For example, suppose the Gafaelfawr configuration reads:
 
 A user who is a member of the ``bar`` and ``other`` groups will have the ``exec:admin`` scope added to their token when it is issued.
 
+Special scopes
+--------------
+
 Regardless of the ``config.groupMapping`` configuration, the ``user:token`` scope will be automatically added to the session token of any user authenticating via OpenID Connect or GitHub.
-The ``admin:token`` scope will be automatically added to any user marked as an admin in Gafaelfawr.
+
+You may want to grant the ``admin:token`` scope to platform administrators so that they can create, modify, and delete arbitrary tokens, although be aware that this scope allows the administrator to impersonate any user they choose.
+Alternately, you can rely on the bootstrap token for administrative actions.
+See :ref:`bootstrapping` for more information.
 
 You will probably want to grant the ``admin:userinfo`` scope to platform administrators so that they can use the :samp:`/auth/api/v1/groups` and :samp:`/auth/api/v1/users` routes to retrieve user and group information for a user from LDAP while debugging problems.
 

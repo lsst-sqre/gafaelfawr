@@ -1,4 +1,5 @@
-initialAdmins: ["admin"]
+# Bad configuration file with both GitHub and OpenID Connect configured.
+
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
   "exec:admin": ["admin"]

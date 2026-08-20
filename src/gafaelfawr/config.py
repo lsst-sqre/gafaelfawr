@@ -49,7 +49,7 @@ from safir.logging import LogLevel, configure_logging
 from safir.metrics import MetricsConfiguration
 from safir.pydantic import EnvAsyncPostgresDsn, EnvRedisDsn, HumanTimedelta
 
-from .constants import MINIMUM_LIFETIME, SCOPE_REGEX, USERNAME_REGEX
+from .constants import MINIMUM_LIFETIME, SCOPE_REGEX
 from .exceptions import InvalidTokenError
 from .keypair import RSAKeyPair
 from .models.quota import QuotaConfig
@@ -974,15 +974,6 @@ class Config(EnvFirstSettings):
         description="Rules for assigning quota to users",
     )
 
-    initial_admins: list[str] = Field(
-        [],
-        title="Initial administrators",
-        description=(
-            "List of usernames to mark as admins during database"
-            " initialization"
-        ),
-    )
-
     known_scopes: dict[str, str] = Field(
         {},
         title="Known scopes",
@@ -1007,16 +998,6 @@ class Config(EnvFirstSettings):
             Token.from_str(v.get_secret_value())
         except InvalidTokenError as e:
             raise ValueError(str(e)) from e
-        return v
-
-    @field_validator("initial_admins")
-    @classmethod
-    def _validate_initial_admins(cls, v: list[str]) -> list[str]:
-        if not v:
-            return v
-        for admin in v:
-            if not re.match(USERNAME_REGEX, admin):
-                raise ValueError(f"invalid username {admin}")
         return v
 
     @field_validator("known_scopes")

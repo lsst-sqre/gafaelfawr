@@ -17,7 +17,7 @@ Also see the `Phalanx Gafaelfawr application documentation <https://phalanx.lsst
    provider
    secrets
    helm
-   administrators
+   bootstrapping
 
 .. toctree::
    :caption: Reference

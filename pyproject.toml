@@ -192,6 +192,9 @@ extend = "ruff-shared.toml"
 "tests/cli_test.py" = [
     "ASYNC221", # useful to run subprocess in async tests for Alembic
 ]
+"tests/main_test.py" = [
+    "ASYNC221", # useful to run subprocess in async tests for Alembic
+]
 
 [tool.ruff.lint.isort]
 known-first-party = [

@@ -1,7 +1,6 @@
 # Test too short of a token lifetime.
 
 slackAlerts: true
-initialAdmins: ["admin"]
 afterLogoutUrl: "https://example.com/landing"
 groupMapping:
   "exec:admin": ["admin"]
