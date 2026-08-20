@@ -4,7 +4,6 @@ This is a stopgap representation of admins until we have a group system and a
 group-based authorization system up and running.
 """
 
-from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ._base import SchemaBase
@@ -17,4 +16,4 @@ class Admin(SchemaBase):
 
     __tablename__ = "admin"
 
-    username: Mapped[str] = mapped_column(String(64), primary_key=True)
+    username: Mapped[str] = mapped_column(primary_key=True)
