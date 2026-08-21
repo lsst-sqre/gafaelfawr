@@ -1023,7 +1023,7 @@ class Config(EnvFirstSettings):
     @model_validator(mode="before")
     @classmethod
     def _validate_optional(cls, data: Any) -> Any:
-        """Remove sub-models that are not configured.
+        """Remove unconfigured sub-models.
 
         Due to how the Helm :file:`values.yaml` file is documented, the
         setting that's used as a signal to enable or disable that section of
@@ -1100,7 +1100,17 @@ class Config(EnvFirstSettings):
             The corresponding `Config` object.
         """
         with path.open("r") as f:
-            return cls.model_validate(yaml.safe_load(f))
+            data = yaml.safe_load(f)
+
+        # Helm may also contain `None` values for settings that are overridden
+        # by environment variables. Pydantic validates those first before
+        # realizing they are overridden, and therefore may reject valid
+        # configurations. Remove those before further processing.
+        for key in ("afterLogoutUrl", "baseInternalUrl", "databaseUrl"):
+            if key in data and data[key] is None:
+                del data[key]
+
+        return cls.model_validate(data)
 
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)

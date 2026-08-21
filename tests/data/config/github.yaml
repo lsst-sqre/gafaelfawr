@@ -42,6 +42,10 @@ oidcServer:
   keyId: "gafaelfawr"
 quota: {}
 
+# Ensure that the configuration parser ignores required values set to null
+# when the correct value is set as an environment variable.
+databaseUrl: null
+
 metrics:
   enabled: false
   application: "gafaelfawr"

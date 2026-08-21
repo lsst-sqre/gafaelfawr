@@ -3,7 +3,6 @@
 from pathlib import Path
 
 import pytest
-import yaml
 from cryptography.fernet import Fernet
 from pydantic import SecretStr, ValidationError
 from safir.testing.data import Data
@@ -46,18 +45,6 @@ def config_path(data: Data, path: str) -> Path:
     return data.path(f"config/{path}.yaml")
 
 
-def parse_config(path: Path) -> Config:
-    """Parse the configuration file and see if any exceptions are thrown.
-
-    Parameters
-    ----------
-    path
-        The path to the configuration file to test.
-    """
-    with path.open("r") as f:
-        return Config.model_validate(yaml.safe_load(f))
-
-
 def test_config_alembic(monkeypatch: pytest.MonkeyPatch) -> None:
     """Check the configuration used for Alembic operations."""
     monkeypatch.delenv("GAFAELFAWR_BASE_URL")
@@ -66,12 +53,12 @@ def test_config_alembic(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("GAFAELFAWR_GITHUB_CLIENT_SECRET")
     monkeypatch.delenv("GAFAELFAWR_SESSION_SECRET")
     path = Path(__file__).parent.parent / "alembic" / "gafaelfawr.yaml"
-    parse_config(path)
+    Config.from_file(path)
 
 
 def test_config_no_provider(data: Data) -> None:
     with pytest.raises(ValidationError, match="No authentication provider"):
-        parse_config(config_path(data, "no-provider"))
+        Config.from_file(config_path(data, "no-provider"))
 
 
 def test_config_both_providers(
@@ -79,22 +66,22 @@ def test_config_both_providers(
 ) -> None:
     monkeypatch.setenv("GAFAELFAWR_OIDC_CLIENT_SECRET", "oidc-secret")
     with pytest.raises(ValidationError, match=r"Only one of .* may be used"):
-        parse_config(config_path(data, "both-providers"))
+        Config.from_file(config_path(data, "both-providers"))
 
 
 def test_config_invalid_log_level(data: Data) -> None:
     with pytest.raises(ValidationError, match="logLevel"):
-        parse_config(config_path(data, "bad-log-level"))
+        Config.from_file(config_path(data, "bad-log-level"))
 
 
 def test_config_invalid_scope(data: Data) -> None:
     with pytest.raises(ValidationError, match="invalid scope"):
-        parse_config(config_path(data, "bad-scope"))
+        Config.from_file(config_path(data, "bad-scope"))
 
 
 def test_config_missing_scope(data: Data) -> None:
     with pytest.raises(ValidationError, match=r"required scope .* missing"):
-        parse_config(config_path(data, "missing-scope"))
+        Config.from_file(config_path(data, "missing-scope"))
 
 
 def test_config_invalid_token(
@@ -102,28 +89,28 @@ def test_config_invalid_token(
 ) -> None:
     monkeypatch.setenv("GAFAELFAWR_BOOTSTRAP_TOKEN", "bad-token")
     with pytest.raises(ValidationError, match="Token does not start with gt-"):
-        parse_config(config_path(data, "github"))
+        Config.from_file(config_path(data, "github"))
 
 
 def test_config_invalid_lifetime(data: Data) -> None:
     with pytest.raises(ValidationError, match=r"must be longer than"):
-        parse_config(config_path(data, "bad-lifetime"))
+        Config.from_file(config_path(data, "bad-lifetime"))
 
 
 def test_config_bad_groups(data: Data) -> None:
     with pytest.raises(ValidationError, match="Input should be a valid list"):
-        parse_config(config_path(data, "bad-groups"))
+        Config.from_file(config_path(data, "bad-groups"))
 
 
 def test_config_scope_mismatch(data: Data) -> None:
     with pytest.raises(ValidationError, match=r"Scope .* assigned but not in"):
-        parse_config(config_path(data, "scope-mismatch"))
+        Config.from_file(config_path(data, "scope-mismatch"))
 
 
 def test_config_cilogon(data: Data, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GAFAELFAWR_CILOGON_CLIENT_SECRET", "some-secret")
     monkeypatch.setenv("GAFAELFAWR_REDIRECT_URL", "https://example.com/login")
-    config = parse_config(config_path(data, "cilogon"))
+    config = Config.from_file(config_path(data, "cilogon"))
     assert config.oidc == OIDCConfig.model_validate(
         {
             "client_id": "some-cilogon-client-id",
@@ -145,7 +132,7 @@ def test_config_cilogon_test(
 ) -> None:
     monkeypatch.setenv("GAFAELFAWR_CILOGON_CLIENT_SECRET", "some-secret")
     monkeypatch.setenv("GAFAELFAWR_REDIRECT_URL", "https://example.com/login")
-    config = parse_config(config_path(data, "cilogon-test"))
+    config = Config.from_file(config_path(data, "cilogon-test"))
     assert config.oidc == OIDCConfig.model_validate(
         {
             "client_id": "some-cilogon-client-id",
@@ -171,7 +158,7 @@ def test_redis_rate_limit_url(
     monkeypatch.setenv("GAFAELFAWR_REDIS_EPHEMERAL_URL", ephemeral)
     monkeypatch.setenv("GAFAELFAWR_REDIS_PERSISTENT_URL", persistent)
     monkeypatch.setenv("GAFAELFAWR_REDIS_PASSWORD", "f:b/b@c")
-    config = parse_config(config_path(data, "github"))
+    config = Config.from_file(config_path(data, "github"))
     assert str(config.redis_ephemeral_url) == ephemeral
     assert str(config.redis_persistent_url) == persistent
     assert config.redis_rate_limit_url == (
