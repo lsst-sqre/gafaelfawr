@@ -10,6 +10,29 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-16.0.0'></a>
+## 16.0.0 (2026-08-25)
+
+Upgrading to this version requires a [database schema migration](https://phalanx.lsst.io/applications/gafaelfawr/manage-schema.html).
+
+### Backwards-incompatible changes
+
+- Store OpenID Connect client registrations in the database rather than the Gafaelfawr configuration via a secret. Add a new API for managing the registered OpenID Connect clients. Existing clients configured via a secret will be migrated into the database as part of the schema migration, after which any client configuration via a secret will be ignored.
+- Remove the concept of admins, the `config.initialAdmins` setting, and all magic granting of the `admin:token` scope outside of `config.groupMappings`. This approach to managing administrators predated the bootstrap token and has proven to be an operational problem since no one remembers to update the admin list. In practice, managing admins via group mappings with the emergency fallback of the bootstrap token has been sufficient.
+
+### New features
+
+- Add disk quota to the Gafaelfawr quota representation. These quotas are calculated by Gafaelfawr but not enforced. In many deployments, they will serve purely as documentation of externally-managed file system quotas, allowing them to be displayed alongside other quotas in Rubin Science Platform user interfaces.
+
+### Bug fixes
+
+- Convert all database `varchar` columns to `text`. Performance is equivalent in PostgreSQL, and Gafaelfawr does not need or want the truncation behavior of `varchar`.
+- Change configuration parsing to tolerate null values in the configuration YAML file that are overridden by environment variables. This problem was not seen with an Argo CD using Helm v3 because Helm stripped the null settings when building the `ConfigMap`, but this behavior has changed in Helm v4 with server-side apply. This change triggered buggy behavior in pydantic-settings, now worked around.
+
+### Other changes
+
+- Add the OpenID Connect client identifier to log messages from the OpenID Connect server when it is known.
+
 <a id='changelog-15.4.1'></a>
 ## 15.4.1 (2026-06-12)
 
