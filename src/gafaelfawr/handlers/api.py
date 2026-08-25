@@ -291,7 +291,12 @@ async def get_oidc_clients(
 
 @router.post(
     "/auth/api/v1/oidc-clients",
-    description="Register a new OpenID Connect client",
+    description=(
+        "Register a new OpenID Connect client. The secret returned in the"
+        " response to this request cannot be retrieved again. The client is"
+        " responsible for saving it. If the secret is lost, the client must"
+        " be recreated to set a new secret."
+    ),
     response_model_exclude_none=True,
     responses={
         404: {

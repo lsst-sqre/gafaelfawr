@@ -246,15 +246,15 @@ class OIDCClientStore:
         """
         secret = secrets.token_urlsafe()
         hashed_secret = bcrypt.hashpw(secret.encode(), bcrypt.gensalt())
-        created = datetime_to_db(datetime.now(tz=UTC))
+        now = datetime.now(tz=UTC).replace(microsecond=0)
         new = SQLOIDCClient(
             client_id=create.client_id,
             client_secret_hash=hashed_secret,
             return_uri=create.return_uri,
             description=create.description,
             notes=create.notes,
-            created=created,
-            last_modified=created,
+            created=datetime_to_db(now),
+            last_modified=datetime_to_db(now),
             last_modified_by=create.last_modified_by,
         )
         self._session.add(new)
@@ -266,7 +266,7 @@ class OIDCClientStore:
         )
 
     async def update(
-        self, client_id: str, update: OIDCClientUpdate
+        self, client_id: str, update: OIDCClientUpdate, last_modified_by: str
     ) -> OIDCClient | None:
         """Update a registered OpenID Connect client.
 
@@ -276,6 +276,8 @@ class OIDCClientStore:
             Identifier of client.
         update
             Changes to apply.
+        last_modified_by
+            User making the modification.
 
         Returns
         -------
@@ -288,12 +290,15 @@ class OIDCClientStore:
         NotFoundError
             Raised if the client doesn't exist.
         """
+        now = datetime.now(tz=UTC).replace(microsecond=0)
         oidc_client = await self._get(client_id)
         if not oidc_client:
             return None
         oidc_client.return_uri = update.return_uri
         oidc_client.description = update.description
         oidc_client.notes = update.notes
+        oidc_client.last_modified = datetime_to_db(now)
+        oidc_client.last_modified_by = last_modified_by
         return OIDCClient.model_validate(oidc_client, from_attributes=True)
 
     async def _get(self, client_id: str) -> SQLOIDCClient | None:

@@ -5,7 +5,7 @@ import time
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlsplit
 
 import jwt
 from pydantic import HttpUrl
@@ -521,7 +521,9 @@ class OIDCService:
         """
         self._check_authorization(auth_data)
         async with self._session.begin():
-            oidc_client = await self._client_store.update(client_id, update)
+            oidc_client = await self._client_store.update(
+                client_id, update, auth_data.username
+            )
         if not oidc_client:
             raise NotFoundError(f"Client {client_id} not found")
         return oidc_client
@@ -721,10 +723,6 @@ class OIDCService:
     ) -> bool:
         """Check whether a return URI is allowed.
 
-        URIs are compared without query parameters. Path parameters are always
-        rejected regardless of the registered client, since they don't seem to
-        be widely used and seem very surprising.
-
         Parameters
         ----------
         allowed_str
@@ -737,11 +735,10 @@ class OIDCService:
         bool
             `True` if they match, `False` otherwise.
         """
-        allowed = urlparse(str(allowed_str))
-        given = urlparse(given_str)
+        allowed = urlsplit(str(allowed_str))
+        given = urlsplit(given_str)
         return (
             given.scheme == "https"
-            and not given.params
             and allowed.netloc == given.netloc
             and allowed.path == given.path
         )

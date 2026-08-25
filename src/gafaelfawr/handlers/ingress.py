@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from email.utils import format_datetime
 from typing import Annotated
-from urllib.parse import urlparse
+from urllib.parse import urlsplit
 
 import sentry_sdk
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
@@ -531,7 +531,7 @@ def handle_options(
             )
     okay = False
     with suppress(Exception):
-        hostname = urlparse(origin).hostname
+        hostname = urlsplit(origin).hostname
         if hostname and context.config.is_hostname_allowed(hostname):
             okay = True
     if not okay:
@@ -815,7 +815,7 @@ def user_allowed(
         return False
     if auth_config.user_domain:
         try:
-            hostname = urlparse(auth_config.auth_uri).hostname
+            hostname = urlsplit(auth_config.auth_uri).hostname
             if not hostname:
                 return False
             if not context.config.is_hostname_allowed(hostname):

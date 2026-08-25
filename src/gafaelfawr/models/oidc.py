@@ -52,6 +52,7 @@ class OIDCClientUpdate(BaseModel):
                 "Only this URL will be accepted as a redirect target after"
                 " authentication"
             ),
+            examples=["https://example.com/chronograf"],
         ),
     ]
 
@@ -60,6 +61,7 @@ class OIDCClientUpdate(BaseModel):
         Field(
             title="Description",
             description="Short human-readable description of this client",
+            examples=["Human-readable description of client"],
         ),
     ]
 
@@ -71,6 +73,7 @@ class OIDCClientUpdate(BaseModel):
                 "Optional notes about this entry, only readable by OpenID"
                 " Connect client administrators"
             ),
+            examples=["Additional notes about the client for other admins"],
         ),
     ] = None
 
@@ -87,6 +90,7 @@ class OIDCClientCreate(OIDCClientUpdate):
                 " the value for the aud claim in ID tokens issued to this"
                 " client"
             ),
+            examples=["fb7518beb61d27aaf20675d62778dea9.clients.example.com"],
         ),
     ]
 
@@ -95,6 +99,7 @@ class OIDCClientCreate(OIDCClientUpdate):
         Field(
             title="Last modified by",
             description="Username of the last person to modify this client",
+            examples=["admin-user"],
         ),
     ]
 
@@ -122,6 +127,12 @@ class OIDCClient(OIDCClientCreate):
         Field(
             title="URL of client",
             description="URL for this OpenID Connect client",
+            examples=[
+                (
+                    "https://example.com/auth/v1/api/oidc-clients/"
+                    "fb7518beb61d27aaf20675d62778dea9.clients.example.com"
+                )
+            ],
         ),
     ] = None
 
@@ -138,6 +149,7 @@ class OIDCClientWithSecret(OIDCClient):
         Field(
             title="Client secret",
             description="Authentication secret sent by the relying party",
+            examples=["fb7518beb61d27aaf20675d62778dea9"],
         ),
         PlainSerializer(lambda v: v.get_secret_value(), when_used="json"),
     ]
