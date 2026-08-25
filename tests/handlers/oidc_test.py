@@ -1,11 +1,11 @@
-"""Tests for the /auth/openid routes."""
+"""Tests for the ``/auth/openid`` routes."""
 
 import json
 import os
 import time
 from datetime import UTC, datetime
 from unittest.mock import ANY
-from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 import pytest
 from httpx import AsyncClient, BasicAuth
@@ -72,12 +72,12 @@ async def authenticate(
     OIDCTokenReply
         Reply from the token endpoint.
     """
-    redirect_uri = urlparse(request["redirect_uri"])
+    redirect_uri = urlsplit(request["redirect_uri"])
 
     # Log in
     r = await client.get("/auth/openid/login", params=request)
     assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
+    url = urlsplit(r.headers["Location"])
     assert url.scheme == redirect_uri.scheme
     assert url.netloc == redirect_uri.netloc
     assert url.path == redirect_uri.path
@@ -328,7 +328,7 @@ async def test_unauthenticated(
     r = await client.get("/auth/openid/login", params=login_params)
 
     assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
+    url = urlsplit(r.headers["Location"])
     assert not url.scheme
     assert not url.netloc
     assert url.path == "/login"
@@ -421,7 +421,7 @@ async def test_login_errors(
     caplog.clear()
     r = await client.get("/auth/openid/login", params=login_params)
     assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
+    url = urlsplit(r.headers["Location"])
     assert url.scheme == "https"
     assert url.netloc == TEST_HOSTNAME
     assert url.path == "/app"
@@ -1132,7 +1132,7 @@ async def test_database_desync(
         },
     )
     assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
+    url = urlsplit(r.headers["Location"])
     query = parse_qs(url.query)
     code = query["code"][0]
 

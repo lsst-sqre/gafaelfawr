@@ -1,7 +1,7 @@
 """OpenID Connect provider and server testing support."""
 
 from unittest.mock import ANY
-from urllib.parse import parse_qs, urljoin, urlparse
+from urllib.parse import parse_qs, urljoin, urlsplit
 
 import respx
 from httpx import AsyncClient, Request, Response
@@ -219,7 +219,7 @@ async def simulate_oidc_login(
         r = await client.get("/login", params={"rd": return_url})
     assert r.status_code == 307
     assert r.headers["Location"].startswith(str(config.oidc.login_url))
-    url = urlparse(r.headers["Location"])
+    url = urlsplit(r.headers["Location"])
     assert url.query
     query = parse_qs(url.query)
     login_params = {p: [v] for p, v in config.oidc.login_params.items()}

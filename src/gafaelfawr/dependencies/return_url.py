@@ -7,7 +7,7 @@ several variations of a dependency to check this.
 """
 
 from typing import Annotated
-from urllib.parse import ParseResult, urlparse
+from urllib.parse import SplitResult, urlsplit
 
 from fastapi import Depends, Header, Query
 
@@ -20,7 +20,7 @@ __all__ = [
 ]
 
 
-def _check_url(url: str, param: str, context: RequestContext) -> ParseResult:
+def _check_url(url: str, param: str, context: RequestContext) -> SplitResult:
     """Check that a return URL is at the same host.
 
     Parameters
@@ -43,7 +43,7 @@ def _check_url(url: str, param: str, context: RequestContext) -> ParseResult:
     InvalidReturnURLError
         Raised if the return URL was invalid.
     """
-    parsed_url = urlparse(url)
+    parsed_url = urlsplit(url)
     if not context.config.is_hostname_allowed(parsed_url.hostname):
         msg = f"URL is not at {context.config.base_hostname}"
         context.logger.warning("Bad return URL", error=msg)

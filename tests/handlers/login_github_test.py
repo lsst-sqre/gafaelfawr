@@ -3,7 +3,7 @@
 import base64
 import os
 from unittest.mock import ANY
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 import respx
@@ -79,7 +79,7 @@ async def simulate_github_login(
     # Simulate the redirect to GitHub.
     r = await client.get("/login", params={"rd": return_url}, headers=headers)
     assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
+    url = urlsplit(r.headers["Location"])
     assert url.scheme == "https"
     assert "github.com" in url.netloc
     assert url.query
@@ -236,7 +236,7 @@ async def test_redirect_header(
         "/login", headers={"X-Auth-Request-Redirect": return_url}
     )
     assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
+    url = urlsplit(r.headers["Location"])
     query = parse_qs(url.query)
 
     # Simulate the return from GitHub.
@@ -561,7 +561,7 @@ async def test_invalid_state(
     mock_github(respx_mock, "some-code", user_info)
     r = await client.get("/login", params={"rd": return_url})
     assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
+    url = urlsplit(r.headers["Location"])
     query = parse_qs(url.query)
 
     # Change the state to something that won't match.

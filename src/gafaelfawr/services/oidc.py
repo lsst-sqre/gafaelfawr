@@ -5,7 +5,7 @@ import time
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlsplit
 
 import jwt
 from pydantic import HttpUrl
@@ -721,10 +721,6 @@ class OIDCService:
     ) -> bool:
         """Check whether a return URI is allowed.
 
-        URIs are compared without query parameters. Path parameters are always
-        rejected regardless of the registered client, since they don't seem to
-        be widely used and seem very surprising.
-
         Parameters
         ----------
         allowed_str
@@ -737,11 +733,10 @@ class OIDCService:
         bool
             `True` if they match, `False` otherwise.
         """
-        allowed = urlparse(str(allowed_str))
-        given = urlparse(given_str)
+        allowed = urlsplit(str(allowed_str))
+        given = urlsplit(given_str)
         return (
             given.scheme == "https"
-            and not given.params
             and allowed.netloc == given.netloc
             and allowed.path == given.path
         )

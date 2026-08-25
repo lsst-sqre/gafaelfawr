@@ -2,7 +2,7 @@
 
 from collections.abc import Mapping
 from typing import Annotated, Any
-from urllib.parse import parse_qsl, urlencode, urlparse
+from urllib.parse import parse_qsl, urlencode, urlsplit
 
 from fastapi import APIRouter, Depends, Form, Query, Response, status
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -190,7 +190,7 @@ def build_return_url(redirect_uri: str, **params: str | None) -> str:
     str
         The return URL to which the user should be redirected.
     """
-    parsed_uri = urlparse(redirect_uri)
+    parsed_uri = urlsplit(redirect_uri)
     query = parse_qsl(parsed_uri.query) if parsed_uri.query else []
     query.extend((k, v) for (k, v) in params.items() if v is not None)
     return_url = parsed_uri._replace(query=urlencode(query))

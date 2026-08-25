@@ -1,7 +1,7 @@
 """Tests for OpenID Connect auth."""
 
 from unittest.mock import ANY
-from urllib.parse import parse_qs, urljoin, urlparse
+from urllib.parse import parse_qs, urljoin, urlsplit
 
 import pytest
 import respx
@@ -534,7 +534,7 @@ async def test_callback_error(
 
     r = await client.get("/login", params={"rd": return_url})
     assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
+    url = urlsplit(r.headers["Location"])
     query = parse_qs(url.query)
 
     # Build an error response to return from the OIDC token URL and register
@@ -586,7 +586,7 @@ async def test_callback_error(
         400, json={"foo": "bar"}
     )
     r = await client.get("/login", params={"rd": return_url})
-    query = parse_qs(urlparse(r.headers["Location"]).query)
+    query = parse_qs(urlsplit(r.headers["Location"]).query)
     r = await client.get(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
@@ -596,7 +596,7 @@ async def test_callback_error(
     # Now try a reply that returns 200 but doesn't have the field we need.
     respx_mock.post(str(config.oidc.token_url)).respond(json={"foo": "bar"})
     r = await client.get("/login", params={"rd": return_url})
-    query = parse_qs(urlparse(r.headers["Location"]).query)
+    query = parse_qs(urlsplit(r.headers["Location"]).query)
     r = await client.get(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
@@ -606,7 +606,7 @@ async def test_callback_error(
     # Return invalid JSON, which should raise an error during JSON decoding.
     respx_mock.post(str(config.oidc.token_url)).respond(content=b"foo")
     r = await client.get("/login", params={"rd": return_url})
-    query = parse_qs(urlparse(r.headers["Location"]).query)
+    query = parse_qs(urlsplit(r.headers["Location"]).query)
     r = await client.get(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
@@ -616,7 +616,7 @@ async def test_callback_error(
     # Finally, return invalid JSON and an error reply.
     respx_mock.post(str(config.oidc.token_url)).respond(400, content=b"foo")
     r = await client.get("/login", params={"rd": return_url})
-    query = parse_qs(urlparse(r.headers["Location"]).query)
+    query = parse_qs(urlsplit(r.headers["Location"]).query)
     r = await client.get(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
@@ -800,7 +800,7 @@ async def test_connection_error(
 
     r = await client.get("/login", params={"rd": return_url})
     assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
+    url = urlsplit(r.headers["Location"])
     query = parse_qs(url.query)
 
     # Register a connection error for the callback request to the OIDC
@@ -874,7 +874,7 @@ async def test_verify_error(
 
     r = await client.get("/login", params={"rd": return_url})
     assert r.status_code == 307
-    url = urlparse(r.headers["Location"])
+    url = urlsplit(r.headers["Location"])
     query = parse_qs(url.query)
 
     # Returning from OpenID Connect login should fail because we haven't

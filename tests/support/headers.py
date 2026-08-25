@@ -1,7 +1,7 @@
 """Test helper functions to parse HTTP headers."""
 
 import re
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from httpx import Response
@@ -109,6 +109,6 @@ def query_from_url(url: str) -> dict[str, list[str]]:
     dict
         The query in the form returned by :py:func:`urllib.parse.parse_qs`.
     """
-    parsed_url = urlparse(url)
+    parsed_url = urlsplit(url)
     assert parsed_url.query
     return parse_qs(parsed_url.query)
