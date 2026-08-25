@@ -23,6 +23,9 @@ async def test_lifecycle(
     client: AsyncClient, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
     token_data = await create_session_token(factory, scopes={"admin:oidc"})
+    other_data = await create_session_token(
+        factory, username="other", scopes={"admin:oidc"}
+    )
     headers = {"Authorization": f"Bearer {token_data.token}"}
     return_uri = "https://foo.example.com/service/"
     url_prefix = f"https://{TEST_HOSTNAME}/auth/api/v1/oidc-clients"
@@ -72,7 +75,7 @@ async def test_lifecycle(
             "description": "Updated description",
             "notes": "Some random notes\nwhich can contain newlines",
         },
-        headers=headers,
+        headers={"Authorization": f"Bearer {other_data.token}"},
     )
     now = datetime.now(tz=UTC)
     assert r.status_code == 200
@@ -84,12 +87,13 @@ async def test_lifecycle(
         "notes": "Some random notes\nwhich can contain newlines",
         "created": expected["created"],
         "last_modified": ANY,
-        "last_modified_by": token_data.username,
+        "last_modified_by": other_data.username,
         "url": expected_url,
     }
     assert client_json == new_expected
     last_modified = datetime.fromisoformat(client_json["last_modified"])
     assert start <= last_modified <= now
+    assert last_modified >= oidc_client.created
 
     r = await client.get(expected_url, headers=headers)
     assert r.status_code == 200

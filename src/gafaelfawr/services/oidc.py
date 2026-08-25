@@ -521,7 +521,9 @@ class OIDCService:
         """
         self._check_authorization(auth_data)
         async with self._session.begin():
-            oidc_client = await self._client_store.update(client_id, update)
+            oidc_client = await self._client_store.update(
+                client_id, update, auth_data.username
+            )
         if not oidc_client:
             raise NotFoundError(f"Client {client_id} not found")
         return oidc_client
