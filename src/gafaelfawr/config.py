@@ -1110,9 +1110,10 @@ class Config(EnvFirstSettings):
             if key in data and data[key] is None:
                 del data[key]
         if "oidcServer" in data:
+            oidc_data = data["oidcServer"]
             for key in ("clientSuffix", "issuer"):
-                if key in data and data[key] is None:
-                    del data[key]
+                if key in oidc_data and oidc_data[key] is None:
+                    del oidc_data[key]
 
         return cls.model_validate(data)
 
