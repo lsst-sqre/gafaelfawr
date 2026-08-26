@@ -1109,6 +1109,10 @@ class Config(EnvFirstSettings):
         for key in ("afterLogoutUrl", "baseInternalUrl", "databaseUrl"):
             if key in data and data[key] is None:
                 del data[key]
+        if "oidcServer" in data:
+            for key in ("clientSuffix", "issuer"):
+                if key in data and data[key] is None:
+                    del data[key]
 
         return cls.model_validate(data)
 
