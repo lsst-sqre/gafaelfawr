@@ -10,6 +10,13 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-16.0.1'></a>
+## 16.0.1 (2026-08-26)
+
+### Bug fixes
+
+- Drop more placeholder `null` values from the YAML configuration file before initializing settings. This works around a pydantic-settings bug triggered by Helm v4.
+
 <a id='changelog-16.0.0'></a>
 ## 16.0.0 (2026-08-25)
 
