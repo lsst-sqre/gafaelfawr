@@ -59,7 +59,10 @@ async def test_create_delete_modify(
     assert r.json() == {"token": ANY}
     user_token = Token.from_str(r.json()["token"])
     token_url = r.headers["Location"]
-    assert token_url == f"/auth/api/v1/users/example/tokens/{user_token.key}"
+    assert token_url == (
+        f"https://{TEST_HOSTNAME}/auth/api/v1/users/example/tokens"
+        f"/{user_token.key}"
+    )
 
     # Check the logging.
     assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
@@ -190,7 +193,7 @@ async def test_create_delete_modify(
             "event": "Modified token",
             "httpRequest": {
                 "requestMethod": "PATCH",
-                "requestUrl": f"https://{TEST_HOSTNAME}{token_url}",
+                "requestUrl": token_url,
                 "remoteIp": "127.0.0.1",
             },
             "lifetime_seconds": ANY,
@@ -220,7 +223,7 @@ async def test_create_delete_modify(
             "event": "Deleted token",
             "httpRequest": {
                 "requestMethod": "DELETE",
-                "requestUrl": f"https://{TEST_HOSTNAME}{token_url}",
+                "requestUrl": token_url,
                 "remoteIp": "127.0.0.1",
             },
             "lifetime_seconds": ANY,
@@ -966,8 +969,10 @@ async def test_create_admin(
     assert r.status_code == 201
     assert r.json() == {"token": ANY}
     service_token = Token.from_str(r.json()["token"])
-    token_url = f"/auth/api/v1/users/bot-a-service/tokens/{service_token.key}"
-    assert r.headers["Location"] == token_url
+    assert r.headers["Location"] == (
+        f"https://{TEST_HOSTNAME}/auth/api/v1/users/bot-a-service/tokens"
+        f"/{service_token.key}"
+    )
 
     # Check the logging.
     expected_expires = expires.replace(microsecond=0)
@@ -1081,8 +1086,10 @@ async def test_create_admin(
     assert r.status_code == 201
     assert r.json() == {"token": ANY}
     user_token = Token.from_str(r.json()["token"])
-    token_url = f"/auth/api/v1/users/a-user/tokens/{user_token.key}"
-    assert r.headers["Location"] == token_url
+    assert r.headers["Location"] == (
+        f"https://{TEST_HOSTNAME}/auth/api/v1/users/a-user/tokens"
+        f"/{user_token.key}"
+    )
 
     assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
         {
@@ -1407,7 +1414,10 @@ async def test_scope_modify(
     assert r.json() == {"token": ANY}
     user_token = Token.from_str(r.json()["token"])
     token_url = r.headers["Location"]
-    assert token_url == f"/auth/api/v1/users/example/tokens/{user_token.key}"
+    assert token_url == (
+        f"https://{TEST_HOSTNAME}/auth/api/v1/users/example/tokens"
+        f"/{user_token.key}"
+    )
 
     r = await client.get(token_url)
     assert r.status_code == 200

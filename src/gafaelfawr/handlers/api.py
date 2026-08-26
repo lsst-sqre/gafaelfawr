@@ -7,7 +7,6 @@ models.
 """
 
 from typing import Annotated, Any
-from urllib.parse import quote
 
 from fastapi import (
     APIRouter,
@@ -522,9 +521,10 @@ async def post_admin_tokens(
     token = await token_service.create_token_from_admin_request(
         token_request, auth_data, ip_address=context.ip_address
     )
-    response.headers["Location"] = quote(
-        f"/auth/api/v1/users/{token_request.username}/tokens/{token.key}"
+    url = context.request.url_for(
+        "get_token", username=token_request.username, key=token.key
     )
+    response.headers["Location"] = str(url)
     return NewToken(token=str(token))
 
 
@@ -786,9 +786,9 @@ async def post_tokens(
         ip_address=context.ip_address,
         **token_params,
     )
-    response.headers["Location"] = quote(
-        f"/auth/api/v1/users/{username}/tokens/{token.key}"
-    )
+    key = token.key
+    url = context.request.url_for("get_token", username=username, key=key)
+    response.headers["Location"] = str(url)
     return NewToken(token=str(token))
 
 
