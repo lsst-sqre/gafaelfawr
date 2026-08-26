@@ -64,7 +64,7 @@ client_basic = HTTPBasic(
     summary="Start OIDC authentication",
     tags=["oidc"],
 )
-async def get_login(
+async def get_openid_login(
     *,
     client_id: Annotated[
         str,

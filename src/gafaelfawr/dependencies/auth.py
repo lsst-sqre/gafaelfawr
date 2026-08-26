@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 from typing import Annotated
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import urlencode
 
 from fastapi import Depends, Header, HTTPException, status
 
@@ -211,11 +211,11 @@ class Authenticate:
                 context, self.auth_type, ajax_forbidden=self.ajax_forbidden
             )
         query = urlencode({"rd": str(context.request.url)})
-        login_url = urlsplit("/login")._replace(query=query).geturl()
+        login_url = context.request.url_for("login")
         context.logger.info("Redirecting user for authentication")
         return HTTPException(
             status_code=status.HTTP_307_TEMPORARY_REDIRECT,
-            headers={"Location": login_url},
+            headers={"Location": f"{login_url!s}?{query}"},
         )
 
     def _verify_csrf(

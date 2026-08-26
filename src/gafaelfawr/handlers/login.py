@@ -83,7 +83,7 @@ class LoginError(Enum):
     summary="Authenticate browser",
     tags=["browser"],
 )
-async def get_login(
+async def login(
     *,
     code: Annotated[
         str | None,
