@@ -28,6 +28,7 @@ from urllib.parse import quote
 import yaml
 from pydantic import (
     AliasChoices,
+    AliasGenerator,
     BaseModel,
     ConfigDict,
     Field,
@@ -96,7 +97,9 @@ class CamelCaseSettings(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        populate_by_name=True,
     )
 
 
