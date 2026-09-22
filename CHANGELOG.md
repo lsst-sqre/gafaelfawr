@@ -10,6 +10,14 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-16.0.2'></a>
+## 16.0.2 (2026-09-22)
+
+### Other changes
+
+- Suppress default values in the JSON returned from user info and quota override routes. This hides more empty containers and makes the output more consistent with the route to retrieve all users.
+- Relax the dependency on rubin-repertoire in rubin-gafaelfawr to allow rubin-repertoire 3.0.0.
+
 <a id='changelog-16.0.1'></a>
 ## 16.0.1 (2026-08-26)
 
