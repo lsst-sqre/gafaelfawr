@@ -86,14 +86,14 @@ _pagination_headers = {
 
 @router.get(
     "/auth/api/v1/groups",
-    response_model_exclude_defaults=True,
-    summary="List known groups",
     description=(
         "Only information from LDAP is displayed. Gafaelfawr installations"
         " using GitHub for authentication will return a 404 error since LDAP"
         " is not configured."
     ),
+    response_model_exclude_defaults=True,
     responses={404: {"description": "LDAP is not configured"}},
+    summary="List known groups",
     tags=["admin"],
 )
 async def list_groups(
@@ -371,7 +371,7 @@ async def delete_oidc_client(
 
 @router.patch(
     "/auth/api/v1/oidc-clients/{client_id}",
-    description="Delete an OpenID Connect client",
+    description="Update an OpenID Connect client",
     responses={
         404: {
             "description": "OpenID Connect client not found",
@@ -397,7 +397,7 @@ async def patch_oidc_client(
 @router.get(
     "/auth/api/v1/quota-overrides",
     description="Return the current quota overrides if any",
-    response_model_exclude_none=True,
+    response_model_exclude_defaults=True,
     responses={
         404: {"description": "No quota overrides set", "model": ErrorModel}
     },
@@ -449,7 +449,7 @@ async def delete_quota_overrides(
 @router.put(
     "/auth/api/v1/quota-overrides",
     description="Set the quota overrides",
-    response_model_exclude_none=True,
+    response_model_exclude_defaults=True,
     summary="Set quota overrides",
     tags=["admin"],
 )
@@ -531,7 +531,7 @@ async def post_admin_tokens(
 @router.get(
     "/auth/api/v1/user-info",
     description="Get metadata about the autheticated user",
-    response_model_exclude_none=True,
+    response_model_exclude_defaults=True,
     summary="Get user metadata",
     tags=["user"],
 )
@@ -563,9 +563,9 @@ async def get_user_info(
         " in the `Link` header of the reply and the total number of records"
         " in the `X-Total-Count` header."
     ),
-    responses={200: {"headers": _pagination_headers}},
     response_model=list[TokenChangeHistoryEntry],
     response_model_exclude_unset=True,
+    responses={200: {"headers": _pagination_headers}},
     summary="Get token change history",
     tags=["user"],
 )
@@ -668,15 +668,15 @@ async def get_user_token_change_history(
 
 @router.get(
     "/auth/api/v1/users",
-    response_model_exclude_defaults=True,
-    summary="List known users",
     description=(
         "Only information from LDAP is displayed. Bot users will not be"
         " listed unless they also exist in LDAP. Gafaelfawr installations"
         " using GitHub for authentication will return a 404 error since LDAP"
         " is not configured."
     ),
+    response_model_exclude_defaults=True,
     responses={404: {"description": "LDAP is not configured"}},
+    summary="List known users",
     tags=["admin"],
 )
 async def list_users(
@@ -690,15 +690,15 @@ async def list_users(
 
 @router.get(
     "/auth/api/v1/users/{username}",
-    response_model_exclude_defaults=True,
-    summary="Get user information",
     description=(
         "Only information from LDAP is displayed. Queries for bot users will"
         " not contain any useful information unless they also exist in LDAP,"
         " and Gafaelfawr installations using GitHub for authentication will"
         " return 404 errors for all users since LDAP is not configured."
     ),
+    response_model_exclude_defaults=True,
     responses={404: {"description": "LDAP is not configured"}},
+    summary="Get user information",
     tags=["admin"],
 )
 async def get_user(
@@ -924,11 +924,11 @@ async def patch_token(
 
 @router.get(
     "/auth/api/v1/users/{username}/tokens/{key}/change-history",
+    description="All changes are returned. Pagination is not supported.",
     response_model=list[TokenChangeHistoryEntry],
     response_model_exclude_unset=True,
     responses={404: {"description": "Token not found", "model": ErrorModel}},
     summary="Get change history of token",
-    description="All changes are returned. Pagination is not supported.",
     tags=["user"],
 )
 async def get_token_change_history(

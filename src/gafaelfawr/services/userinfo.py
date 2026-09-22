@@ -494,12 +494,12 @@ class UserInfoService:
 
         # Apply the override on top of the existing quota, if any.
         override_quota = overrides.calculate_quota(group_names)
-        if not override_quota:
+        if overrides.bypass & group_names:
+            return None
+        elif not override_quota:
             return quota
         elif not quota:
             return override_quota
-        elif overrides.bypass & group_names:
-            return Quota()
         else:
             quota.api.update(override_quota.api)
             quota.disk.update(override_quota.disk)
