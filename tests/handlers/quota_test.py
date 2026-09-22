@@ -34,7 +34,7 @@ async def test_info(client: AsyncClient, factory: Factory) -> None:
         "quota": {
             "api": {"datalinker": 1000, "test": 1, "other": 2},
             "disk": {"/home": 30 * 1024 * 1024 * 1024},
-            "notebook": {"cpu": 8.0, "memory": 4.0, "spawn": True},
+            "notebook": {"cpu": 8.0, "memory": 4.0},
             "tap": {"qserv": {"concurrent": 10}},
         },
     }
@@ -54,7 +54,7 @@ async def test_info(client: AsyncClient, factory: Factory) -> None:
         "quota": {
             "api": {"datalinker": 1000, "test": 2, "other": 2},
             "disk": {"/home": 40 * 1024 * 1024 * 1024},
-            "notebook": {"cpu": 8.0, "memory": 8.0, "spawn": True},
+            "notebook": {"cpu": 8.0, "memory": 8.0},
             "tap": {"qserv": {"concurrent": 15}, "sso": {"concurrent": 5}},
         },
     }
@@ -140,7 +140,7 @@ async def test_rate_limit_override(
         "quota": {
             "api": {"datalinker": 1000, "test": 10, "other": 2},
             "disk": {"/home": 40 * 1024 * 1024 * 1024, "/shared": 1024 * 1024},
-            "notebook": {"cpu": 8.0, "memory": 8.0, "spawn": True},
+            "notebook": {"cpu": 8.0, "memory": 8.0},
             "tap": {"qserv": {"concurrent": 15}, "sso": {"concurrent": 5}},
         },
     }
@@ -163,14 +163,16 @@ async def test_rate_limit_override(
         "/auth/api/v1/quota-overrides", json=overrides, headers=headers
     )
     assert r.status_code == 200
-    expected_user_info["quota"] = {"api": {}, "disk": {}, "tap": {}}
+    del expected_user_info["quota"]
     r = await client.get("/auth/api/v1/user-info", headers=headers)
     assert r.json() == expected_user_info
 
     # Return to normal behavior by deleting the overrides.
     r = await client.delete("/auth/api/v1/quota-overrides", headers=headers)
     assert r.status_code == 204
-    expected_user_info["quota"] = default_quota.model_dump(mode="json")
+    expected_user_info["quota"] = default_quota.model_dump(
+        mode="json", exclude_defaults=True
+    )
     r = await client.get("/auth/api/v1/user-info", headers=headers)
     assert r.json() == expected_user_info
 
@@ -200,7 +202,7 @@ async def test_rate_limit_override_only(
         "default": {
             "api": {"test": 10},
             "disk": {"/home": 10 * 1024 * 1024 * 1024},
-            "notebook": {"cpu": 1.0, "memory": 4.0, "spawn": True},
+            "notebook": {"cpu": 1.0, "memory": 4.0},
             "tap": {"qserv": {"concurrent": 5}},
         },
         "groups": {},
@@ -209,7 +211,7 @@ async def test_rate_limit_override_only(
         "/auth/api/v1/quota-overrides", json=overrides, headers=headers
     )
     assert r.status_code == 200
-    assert r.json() == overrides
+    assert r.json() == {"default": overrides["default"]}
     r = await client.get(
         "/ingress/auth",
         params={"scope": "read:all", "service": "test"},
@@ -235,7 +237,7 @@ async def test_rate_limit_override_only(
         "quota": {
             "api": {"test": 10},
             "disk": {"/home": 10 * 1024 * 1024 * 1024},
-            "notebook": {"cpu": 1.0, "memory": 4.0, "spawn": True},
+            "notebook": {"cpu": 1.0, "memory": 4.0},
             "tap": {"qserv": {"concurrent": 5}},
         },
     }
@@ -247,8 +249,8 @@ async def test_rate_limit_override_only(
         "/auth/api/v1/quota-overrides", json=overrides, headers=headers
     )
     assert r.status_code == 200
-    assert r.json() == overrides
-    expected_user_info["quota"] = {"api": {}, "disk": {}, "tap": {}}
+    assert r.json() == {"bypass": ["admin"], "default": overrides["default"]}
+    del expected_user_info["quota"]
     r = await client.get("/auth/api/v1/user-info", headers=headers)
     assert r.status_code == 200
     assert r.json() == expected_user_info
@@ -307,7 +309,7 @@ async def test_rate_limit_override_groups(
         "quota": {
             "api": {"datalinker": 1000, "other": 2, "test": 10},
             "disk": {"/home": 40 * 1024 * 1024 * 1024},
-            "notebook": {"cpu": 8.0, "memory": 8.0, "spawn": True},
+            "notebook": {"cpu": 8.0, "memory": 8.0},
             "tap": {"qserv": {"concurrent": 15}, "sso": {"concurrent": 5}},
         },
     }
@@ -342,9 +344,7 @@ async def test_permissions(client: AsyncClient, factory: Factory) -> None:
     assert r.status_code == 200
     r = await client.get("/auth/api/v1/quota-overrides", headers=user_headers)
     assert r.status_code == 200
-    expected = overrides.copy()
-    expected["default"].update({"tap": {}, "disk": {}})
-    assert r.json() == expected
+    assert r.json() == {"default": overrides["default"]}
     r = await client.delete(
         "/auth/api/v1/quota-overrides", headers=user_headers
     )

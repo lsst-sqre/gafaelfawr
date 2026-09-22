@@ -70,6 +70,13 @@ The TAP quota is represented as a mapping of TAP service names to quota restrict
 Currently, there is only one type of restriction: the number of concurrent queries a user is permitted to make to that TAP service.
 If a user attempts to start a new query when they already have that many concurrent queries in progress, the new query will be either rejected or deferred until another query finishes, depending on the configured behavior of the TAP service.
 
+Bypassing quotas
+================
+
+The ``bypass`` key of the quota configuration provides a set of groups that bypass all quotas.
+If this key is set, and if a user is a member of any group present in the value of the ``bypass`` key, all quotas for that user will be removed.
+Gafaelfawr's behavior for that user will be as if no quota configuration was present.
+
 .. _quota-overrides:
 
 Overriding quotas
@@ -98,6 +105,9 @@ The body sent via ``PUT`` and returned by ``GET`` is the same format as the ``co
 Quota overrides, unlike group quotas, are not additive.
 Instead, if there is a quota override and it generates a quota for a particular service or disk mount point for a user, that overrides the corresponding quota from the Gafaelfawr configuration.
 If the quota override does not generate quota for a particular service or mount point (if, for example, it contains no notebook quota), then the quota from the Gafaelfawr configuration is used.
+
+The ``bypass`` group list in an override adds to, and does not replace, the ``bypass`` list in the default quota.
+If any of the user's groups are present in the ``bypass`` key of either the base quota or the override, that user will have no quotas.
 
 Override example
 ----------------

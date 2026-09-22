@@ -136,13 +136,10 @@ class QuotaConfig(BaseModel):
         Returns
         -------
         Quota or None
-            Quota information for that user or `None` if no quotas apply. If
-            the user bypasses quotas, a `~gafaelfawr.models.quota.Quota` model
-            with quotas set to `None` or an empty dictionary is returned rather
-            than `None`.
+            Quota information for that user or `None` if no quotas apply.
         """
         if groups & self.bypass:
-            return Quota()
+            return None
 
         # Start with the defaults.
         default = self.default

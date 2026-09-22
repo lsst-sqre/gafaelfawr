@@ -1133,7 +1133,7 @@ async def test_create_admin(
         headers={"Authorization": f"bearer {user_token!s}"},
     )
     assert r.status_code == 200
-    assert r.json() == {"username": "a-user", "groups": []}
+    assert r.json() == {"username": "a-user"}
 
     # Check handling of duplicate token name errors.
     r = await client.post(
@@ -1280,7 +1280,7 @@ async def test_create_admin_ldap(
         headers={"Authorization": f"bearer {service_token!s}"},
     )
     assert r.status_code == 200
-    assert r.json() == {"username": "other-user", "groups": []}
+    assert r.json() == {"username": "other-user"}
 
 
 @pytest.mark.parametrize("config", ["oidc-firestore"], indirect=True)
