@@ -143,7 +143,7 @@ enable_error_code = [
 ]
 ignore_missing_imports = true
 local_partial_types = true
-plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
+plugins = ["pydantic.mypy"]
 no_implicit_reexport = true
 show_error_codes = true
 strict_equality = true
