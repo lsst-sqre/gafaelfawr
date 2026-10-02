@@ -55,11 +55,8 @@ It will continue to not work for ``portal.example.com`` or any other hostname th
 
    Therefore, before enabling this setting, ensure that you have tight control over creation of new DNS entries in any subdomain (even multiple levels down) from the baes hostname of the Science Platform environment, and ensure that all of those hostnames point to Phalanx-managed Kubernetes services for that Science Platform environment.
 
-Environent URLs and storage
-===========================
-
 Base internal URL
------------------
+=================
 
 Gafaelfawr needs to know the internal cluster DNS domain when creating ``Ingress`` resources from ``GafaelfawrIngress`` resources.
 By default, Gafaelfawr assumes that the cluster DNS domain is ``svc.cluster.local`` and the address to Gafaelfawr can be constructed by adding the name of the service and the name of the Gafaelfawr deployment namespace to the front of that domain.
@@ -73,20 +70,26 @@ If your cluster sets it to something else (by using the ``--cluster-domain`` fla
 The first component of the host name is the name of the ``Service`` resource and therefore must be ``gafaelfawr``.
 Always use a port of 8080.
 
-Database URL
-------------
+Database
+========
 
-Set the URL to the PostgreSQL database that Gafaelfawr will use:
+Gafaelfawr supports two types of databases: an external PostgreSQL database that Gafaelfawr connects to with a username and password, or Google Cloud SQL using PostgreSQL.
+When using Cloud SQL, Gafaelfawr uses IAM authentication to the database, rather than username and password.
+
+External databases
+------------------
+
+For an external database, set the URL to the PostgreSQL database that Gafaelfawr will use:
 
 .. code-block:: yaml
 
    config:
-     databaseUrl: "postgresql://gafaelfawr@example.com/gafaelfawr"
+     database
+       url: "postgresql://gafaelfawr@example.com/gafaelfawr"
 
 Do not include the password in the URL; instead, put the password in the ``database-password`` key in the Vault secret.
-If you are using Cloud SQL with the Cloud SQL Auth Proxy (see :ref:`cloudsql`), use ``localhost`` for the hostname portion.
 
-Alternately, if Gafaelfawr should use the cluster-internal PostgreSQL service, omit the ``config.databaseUrl`` setting and instead add:
+Alternately, if Gafaelfawr should use the cluster-internal PostgreSQL service, omit the ``config.database.url`` setting and instead add:
 
 .. code-block:: yaml
 
@@ -94,6 +97,54 @@ Alternately, if Gafaelfawr should use the cluster-internal PostgreSQL service, o
      internalDatabase: true
 
 This option is primarily for test and development deployments and is not recommended for production use.
+
+.. _cloudsql:
+
+Cloud SQL
+---------
+
+For a Google Cloud SQL database, Gafaelfawr always uses IAM authentication via workload identity.
+You must create a Google service account for Gafaelfawr and configure it to be usable by the Kubernetes service accounts ``gafaelfawr`` and ``gafaelfawr-operator`` via workload identity in the Gafaelfawr namespace (by default, ``gafaelfawr``).
+This IAM account must have the roles ``roles/cloudsql.client`` and ``roles/cloudsql.instanceUser``.
+
+Then, once you have the Google service account name, set the following ``config.database`` keys in the Gafaelfawr chart:
+
+``type``
+    Must be set to ``cloudsql``.
+    The default is ``external``, which is used for an external database configured with a URL and password as above.
+
+``project``
+    The Google Cloud Platform project in which the database is located.
+
+``region``
+    The Google Cloud Platform region in which the database is located.
+
+``instance``
+    The Cloud SQL database instance name.
+
+``database``
+    The name of the Cloud SQL database to use within that instance.
+    Usually this should be set to ``gafaelfawr``.
+
+``serviceAccount``
+    The Google service account created above.
+    It must have full access, via IAM authentication, to read and write to the ``gafaelfawr`` database and to manage its schema.
+
+The configuration will look something like:
+
+.. code-block:: yaml
+
+   config:
+     database:
+       type: "cloudsql"
+       project: "project-7696"
+       region: "us-central1"
+       instance: "database-e9e11de2"
+       database: "gafaelfawr"
+       serviceAccount: "example@project-7696.iam.gserviceaccount.com"
+
+Schema updates
+--------------
 
 To enable database schema creation or upgrades, add:
 
@@ -107,35 +158,10 @@ This setting should be left off by default and only enabled when you know you wa
 When updating the schema of an existing installation, all Gafaelfawr components should be stopped before syncing Gafaelfawr.
 See `the Phalanx documentation <https://phalanx.lsst.io/applications/gafaelfawr/manage-schema.html>`__ for step-by-step instructions.
 
-.. _cloudsql:
-
-Cloud SQL
----------
-
-If the PostgreSQL database that Gafaelfawr should use is a Google Cloud SQL database, Gafaelfawr supports using the Cloud SQL Auth Proxy via Workload Identity.
-
-First, follow the `normal setup instructions for Cloud SQL Auth Proxy using Workload Identity <https://docs.cloud.google.com/sql/docs/postgres/connect-kubernetes-engine>`__.
-You do not need to create the Kubernetes service account; two service accounts will be created by the Gafaelfawr Helm chart.
-The names of those service accounts are ``gafaelfawr`` and ``gafaelfawr-operator``, both in Gafaelfawr's Kubernetes namespace (by default, ``gafaelfawr``).
-
-Then, once you have the name of the Google service account for the Cloud SQL Auth Proxy (created in the above instructions), enable the Cloud SQL Auth Proxy sidecar in the Gafaelfawr Helm chart.
-An example configuration:
-
-.. code-block:: yaml
-
-   cloudsql:
-     enabled: true
-     instanceConnectionName: "dev-7696:us-central1:dev-e9e11de2"
-     serviceAccount: "gafaelfawr@dev-7696.iam.gserviceaccount.com"
-
-Replace ``instanceConnectionName`` and ``serviceAccount`` with the values for your environment.
-You will still need to set ``config.databaseUrl`` and the ``database-password`` key in the Vault secret with appropriate values, but use ``localhost`` for the hostname in ``config.databaseUrl``.
-
-As mentioned in the Google documentation, the Cloud SQL Auth Proxy does not support IAM authentication to the database, only password authentication, and IAM authentication is not recommended for connection pools for long-lived processes.
-Gafaelfawr therefore doesn't support IAM authentication to the database.
+If the database has not been initialized, or if the schema is not up to date, Gafaelfawr will fail to start until ``conig.updateSchema`` is set to true and Gafaelfawr is resynced.
 
 Redis storage
--------------
+=============
 
 For any Gafaelfawr deployment other than a test instance, you will want to configure persistent storage for Redis.
 Otherwise, each upgrade of Gafaelfawr's Redis component will invalidate all of the tokens.

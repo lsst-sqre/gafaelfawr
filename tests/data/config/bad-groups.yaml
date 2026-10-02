@@ -1,6 +1,7 @@
 # Configuration with an invalid group mapping.
 
 afterLogoutUrl: "https://example.com/landing"
+database: {}
 groupMapping:
   "exec:admin": "admin"
 knownScopes:
