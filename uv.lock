@@ -704,6 +704,28 @@ wheels = [
 ]
 
 [[package]]
+name = "cloud-sql-python-connector"
+version = "1.23.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiohttp" },
+    { name = "cryptography" },
+    { name = "dnspython" },
+    { name = "google-auth" },
+    { name = "google-cloud-sql" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c5/cd/d8752679b9936f0bce737a8d53616e8b7949716f41da5781811a24a24b3f/cloud_sql_python_connector-1.23.0.tar.gz", hash = "sha256:97f46b48d42b1eac7b96d948bb29efb33168dcf856f77b77691c2671af68d9c9", size = 56757, upload-time = "2026-10-15T18:22:10.313Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b1/4f/1ab0775120965381a7feaff9655b3163b4aa5380655a4c66e6a80ea90b9a/cloud_sql_python_connector-1.23.0-py3-none-any.whl", hash = "sha256:cf3d0423ed2033ef1afebfa29acef284da460b261adc86dcd480a34941451102", size = 63370, upload-time = "2026-10-15T18:22:09.107Z" },
+]
+
+[package.optional-dependencies]
+asyncpg = [
+    { name = "asyncpg" },
+]
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
@@ -989,6 +1011,15 @@ wheels = [
 ]
 
 [[package]]
+name = "dnspython"
+version = "2.9.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ef/4a/50822184bd67cc6493f0fb6a880749158fcd31ab3fa07409acfd91f9fc85/dnspython-2.9.0.tar.gz", hash = "sha256:b44dc6b18f07a8b1c56676a19fbfdb5209415b046a9cece286baafa87ff3f7f1", size = 423560, upload-time = "2026-10-09T00:07:24.352Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/10/02/cdcc9b7c051786a103c3b09e1003a82fa0c66bcb91ffbdabcfbf7b4163b9/dnspython-2.9.0-py3-none-any.whl", hash = "sha256:9a4aedb833c3c1b49214d04d44d3032ab7a9135f7c1d29a549b4ff78fd82fda9", size = 354822, upload-time = "2026-10-09T00:07:22.622Z" },
+]
+
+[[package]]
 name = "docker"
 version = "7.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1210,6 +1241,7 @@ dependencies = [
     { name = "bonsai" },
     { name = "cachetools" },
     { name = "click" },
+    { name = "cloud-sql-python-connector", extra = ["asyncpg"] },
     { name = "cryptography" },
     { name = "fastapi" },
     { name = "google-api-core" },
@@ -1279,6 +1311,7 @@ requires-dist = [
     { name = "bonsai", specifier = ">=1.5.0" },
     { name = "cachetools" },
     { name = "click", specifier = ">8.1.4" },
+    { name = "cloud-sql-python-connector", extras = ["asyncpg"], specifier = ">=1" },
     { name = "cryptography" },
     { name = "fastapi", specifier = ">=0.100" },
     { name = "google-api-core" },
@@ -1441,6 +1474,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/fd/24/c578fe02430fcaa29dd487595463a4a2b7c7fa8879e24032d3d63f558488/google_cloud_firestore-2.34.1.tar.gz", hash = "sha256:d403b12375e4f68176bb638451417330a7a66d11c9cace98f7778109b884d9ab", size = 672743, upload-time = "2026-10-08T18:12:50.095Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e1/88/e064d77571324edaa78f0523620ad7076a74e5848c05d671fe440f665b67/google_cloud_firestore-2.34.1-py3-none-any.whl", hash = "sha256:6279f049336e49181e8c1d2dbf14e9c0cfb75ddf03c70971adc88fb272cdae29", size = 443943, upload-time = "2026-10-08T18:12:21.536Z" },
+]
+
+[[package]]
+name = "google-cloud-sql"
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-api-core", extra = ["grpc"] },
+    { name = "google-auth" },
+    { name = "grpcio" },
+    { name = "proto-plus" },
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/54/e7/1fadfb0ce27e040427d763865a3d75db79ff3e994983bbf680344c5bbe7a/google_cloud_sql-0.1.1.tar.gz", hash = "sha256:58b56e81698faa3ff9ca551bbb29bf0c947f79a488bf0b0a5e33c538ba244491", size = 1084532, upload-time = "2026-09-02T22:23:20.604Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b2/26/d239e6550ec996712a21d9f0db798624532172cef82f5c45a493edcc832f/google_cloud_sql-0.1.1-py3-none-any.whl", hash = "sha256:6df562d0cacf73fb503cd51ac1952497dea9c2f58187f60a6d295d5accf72ec9", size = 1096495, upload-time = "2026-09-02T22:23:18.974Z" },
 ]
 
 [[package]]
