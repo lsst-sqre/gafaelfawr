@@ -12,11 +12,7 @@ import uvicorn
 from cryptography.fernet import Fernet
 from safir.asyncio import run_with_asyncio
 from safir.click import display_help
-from safir.database import (
-    create_database_engine,
-    is_database_current,
-    stamp_database,
-)
+from safir.database import is_database_current, stamp_database
 from safir.sentry import initialize_sentry
 from safir.slack.blockkit import SlackMessage
 from sqlalchemy import text
@@ -24,6 +20,7 @@ from sqlalchemy import text
 from . import __version__
 from .config import OIDCClientConfig
 from .database import (
+    engine_manager,
     generate_schema_sql,
     initialize_gafaelfawr_database,
     is_database_initialized,
@@ -74,27 +71,25 @@ async def audit(*, fix: bool, config_path: Path | None) -> None:
         config_dependency.set_config_path(config_path)
     config = await config_dependency()
     logger = structlog.get_logger("gafaelfawr")
-    engine = create_database_engine(
-        config.database_url, config.database_password
-    )
-    if not await is_database_current(engine, logger):
-        raise click.ClickException("Database schema is not current")
-    logger.debug("Starting audit")
-    async with Factory.standalone(config, engine) as factory:
-        slack = factory.create_slack_client()
-        if not slack:
-            msg = "Slack alerting required for audit but not configured"
-            raise click.UsageError(msg)
-        token_service = factory.create_token_service()
-        alerts = await token_service.audit(fix=fix)
-        if alerts:
-            message = (
-                "Gafaelfawr data inconsistencies found:\n• "
-                + "\n• ".join(alerts)
-            )
-            await slack.post(SlackMessage(message=message))
-    await engine.dispose()
-    logger.debug("Finished audit")
+
+    async with engine_manager(config.database) as engine:
+        if not await is_database_current(engine, logger):
+            raise click.ClickException("Database schema is not current")
+        logger.debug("Starting audit")
+        async with Factory.standalone(config, engine) as factory:
+            slack = factory.create_slack_client()
+            if not slack:
+                msg = "Slack alerting required for audit but not configured"
+                raise click.UsageError(msg)
+            token_service = factory.create_token_service()
+            alerts = await token_service.audit(fix=fix)
+            if alerts:
+                message = (
+                    "Gafaelfawr data inconsistencies found:\n• "
+                    + "\n• ".join(alerts)
+                )
+                await slack.post(SlackMessage(message=message))
+        logger.debug("Finished audit")
 
 
 @main.command()
@@ -118,25 +113,23 @@ async def delete_all_data(*, config_path: Path | None) -> None:
         config_dependency.set_config_path(config_path)
     config = await config_dependency()
     logger = structlog.get_logger("gafaelfawr")
-    logger.debug("Starting to delete all data")
-    engine = create_database_engine(
-        config.database_url, config.database_password
-    )
     tables = (t.name for t in SchemaBase.metadata.sorted_tables)
-    async with Factory.standalone(config, engine) as factory:
-        async with factory.session.begin():
-            stmt = text(f"TRUNCATE TABLE {', '.join(tables)}")
-            logger.info("Truncating all tables")
-            await factory.session.execute(stmt)
-        token_service = factory.create_token_service()
-        logger.info("Deleting all tokens from Redis")
-        await token_service.delete_all_tokens()
-        if config.oidc_server:
-            oidc_service = factory.create_oidc_service()
-            logger.info("Deleting all OpenID Connect codes from Redis")
-            await oidc_service.delete_all_codes()
-    await engine.dispose()
-    logger.debug("Finished deleting all data")
+
+    logger.debug("Starting to delete all data")
+    async with engine_manager(config.database) as engine:
+        async with Factory.standalone(config, engine) as factory:
+            async with factory.session.begin():
+                stmt = text(f"TRUNCATE TABLE {', '.join(tables)}")
+                logger.info("Truncating all tables")
+                await factory.session.execute(stmt)
+            token_service = factory.create_token_service()
+            logger.info("Deleting all tokens from Redis")
+            await token_service.delete_all_tokens()
+            if config.oidc_server:
+                oidc_service = factory.create_oidc_service()
+                logger.info("Deleting all OpenID Connect codes from Redis")
+                await oidc_service.delete_all_codes()
+        logger.debug("Finished deleting all data")
 
 
 @main.command()
@@ -234,26 +227,25 @@ async def maintenance(*, config_path: Path | None) -> None:
         config_dependency.set_config_path(config_path)
     config = await config_dependency()
     logger = structlog.get_logger("gafaelfawr")
-    engine = create_database_engine(
-        config.database_url, config.database_password
-    )
-    if not await is_database_current(engine, logger):
-        raise click.ClickException("Database schema is not current")
-    logger.debug("Starting background maintenance")
-    async with Factory.standalone(config, engine, check_db=True) as factory:
-        token_service = factory.create_token_service()
-        logger.info("Marking expired tokens in database")
-        await token_service.expire_tokens()
-        logger.info("Truncating token history")
-        await token_service.truncate_history()
-        event_manager = config.metrics.make_manager()
-        await event_manager.initialize()
-        events = StateEvents()
-        await events.initialize(event_manager)
-        await token_service.gather_state_metrics(events)
-        await event_manager.aclose()
-    await engine.dispose()
-    logger.debug("Finished background maintenance")
+
+    async with engine_manager(config.database) as engine:
+        if not await is_database_current(engine, logger):
+            raise click.ClickException("Database schema is not current")
+        logger.debug("Starting background maintenance")
+        async with Factory.standalone(config, engine) as factory:
+            token_service = factory.create_token_service()
+            logger.info("Marking expired tokens in database")
+            await token_service.expire_tokens()
+            logger.info("Truncating token history")
+            await token_service.truncate_history()
+            logger.debug("Logging state metrics")
+            event_manager = config.metrics.make_manager()
+            await event_manager.initialize()
+            events = StateEvents()
+            await events.initialize(event_manager)
+            await token_service.gather_state_metrics(events)
+            await event_manager.aclose()
+        logger.debug("Finished background maintenance")
 
 
 @main.command()
@@ -334,13 +326,10 @@ def update_schema(
 
     # Support code to migrate old OpenID Connect clients.
     async def migrate_oidc_clients(clients: list[OIDCClientConfig]) -> None:
-        engine = create_database_engine(
-            config.database_url, config.database_password
-        )
-        async with Factory.standalone(config, engine) as factory:
-            oidc_service = factory.create_oidc_service()
-            await oidc_service.migrate_clients(clients)
-        await engine.dispose()
+        async with engine_manager(config.database) as engine:
+            async with Factory.standalone(config, engine) as factory:
+                oidc_service = factory.create_oidc_service()
+                await oidc_service.migrate_clients(clients)
 
     # If there are OpenID Connect clients configured using the old approach,
     # migrate them into the database.
@@ -363,13 +352,12 @@ async def validate_schema(*, config_path: Path | None) -> None:
         config_dependency.set_config_path(config_path)
     config = config_dependency.config()
     logger = structlog.get_logger("gafaelfawr")
-    engine = create_database_engine(
-        config.database_url, config.database_password
-    )
-    if not await is_database_initialized(config, logger, engine):
-        raise click.ClickException("Database has not been initialized")
-    if not await is_database_current(engine, logger):
-        raise click.ClickException("Database schema is not current")
+
+    async with engine_manager(config.database) as engine:
+        if not await is_database_initialized(config, logger, engine):
+            raise click.ClickException("Database has not been initialized")
+        if not await is_database_current(engine, logger):
+            raise click.ClickException("Database schema is not current")
 
 
 def main_with_sentry() -> None:
