@@ -8,8 +8,7 @@ from importlib.metadata import version
 import structlog
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
-from safir.database import create_database_engine, is_database_current
-from safir.dependencies.db_session import db_session_dependency
+from safir.database import is_database_current
 from safir.dependencies.http_client import http_client_dependency
 from safir.fastapi import ClientRequestError, client_request_error_handler
 from safir.logging import configure_uvicorn_logging
@@ -20,8 +19,10 @@ from safir.slack.webhook import SlackRouteErrorHandler
 
 from . import __version__
 from .constants import COOKIE_NAME
+from .database import engine_manager
 from .dependencies.config import config_dependency
 from .dependencies.context import context_dependency
+from .dependencies.db_session import db_session_dependency
 from .exceptions import DatabaseSchemaError
 from .handlers import api, gms, ingress, internal, login, logout, oidc
 from .middleware.state import StateMiddleware
@@ -70,27 +71,21 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         config = config_dependency.config()
-        if validate_schema:
-            logger = structlog.get_logger("gafaelfawr")
-            engine = create_database_engine(
-                config.database_url, config.database_password
-            )
-            if not await is_database_current(engine, logger):
-                raise DatabaseSchemaError("Database schema out of date")
-            await engine.dispose()
+        logger = structlog.get_logger("gafaelfawr")
         event_manager = config.metrics.make_manager()
         await event_manager.initialize()
         await context_dependency.initialize(config, event_manager)
-        await db_session_dependency.initialize(
-            config.database_url, config.database_password
-        )
-        if extra_startup:
-            await extra_startup(app)
 
-        yield
+        async with engine_manager(config.database) as engine:
+            if validate_schema:
+                if not await is_database_current(engine, logger):
+                    raise DatabaseSchemaError("Database schema out of date")
+            db_session_dependency.initialize(engine)
+            if extra_startup:
+                await extra_startup(app)
+            yield
 
         await http_client_dependency.aclose()
-        await db_session_dependency.aclose()
         await context_dependency.aclose()
         await event_manager.aclose()
 
