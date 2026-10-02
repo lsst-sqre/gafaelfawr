@@ -20,7 +20,6 @@ from safir.database import create_async_session
 from safir.dependencies.http_client import http_client_dependency
 from safir.redis import EncryptedPydanticRedisStorage, PydanticRedisStorage
 from safir.slack.webhook import SlackWebhookClient
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from structlog.stdlib import BoundLogger
 
@@ -45,7 +44,6 @@ from .models.userinfo import Group
 from .providers.base import Provider
 from .providers.github import GitHubProvider
 from .providers.oidc import OIDCProvider, OIDCTokenVerifier
-from .schema import Token as SQLToken
 from .services.firestore import FirestoreService
 from .services.health import HealthCheckService
 from .services.kubernetes import (
@@ -249,8 +247,6 @@ class Factory:
         config: Config,
         context: ProcessContext,
         engine: AsyncEngine,
-        *,
-        check_db: bool = False,
     ) -> Self:
         """Create a component factory outside of a request.
 
@@ -270,9 +266,6 @@ class Factory:
             Shared process context.
         engine
             Database engine to use for connections.
-        check_db
-            If set to `True`, check database connectivity before returning by
-            doing a simple query.
 
         Returns
         -------
@@ -281,14 +274,13 @@ class Factory:
             returned object during shutdown.
         """
         logger = structlog.get_logger("gafaelfawr")
-        statement = select(SQLToken) if check_db else None
-        session = await create_async_session(engine, statement=statement)
+        session = await create_async_session(engine)
         return cls(context, session, logger)
 
     @classmethod
     @asynccontextmanager
     async def standalone(
-        cls, config: Config, engine: AsyncEngine, *, check_db: bool = False
+        cls, config: Config, engine: AsyncEngine
     ) -> AsyncIterator[Self]:
         """Async context manager for Gafaelfawr components.
 
@@ -303,9 +295,6 @@ class Factory:
             Gafaelfawr configuration.
         engine
             Database engine to use for connections.
-        check_db
-            If set to `True`, check database connectivity before returning by
-            doing a simple query.
 
         Yields
         ------
@@ -322,9 +311,7 @@ class Factory:
         """
         context = await ProcessContext.from_config(config)
         async with aclosing(context):
-            factory = await cls.create(
-                config, context, engine, check_db=check_db
-            )
+            factory = await cls.create(config, context, engine)
             async with aclosing(factory):
                 yield factory
 

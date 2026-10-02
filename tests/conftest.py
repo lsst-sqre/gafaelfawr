@@ -12,7 +12,7 @@ from asgi_lifespan import LifespanManager
 from cryptography.fernet import Fernet
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from safir.database import create_database_engine, stamp_database_async
+from safir.database import stamp_database_async
 from safir.testing.data import Data
 from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -20,7 +20,7 @@ from testcontainers.community.postgres import PostgresContainer
 from testcontainers.community.redis import RedisContainer
 
 from gafaelfawr.config import Config
-from gafaelfawr.database import initialize_gafaelfawr_database
+from gafaelfawr.database import engine_manager, initialize_gafaelfawr_database
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import Factory
 from gafaelfawr.keypair import RSAKeyPair
@@ -189,11 +189,8 @@ async def engine(config: Config) -> AsyncIterator[AsyncEngine]:
     pytest-asyncio was upgraded from 0.21.1 to 0.23.2 and the maintenance
     burden doesn't seem worth it.
     """
-    engine = create_database_engine(
-        config.database_url, config.database_password
-    )
-    yield engine
-    await engine.dispose()
+    async with engine_manager(config.database) as engine:
+        yield engine
 
 
 @pytest_asyncio.fixture
