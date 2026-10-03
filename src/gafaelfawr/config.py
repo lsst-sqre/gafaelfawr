@@ -53,6 +53,7 @@ from safir.pydantic import EnvAsyncPostgresDsn, EnvRedisDsn, HumanTimedelta
 from .constants import MINIMUM_LIFETIME, SCOPE_REGEX
 from .exceptions import InvalidTokenError
 from .keypair import RSAKeyPair
+from .models.database import CloudSqlSettings, DatabaseSettings
 from .models.quota import QuotaConfig
 from .models.token import Token
 from .util import group_name_for_github_team
@@ -133,6 +134,28 @@ class EnvFirstSettings(CamelCaseSettings):
         suite.
         """
         return (env_settings, init_settings)
+
+
+class GafaelfawrDatabaseSettings(DatabaseSettings, EnvFirstSettings):
+    """External database settings for Gafaelfawr."""
+
+    url: Annotated[
+        EnvAsyncPostgresDsn,
+        Field(
+            validation_alias=AliasChoices(
+                "GAFAELFAWR_DATABASE_URL", "databaseUrl"
+            ),
+        ),
+    ]
+
+    password: Annotated[
+        SecretStr,
+        Field(
+            validation_alias=AliasChoices(
+                "GAFAELFAWR_DATABASE_PASSWORD", "databasePassword"
+            ),
+        ),
+    ]
 
 
 class GitHubConfig(EnvFirstSettings):
@@ -801,22 +824,10 @@ class Config(EnvFirstSettings):
         ),
     )
 
-    database_url: EnvAsyncPostgresDsn = Field(
-        ...,
-        title="Database DSN",
-        description="DSN for the PostgreSQL database",
-        validation_alias=AliasChoices(
-            "GAFAELFAWR_DATABASE_URL", "databaseUrl"
-        ),
-    )
-
-    database_password: SecretStr = Field(
-        ...,
-        title="Database password",
-        description="Password for the PostgreSQL database",
-        validation_alias=AliasChoices(
-            "GAFAELFAWR_DATABASE_PASSWORD", "databasePassword"
-        ),
+    database: CloudSqlSettings | GafaelfawrDatabaseSettings = Field(
+        default_factory=GafaelfawrDatabaseSettings,
+        title="Cloud SQL",
+        description="Configuration for a Cloud SQL database",
     )
 
     error_footer: str | None = Field(
@@ -1037,6 +1048,7 @@ class Config(EnvFirstSettings):
             return data
         for key, needed in (
             ("cilogon", "clientId"),
+            ("cloudsql", "project"),
             ("github", "clientId"),
             ("oidc", "clientId"),
             ("ldap", "url"),

@@ -5,10 +5,11 @@ from typing import Any
 import kopf
 import structlog
 from kubernetes_asyncio.client import ApiClient
-from safir.database import create_database_engine, is_database_current
+from safir.database import is_database_current
 from safir.kubernetes import initialize_kubernetes
 
 from ..constants import KUBERNETES_WATCH_TIMEOUT
+from ..database import engine_manager
 from ..dependencies.config import config_dependency
 from ..exceptions import DatabaseSchemaError
 from ..factory import ProcessContext
@@ -52,9 +53,8 @@ async def startup(
     await initialize_kubernetes()
     context = await ProcessContext.from_config(config)
 
-    engine = create_database_engine(
-        config.database_url, config.database_password
-    )
+    manager = engine_manager(config.database)
+    engine = await manager.create_engine()
     logger = structlog.get_logger("gafaelfawr")
     if not await is_database_current(engine, logger):
         raise DatabaseSchemaError("Database schema is not current")
@@ -64,6 +64,7 @@ async def startup(
     memo.config = config
     memo.context = context
     memo.engine = engine
+    memo.engine_manager = manager
     memo.logger = logger
 
 
@@ -79,4 +80,4 @@ async def shutdown(memo: kopf.Memo, **_: Any) -> None:
     """
     await memo.api_client.close()
     await memo.context.aclose()
-    await memo.engine.dispose()
+    await memo.engine_manager.aclose()
