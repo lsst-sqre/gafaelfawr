@@ -98,7 +98,7 @@ This is done via the following REST API:
     Delete the quota overrides.
     Returns 404 if there are no quota overrides and 204 on success.
 
-These routes require a token with ``admin:token`` scope.
+The ``PUT`` and ``DELETE`` routes require a token with ``admin:token`` scope.
 
 The body sent via ``PUT`` and returned by ``GET`` is the same format as the ``config.quota`` key for the Gafaelfawr configuration except in JSON format.
 
