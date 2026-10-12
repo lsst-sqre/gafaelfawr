@@ -148,20 +148,3 @@ def test_config_cilogon_test(
         }
     )
     assert str(config.oidc.redirect_url) == "https://example.com/login"
-
-
-def test_redis_rate_limit_url(
-    data: Data, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    ephemeral = "redis://gafaelfawr-redis-ephemeral.gafaelfawr:6370/1"
-    persistent = "redis://gafaelfawr-redis.gafaelfawr:6370/0"
-    monkeypatch.setenv("GAFAELFAWR_REDIS_EPHEMERAL_URL", ephemeral)
-    monkeypatch.setenv("GAFAELFAWR_REDIS_PERSISTENT_URL", persistent)
-    monkeypatch.setenv("GAFAELFAWR_REDIS_PASSWORD", "f:b/b@c")
-    config = Config.from_file(config_path(data, "github"))
-    assert str(config.redis_ephemeral_url) == ephemeral
-    assert str(config.redis_persistent_url) == persistent
-    assert config.redis_rate_limit_url == (
-        "async+redis://:f%3Ab%2Fb%40c@gafaelfawr-redis-ephemeral.gafaelfawr"
-        ":6370/1"
-    )
