@@ -24,9 +24,11 @@
     },
     "tap": {
       "qserv": {
+        "bytes_billed": 30000,
         "concurrent": 15
       },
       "sso": {
+        "bytes_billed": null,
         "concurrent": 5
       }
     }

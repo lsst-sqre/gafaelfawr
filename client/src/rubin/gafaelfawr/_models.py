@@ -70,11 +70,17 @@ class GafaelfawrNotebookQuota(BaseModel):
 class GafaelfawrTapQuota(BaseModel):
     """TAP quota information for a user."""
 
+    bytes_billed: Annotated[int | None, Field(title="Bytes billed")] = None
+
     concurrent: Annotated[int, Field(title="Concurrent queries")]
 
     def to_logging_context(self) -> dict[str, Any]:
         """Convert to variables for a structlog logging context."""
-        return {"concurrent": self.concurrent}
+        result = {}
+        if self.bytes_billed:
+            result["bytes_billed"] = self.bytes_billed
+        result["concurrent"] = self.concurrent
+        return result
 
 
 class GafaelfawrQuota(BaseModel):

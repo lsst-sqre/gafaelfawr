@@ -99,7 +99,7 @@ class CamelCaseSettings(BaseSettings):
     model_config = SettingsConfigDict(
         alias_generator=AliasGenerator(validation_alias=to_camel),
         extra="forbid",
-        populate_by_name=True,
+        validate_by_name=True,
     )
 
 

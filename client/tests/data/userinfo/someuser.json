@@ -8,6 +8,7 @@
   "quota": {
     "tap": {
       "ssotap": {
+        "bytes_billed": 10000,
         "concurrent": 2
       }
     }
