@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 from httpx import AsyncClient
+from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config
 from gafaelfawr.factory import Factory
@@ -317,7 +318,13 @@ async def test_rate_limit_override_groups(
 
 
 @pytest.mark.asyncio
-async def test_permissions(client: AsyncClient, factory: Factory) -> None:
+async def test_permissions(
+    *,
+    config: Config,
+    client: AsyncClient,
+    factory: Factory,
+    mock_slack: MockSlackWebhook,
+) -> None:
     user_token_data = await create_session_token(
         factory, group_names=["foo"], scopes=set()
     )
@@ -326,6 +333,8 @@ async def test_permissions(client: AsyncClient, factory: Factory) -> None:
         factory, group_names=["admin"], scopes={"admin:token"}
     )
     admin_headers = {"Authorization": f"bearer {admin_token_data.token}"}
+    bootstrap_token = config.bootstrap_token.get_secret_value()
+    bootstrap_headers = {"Authorization": f"bearer {bootstrap_token}"}
 
     r = await client.get("/auth/api/v1/quota-overrides", headers=user_headers)
     assert r.status_code == 404
@@ -353,3 +362,21 @@ async def test_permissions(client: AsyncClient, factory: Factory) -> None:
         "/auth/api/v1/quota-overrides", headers=admin_headers
     )
     assert r.status_code == 204
+
+    # Test that the bootstrap token cannot be used for any of the routes.
+    r = await client.get(
+        "/auth/api/v1/quota-overrides", headers=bootstrap_headers
+    )
+    assert r.status_code == 401
+    r = await client.put(
+        "/auth/api/v1/quota-overrides",
+        json=overrides,
+        headers=bootstrap_headers,
+    )
+    assert r.status_code == 401
+    r = await client.delete(
+        "/auth/api/v1/quota-overrides", headers=bootstrap_headers
+    )
+
+    # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []

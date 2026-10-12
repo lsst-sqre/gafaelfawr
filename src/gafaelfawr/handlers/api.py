@@ -53,7 +53,8 @@ authenticate_write = AuthenticateWrite()
 authenticate_admin_read = AuthenticateRead(
     require_scope="admin:token", allow_bootstrap_token=True
 )
-authenticate_admin_write = AuthenticateWrite(
+authenticate_admin_write = AuthenticateWrite(require_scope="admin:token")
+authenticate_admin_write_bootstrap = AuthenticateWrite(
     require_scope="admin:token", allow_bootstrap_token=True
 )
 authenticate_oidc_admin_read = AuthenticateRead(
@@ -513,7 +514,9 @@ async def get_token_info(
 async def post_admin_tokens(
     *,
     token_request: AdminTokenRequest,
-    auth_data: Annotated[TokenData, Depends(authenticate_admin_write)],
+    auth_data: Annotated[
+        TokenData, Depends(authenticate_admin_write_bootstrap)
+    ],
     context: Annotated[RequestContext, Depends(context_dependency)],
     response: Response,
 ) -> NewToken:
