@@ -2,7 +2,8 @@
 
 from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 __all__ = [
     "NotebookQuota",
@@ -43,15 +44,32 @@ class NotebookQuota(BaseModel):
 class TapQuota(BaseModel):
     """TAP quota information for a user."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
+    )
 
     concurrent: int = Field(..., title="Concurrent queries", examples=[5])
+
+    bytes_billed: int | None = Field(
+        None, title="Bytes billed", examples=[10737418240]
+    )
 
     def add(self, other: Self | None) -> Self:
         """Add an additional TAP quota to this one."""
         if not other:
             return self
-        return type(self)(concurrent=self.concurrent + other.concurrent)
+        if self.bytes_billed is None:
+            bytes_billed = other.bytes_billed
+        elif other.bytes_billed is None:
+            bytes_billed = self.bytes_billed
+        else:
+            bytes_billed = self.bytes_billed + other.bytes_billed
+        return type(self)(
+            concurrent=self.concurrent + other.concurrent,
+            bytes_billed=bytes_billed,
+        )
 
 
 class Quota(BaseModel):

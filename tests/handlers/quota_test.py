@@ -4,22 +4,20 @@ from typing import Any
 
 import pytest
 from httpx import AsyncClient
+from safir.testing.data import Data
 from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.token import TokenUserInfo
-from gafaelfawr.models.userinfo import Group
 
 from ..support.tokens import create_session_token
 
 
 @pytest.mark.parametrize("config", ["github-quota"], indirect=True)
 @pytest.mark.asyncio
-async def test_info(client: AsyncClient, factory: Factory) -> None:
-    user_info = TokenUserInfo(
-        username="example", groups=[Group(name="bar", id=12312)]
-    )
+async def test_info(data: Data, client: AsyncClient, factory: Factory) -> None:
+    user_info = data.read_pydantic(TokenUserInfo, "users/quota-bar")
     token_service = factory.create_token_service()
     token = await token_service.create_session_token(
         user_info, scopes={"user:token"}, ip_address="127.0.0.1"
@@ -29,18 +27,9 @@ async def test_info(client: AsyncClient, factory: Factory) -> None:
         "/auth/api/v1/user-info", headers={"Authorization": f"bearer {token}"}
     )
     assert r.status_code == 200
-    assert r.json() == {
-        "username": "example",
-        "groups": [{"name": "bar", "id": 12312}],
-        "quota": {
-            "api": {"datalinker": 1000, "test": 1, "other": 2},
-            "disk": {"/home": 30 * 1024 * 1024 * 1024},
-            "notebook": {"cpu": 8.0, "memory": 4.0},
-            "tap": {"qserv": {"concurrent": 10}},
-        },
-    }
+    data.assert_json_matches(r.json(), "userinfo/quota-bar")
 
-    user_info.groups = [Group(name="foo", id=12313)]
+    user_info = data.read_pydantic(TokenUserInfo, "users/quota-foo")
     token = await token_service.create_session_token(
         user_info, scopes={"user:token"}, ip_address="127.0.0.1"
     )
@@ -49,21 +38,14 @@ async def test_info(client: AsyncClient, factory: Factory) -> None:
         "/auth/api/v1/user-info", headers={"Authorization": f"bearer {token}"}
     )
     assert r.status_code == 200
-    assert r.json() == {
-        "username": "example",
-        "groups": [{"name": "foo", "id": 12313}],
-        "quota": {
-            "api": {"datalinker": 1000, "test": 2, "other": 2},
-            "disk": {"/home": 40 * 1024 * 1024 * 1024},
-            "notebook": {"cpu": 8.0, "memory": 8.0},
-            "tap": {"qserv": {"concurrent": 15}, "sso": {"concurrent": 5}},
-        },
-    }
+    data.assert_json_matches(r.json(), "userinfo/quota-foo")
 
 
 @pytest.mark.parametrize("config", ["github-quota"], indirect=True)
 @pytest.mark.asyncio
-async def test_no_spawn(client: AsyncClient, factory: Factory) -> None:
+async def test_no_spawn(
+    data: Data, client: AsyncClient, factory: Factory
+) -> None:
     token_data = await create_session_token(
         factory, group_names=["blocked", "bar"], scopes={"read:all"}
     )
@@ -74,23 +56,7 @@ async def test_no_spawn(client: AsyncClient, factory: Factory) -> None:
         headers={"Authorization": f"bearer {token_data.token}"},
     )
     assert r.status_code == 200
-    assert r.json() == {
-        "username": token_data.username,
-        "name": token_data.name,
-        "email": token_data.email,
-        "uid": token_data.uid,
-        "gid": token_data.gid,
-        "groups": [
-            g.model_dump(mode="json")
-            for g in sorted(token_data.groups, key=lambda g: g.name)
-        ],
-        "quota": {
-            "api": {"datalinker": 1000, "test": 1, "other": 2},
-            "disk": {"/home": 30 * 1024 * 1024 * 1024},
-            "notebook": {"cpu": 8.0, "memory": 4.0, "spawn": False},
-            "tap": {"qserv": {"concurrent": 10}},
-        },
-    }
+    data.assert_json_matches(r.json(), "userinfo/quota-blocked-bar")
 
 
 @pytest.mark.parametrize("config", ["github-quota"], indirect=True)
@@ -142,18 +108,24 @@ async def test_rate_limit_override(
             "api": {"datalinker": 1000, "test": 10, "other": 2},
             "disk": {"/home": 40 * 1024 * 1024 * 1024, "/shared": 1024 * 1024},
             "notebook": {"cpu": 8.0, "memory": 8.0},
-            "tap": {"qserv": {"concurrent": 15}, "sso": {"concurrent": 5}},
+            "tap": {
+                "qserv": {"bytes_billed": 30000, "concurrent": 15},
+                "sso": {"concurrent": 5},
+            },
         },
     }
     assert r.json() == expected_user_info
 
     overrides["default"]["notebook"] = {"cpu": 1, "memory": 1, "spawn": False}
-    overrides["default"]["tap"] = {"qserv": {"concurrent": 1}}
+    overrides["default"]["tap"] = {
+        "qserv": {"bytes_billed": 10000, "concurrent": 1}
+    }
     r = await client.put(
         "/auth/api/v1/quota-overrides", json=overrides, headers=headers
     )
     assert r.status_code == 200
     expected_user_info["quota"]["notebook"] = overrides["default"]["notebook"]
+    expected_user_info["quota"]["tap"]["qserv"]["bytes_billed"] = 10000
     expected_user_info["quota"]["tap"]["qserv"]["concurrent"] = 1
     del expected_user_info["quota"]["tap"]["sso"]
     r = await client.get("/auth/api/v1/user-info", headers=headers)
@@ -311,7 +283,10 @@ async def test_rate_limit_override_groups(
             "api": {"datalinker": 1000, "other": 2, "test": 10},
             "disk": {"/home": 40 * 1024 * 1024 * 1024},
             "notebook": {"cpu": 8.0, "memory": 8.0},
-            "tap": {"qserv": {"concurrent": 15}, "sso": {"concurrent": 5}},
+            "tap": {
+                "qserv": {"bytes_billed": 30000, "concurrent": 15},
+                "sso": {"concurrent": 5},
+            },
         },
     }
     assert r.json() == expected_user_info

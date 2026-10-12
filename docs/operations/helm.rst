@@ -606,7 +606,9 @@ The ``notebook`` key should contain ``cpu`` and ``memory`` keys specifying the d
 The memory limit is given in a floating point number of GiB.
 
 The ``tap`` key should contain a mapping of TAP service names to quotas for that service.
-Currently, the per-TAP-service quota only supports one key: ``concurrent``, which specifies the number of concurrent TAP queries that a user may have in progress.
+The per-TAP service quota supports two keys.
+``concurrent`` specifies the number of concurrent TAP queries that a user may have in progress and is required if any quota is set.
+``bytesBilled`` is optional and specifies an upper limit on bytes billed within a 24-hour period that, if exceeded, will cause subsequent TAP queries to be rejected until the end of the 24-hour period.
 
 For example:
 
@@ -624,9 +626,10 @@ For example:
            memory: 4.0
          tap:
            sso:
+             bytesBilled: 10485760
              concurrent: 10
 
-This sets a quota of 100 requests per minute for the ``datalinker`` service, no quotas for any other API service, a default limit of 2.0 CPU equivalents and 4.0 GiB of memory for notebooks, and allows 10 concurrent TAP queries per user to the ``sso`` TAP service.
+This sets a quota of 100 requests per minute for the ``datalinker`` service, no quotas for any other API service, a default limit of 2.0 CPU equivalents and 4.0 GiB of memory for notebooks, and allows 10 concurrent TAP queries and 10MiB of bytes billed per user to the ``sso`` TAP service.
 
 The default quota for all API services not listed is unlimited.
 To set a default quota of 0, explicitly list the API service with a quota of 0.

@@ -1,0 +1,32 @@
+{
+  "groups": [
+    {
+      "id": 12313,
+      "name": "foo"
+    }
+  ],
+  "quota": {
+    "api": {
+      "datalinker": 1000,
+      "other": 2,
+      "test": 2
+    },
+    "disk": {
+      "/home": 42949672960
+    },
+    "notebook": {
+      "cpu": 8.0,
+      "memory": 8.0
+    },
+    "tap": {
+      "qserv": {
+        "bytes_billed": 30000,
+        "concurrent": 15
+      },
+      "sso": {
+        "concurrent": 5
+      }
+    }
+  },
+  "username": "example"
+}

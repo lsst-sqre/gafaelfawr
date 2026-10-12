@@ -30,6 +30,7 @@ quota:
       memory: 4.0
     tap:
       qserv:
+        bytesBilled: 10000
         concurrent: 10
   groups:
     blocked:
@@ -47,6 +48,7 @@ quota:
         memory: 4.0
       tap:
         qserv:
+          bytesBilled: 20000
           concurrent: 5
         sso:
           concurrent: 5

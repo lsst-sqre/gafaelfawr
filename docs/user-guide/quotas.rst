@@ -67,8 +67,15 @@ The user's TAP quota controls limits on the TAP queries that user may make.
 There is a separate quota for each TAP service.
 
 The TAP quota is represented as a mapping of TAP service names to quota restrictions for that TAP service.
-Currently, there is only one type of restriction: the number of concurrent queries a user is permitted to make to that TAP service.
-If a user attempts to start a new query when they already have that many concurrent queries in progress, the new query will be either rejected or deferred until another query finishes, depending on the configured behavior of the TAP service.
+There are two possible restrictions:
+
+``bytes_billed``
+    The number of billed bytes the user can scan in a 24-hour period.
+    If this is exceeded, subsequent TAP queries to this service will be rejected until the end of the 24-hour period.
+
+``concurrent``
+    The number of concurrent queries a user is permitted to make to that TAP service.
+    If a user attempts to start a new query when they already have that many concurrent queries in progress, the new query will be either rejected or deferred until another query finishes, depending on the configured behavior of the TAP service.
 
 Bypassing quotas
 ================
@@ -170,7 +177,7 @@ Restrict all users to one concurrent TAP query for the ``qserv`` TAP service:
 .. prompt:: bash
 
    curl -X PUT -H 'Authorization: bearer <token>' \
-     --json '{"default": {"tap": {"qserv": 1}}}' \
+     --json '{"default": {"tap": {"qserv": {"concurrent": 1}}}}' \
      https://<base-url>/auth/api/v1/quota-overrides
 
 Set a temporary API rate limit of one request per minute for all users to the ``vo-cutouts`` service, replacing any existing quota override, but allow anyone in the ``g_admins`` group to bypass all quota restrictions.

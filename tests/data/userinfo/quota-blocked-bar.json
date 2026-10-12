@@ -1,0 +1,38 @@
+{
+  "email": "someuser@example.com",
+  "gid": 2000,
+  "groups": [
+    {
+      "id": 1000,
+      "name": "bar"
+    },
+    {
+      "id": 1000,
+      "name": "blocked"
+    }
+  ],
+  "name": "Some User",
+  "quota": {
+    "api": {
+      "datalinker": 1000,
+      "other": 2,
+      "test": 1
+    },
+    "disk": {
+      "/home": 32212254720
+    },
+    "notebook": {
+      "cpu": 8.0,
+      "memory": 4.0,
+      "spawn": false
+    },
+    "tap": {
+      "qserv": {
+        "bytes_billed": 10000,
+        "concurrent": 10
+      }
+    }
+  },
+  "uid": 1000,
+  "username": "some-user"
+}
