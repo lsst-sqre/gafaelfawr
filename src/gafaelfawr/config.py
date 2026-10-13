@@ -23,7 +23,6 @@ from datetime import timedelta
 from ipaddress import IPv4Network, IPv6Network
 from pathlib import Path
 from typing import Annotated, Any, NotRequired, Self, TypedDict, override
-from urllib.parse import quote
 
 import yaml
 from pydantic import (
@@ -1159,23 +1158,6 @@ class Config(EnvFirstSettings):
         if self.allow_subdomains:
             parameters["domain"] = self.base_hostname
         return parameters
-
-    @property
-    def redis_rate_limit_url(self) -> str:
-        """Redis DSN to use for rate limiting.
-
-        The limits_ package requires the Redis DSN in a specific format with
-        the password already included.
-        """
-        host = self.redis_ephemeral_url.host
-        port = self.redis_ephemeral_url.port
-        netloc = f"{host}:{port}" if port else host
-        path = self.redis_ephemeral_url.path
-        if self.redis_password:
-            password = quote(self.redis_password.get_secret_value(), safe="")
-            return f"async+redis://:{password}@{netloc}{path}"
-        else:
-            return f"async+redis://{netloc}{path}"
 
     def configure_logging(self) -> None:
         """Configure logging based on the Gafaelfawr configuration."""

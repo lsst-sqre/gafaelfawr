@@ -11,8 +11,8 @@ from bonsai.asyncio import AIOConnectionPool
 from google.cloud import firestore
 from httpx import AsyncClient
 from kubernetes_asyncio.client import ApiClient
-from limits.aio.storage import RedisStorage
 from limits.aio.strategies import FixedWindowRateLimiter, RateLimiter
+from limits.storage import storage_from_string
 from redis.asyncio import BlockingConnectionPool, Redis
 from redis.asyncio.retry import Retry
 from redis.backoff import ExponentialBackoff
@@ -32,7 +32,6 @@ from .constants import (
     REDIS_EPHEMERAL_POOL_SIZE,
     REDIS_PERSISTENT_POOL_SIZE,
     REDIS_POOL_TIMEOUT,
-    REDIS_RATE_LIMIT_POOL_SIZE,
     REDIS_RETRIES,
     REDIS_TIMEOUT,
 )
@@ -173,11 +172,10 @@ class ProcessContext:
             timeout=REDIS_POOL_TIMEOUT,
         )
         ephemeral_redis_client = Redis.from_pool(ephemeral_redis_pool)
-        rate_limiter_storage = RedisStorage(
-            config.redis_rate_limit_url,
-            max_connections=REDIS_RATE_LIMIT_POOL_SIZE,
-            stream_timeout=REDIS_TIMEOUT,
-            connect_timeout=REDIS_TIMEOUT,
+        rate_limiter_storage = storage_from_string(
+            "async+redis://",
+            implementation="redispy",
+            connection_pool=ephemeral_redis_pool,  # type: ignore[arg-type]
         )
         persistent_redis_pool = BlockingConnectionPool.from_url(
             str(config.redis_persistent_url),
