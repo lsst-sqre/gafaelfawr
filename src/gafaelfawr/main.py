@@ -101,7 +101,7 @@ def create_app(
             " management of tokens, including their issuance and revocation."
         ),
         version=version("gafaelfawr"),
-        tags_metadata=[
+        openapi_tags=[
             {
                 "name": "user",
                 "description": "APIs that can be used by regular users.",
