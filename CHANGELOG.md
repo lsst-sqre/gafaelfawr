@@ -1092,7 +1092,7 @@ Gafaelfawr can now analyze the `X-Forwarded-For` header to determine the true cl
 
 New in this release is an `/auth/forbidden` route that can be used to provide a non-cached 403 error page.
 
-This release changes Gafaelfawr's logging format and standardizes the contents of the logs. All logs are now in JSON. See [the new logging documentation](https://gafaelfawr.lsst.io/user-guide/logging.html) for more information.
+This release changes Gafaelfawr's logging format and standardizes the contents of the logs. All logs are now in JSON. See [the new logging documentation](https://gafaelfawr.lsst.io/operations/logging.html) for more information.
 
 ### New features
 
