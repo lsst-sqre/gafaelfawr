@@ -26,7 +26,7 @@ nitpick_ignore = [
     # of single-quotes to not generate a reference, but automatic references
     # are generated from the type signatures and can't be avoided.
     #
-    # These are listed specifically rather than with regexesbecause I've
+    # These are listed specifically rather than with regexes because I've
     # caught documentation bugs by having Sphinx complain about a new symbol.
     ["py:class", "dataclasses_avroschema.main.AvroModel"],
     ["py:class", "dataclasses_avroschema.pydantic.main.AvroBaseModel"],
@@ -43,6 +43,7 @@ nitpick_ignore = [
     # classes of Pydantic models via intersphinx, or generate documentation
     # correctly when the docstring is inherited.
     ["py:class", "safir.metrics._models.EventPayload"],
+    ["py:class", "safir.pydantic._camel.CamelCaseModel"],
     ["py:class", "safir.slack.blockkit.SlackMessage"],
     ["py:class", "SlackMessage"],
     # asyncio.Lock is documented, and that's what all the code references, but

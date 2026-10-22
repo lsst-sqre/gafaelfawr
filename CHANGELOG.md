@@ -10,6 +10,17 @@ Gafaelfawr does not support direct upgrades from versions older than 10.0.0. Whe
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-16.1.0'></a>
+## 16.1.0 (2026-10-22)
+
+### New features
+
+- Add optional `bytesBilled` field to the quota for a specific TAP server.
+
+### Bug fixes
+
+- Disable access to the quota-overrides route via the bootstrap token. This was the documented behavior, but changing the quota overrides was previously allowed due to an oversight. The bootstrap token should only be used to create a proper admin token or register OIDC clients. Thanks, Santosh Kumar Puppala.
+
 <a id='changelog-16.0.2'></a>
 ## 16.0.2 (2026-09-22)
 
