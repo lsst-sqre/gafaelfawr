@@ -567,7 +567,9 @@ class FirestoreConfig(BaseModel):
     """Configuration for Firestore-based UID/GID assignment."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     project: str = Field(
