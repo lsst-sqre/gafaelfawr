@@ -25,6 +25,7 @@ dependencies = [
     "bonsai>=1.5.0",
     "cachetools",
     "click>8.1.4",
+    "cloud-sql-python-connector[asyncpg]>=1",
     "cryptography",
     "fastapi>=0.100",
     "google-api-core",
