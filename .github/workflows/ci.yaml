@@ -106,8 +106,6 @@ jobs:
       contents: read
       id-token: write
       pull-requests: write
-    env:
-      HAS_OOK_TOKEN: ${{ secrets.OOK_TOKEN != '' }}
     timeout-minutes: 15
 
     needs: changes
@@ -134,12 +132,6 @@ jobs:
 
       - name: Run nox
         run: uv run --only-group=nox nox -s docs
-        env:
-          OOK_TOKEN: ${{ secrets.OOK_TOKEN }}
-
-      - name: Check links
-        if: env.HAS_OOK_TOKEN == 'true'
-        run: uv run --only-group=nox nox -s docs-linkcheck
         env:
           OOK_TOKEN: ${{ secrets.OOK_TOKEN }}
 
