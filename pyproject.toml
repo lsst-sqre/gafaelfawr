@@ -80,11 +80,11 @@ dev = [
     "uv",
 ]
 docs = [
-    "documenteer[guide]>=2",
+    "documenteer[guide]==2.5.0b4",
     "rubin-gafaelfawr",
     "scriv[toml]>=1.5",
     "sphinx-click>=6",
-    "sphinx-diagrams>=0.4",
+    "diagrams",
 ]
 lint = [
     "prek",
