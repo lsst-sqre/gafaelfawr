@@ -102,6 +102,12 @@ jobs:
 
   docs:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    env:
+      HAS_OOK_TOKEN: ${{ secrets.OOK_TOKEN != '' }}
     timeout-minutes: 15
 
     needs: changes
@@ -128,16 +134,26 @@ jobs:
 
       - name: Run nox
         run: uv run --only-group=nox nox -s docs
+        env:
+          OOK_TOKEN: ${{ secrets.OOK_TOKEN }}
 
-      # Upload docs:
-      # - on pushes to main and workflow dispatches
-      # - on pushes to tickets/ branches if docs/ directory content changed
-      - uses: lsst-sqre/ltd-upload@v1
+      - name: Check links
+        if: env.HAS_OOK_TOKEN == 'true'
+        run: uv run --only-group=nox nox -s docs-linkcheck
+        env:
+          OOK_TOKEN: ${{ secrets.OOK_TOKEN }}
+
+      # Upload to Docverse. Fork and dependabot pull requests can't read the
+      # DOCVERSE_TOKEN secret, which is why the condition below excludes them.
+      - name: Upload to Docverse
+        uses: lsst-sqre/docverse-upload@v1
         with:
+          org: rubin
           project: gafaelfawr
           dir: "docs/_build/html"
-          username: ${{ secrets.LTD_USERNAME }}
-          password: ${{ secrets.LTD_PASSWORD }}
+          token: ${{ secrets.DOCVERSE_TOKEN }}
+          github-token: ${{ github.token }}
+          comment-on-pr: "true"
         if: >
           (github.event_name == 'push' && github.ref_name == 'main')
           || (github.event_name == 'workflow_dispatch')
@@ -147,6 +163,9 @@ jobs:
 
   linkcheck:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     timeout-minutes: 15
 
     needs: changes
@@ -170,6 +189,8 @@ jobs:
 
       - name: Run nox
         run: uv run --only-group=nox nox -s docs-linkcheck
+        env:
+          OOK_TOKEN: ${{ secrets.OOK_TOKEN }}
 
   build:
     concurrency:
