@@ -58,8 +58,8 @@ LdapDsn = Annotated[
 """DSN for connecting to an LDAP server."""
 
 __all__ = [
-    "CamelCaseConfig",
     "CILogonConfig",
+    "CamelCaseConfig",
     "Config",
     "CookieParameters",
     "FirestoreConfig",
@@ -562,7 +562,6 @@ class OIDCServerConfig(CamelCaseConfig):
         ...,
         title="RSA private key",
         description="RSA private key used to sign issued JWTs",
-        validation_alias="GAFAELFAWR_OIDC_SERVER_KEY",
     )
 
     key_id: str = Field(
@@ -587,7 +586,6 @@ class OIDCServerConfig(CamelCaseConfig):
             " supported to populate the client list as part of a schema"
             " migration."
         ),
-        validation_alias="GAFAELFAWR_OIDC_SERVER_CLIENTS",
     )
 
     data_rights_mapping: dict[str, list[str]] = Field(
@@ -669,7 +667,7 @@ class Config(YamlBaseSettings):
     """Configuration for Gafaelfawr."""
 
     model_config = SettingsConfigDict(
-        env_nested_delimiter="_", env_prefix="GAFAELFAWR_"
+        env_nested_delimiter="__", env_prefix="GAFAELFAWR_"
     )
 
     after_logout_url: HttpUrl = Field(
@@ -716,7 +714,6 @@ class Config(YamlBaseSettings):
     )
 
     database: CloudSqlConfig | DatabaseConfig = Field(
-        default_factory=DatabaseConfig,
         title="Cloud SQL",
         description="Configuration for a Cloud SQL database",
     )
@@ -929,6 +926,7 @@ class Config(YamlBaseSettings):
             ("ldap", "url"),
             ("firestore", "project"),
             ("oidcServer", "enabled"),
+            ("oidc_server", "enabled"),
             ("quota", "default"),
         ):
             if data.get(key) is not None and not data[key].get(needed):

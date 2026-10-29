@@ -20,7 +20,7 @@ from structlog.stdlib import BoundLogger
 
 from .config import Config
 from .factory import Factory
-from .models.database import CloudSqlSettings, DatabaseSettings
+from .models.database import CloudSqlConfig, DatabaseConfig
 from .schema import SchemaBase, Token
 
 __all__ = [
@@ -98,7 +98,7 @@ class CloudSqlEngineManager(EngineManager):
     """
 
     def __init__(
-        self, config: CloudSqlSettings, connect_args: dict[str, Any] | None
+        self, config: CloudSqlConfig, connect_args: dict[str, Any] | None
     ) -> None:
         super().__init__(connect_args)
         self._config = config
@@ -155,7 +155,7 @@ class DatabaseEngineManager(EngineManager):
     """
 
     def __init__(
-        self, config: DatabaseSettings, connect_args: dict[str, Any] | None
+        self, config: DatabaseConfig, connect_args: dict[str, Any] | None
     ) -> None:
         super().__init__(connect_args)
         self._config = config
@@ -170,7 +170,7 @@ class DatabaseEngineManager(EngineManager):
 
 
 def engine_manager(
-    config: CloudSqlSettings | DatabaseSettings,
+    config: CloudSqlConfig | DatabaseConfig,
     connect_args: dict[str, Any] | None = None,
 ) -> EngineManager:
     """Create a database engine manager.
@@ -188,9 +188,9 @@ def engine_manager(
         associated resources when the caller is finished with the engine.
     """
     match config:
-        case CloudSqlSettings():
+        case CloudSqlConfig():
             return CloudSqlEngineManager(config, connect_args)
-        case DatabaseSettings():
+        case DatabaseConfig():
             return DatabaseEngineManager(config, connect_args)
 
 
@@ -309,7 +309,7 @@ async def is_database_initialized(
 
 
 def run_migrations_online(
-    metadata: MetaData, config: CloudSqlSettings | DatabaseSettings
+    metadata: MetaData, config: CloudSqlConfig | DatabaseConfig
 ) -> None:
     """Run Alembic migrations online using an async backend.
 

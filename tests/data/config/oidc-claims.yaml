@@ -1,6 +1,7 @@
 # Use OpenID Connect as the provider and change the username claim.
 
 afterLogoutUrl: "https://example.com/landing"
+database: {}
 groupMapping:
   "exec:admin": ["admin"]
   "exec:test": ["test"]

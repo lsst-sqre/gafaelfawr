@@ -1,6 +1,7 @@
 # Use GitHub as the provider and configure quota limits.
 
 afterLogoutUrl: "https://example.com/landing"
+database: {}
 groupMapping:
   "exec:admin": ["admin"]
   "read:all":

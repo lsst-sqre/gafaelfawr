@@ -331,7 +331,7 @@ def test_update_schema(
         {"id": "other-id", "secret": "other", "return_uri": return_uri + "/a"},
     ]
     monkeypatch.setenv(
-        "GAFAELFAWR_OIDC_SERVER_CLIENTS", json.dumps(oidc_clients)
+        "GAFAELFAWR_OIDC_SERVER__CLIENTS", json.dumps(oidc_clients)
     )
 
     # Start with an empty database. This should produce exactly the same

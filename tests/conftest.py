@@ -144,12 +144,12 @@ def config(
     assert redis.password
 
     monkeypatch.setenv("GAFAELFAWR_BOOTSTRAP_TOKEN", str(Token()))
-    monkeypatch.setenv("GAFAELFAWR_DATABASE_PASSWORD", postgres.password)
-    monkeypatch.setenv("GAFAELFAWR_DATABASE_URL", postgres_url)
-    monkeypatch.setenv("GAFAELFAWR_CILOGON_CLIENT_SECRET", "oidc-secret")
-    monkeypatch.setenv("GAFAELFAWR_GITHUB_CLIENT_SECRET", "github-secret")
-    monkeypatch.setenv("GAFAELFAWR_OIDC_CLIENT_SECRET", "oidc-secret")
-    monkeypatch.setenv("GAFAELFAWR_OIDC_SERVER_KEY", oidc_server_key)
+    monkeypatch.setenv("GAFAELFAWR_DATABASE__PASSWORD", postgres.password)
+    monkeypatch.setenv("GAFAELFAWR_DATABASE__URL", postgres_url)
+    monkeypatch.setenv("GAFAELFAWR_CILOGON__CLIENT_SECRET", "oidc-secret")
+    monkeypatch.setenv("GAFAELFAWR_GITHUB__CLIENT_SECRET", "github-secret")
+    monkeypatch.setenv("GAFAELFAWR_OIDC__CLIENT_SECRET", "oidc-secret")
+    monkeypatch.setenv("GAFAELFAWR_OIDC_SERVER__KEY", oidc_server_key)
     monkeypatch.setenv("GAFAELFAWR_REDIS_EPHEMERAL_URL", redis_ephemeral_url)
     monkeypatch.setenv("GAFAELFAWR_REDIS_PASSWORD", redis.password)
     monkeypatch.setenv("GAFAELFAWR_REDIS_PERSISTENT_URL", redis_persistent_url)
