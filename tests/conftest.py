@@ -158,7 +158,9 @@ def config(
 
     config_path = data.path(f"config/{request.param}.yaml")
     config_dependency.set_config_path(config_path)
-    return config_dependency.config()
+    config = config_dependency.config()
+    config.configure_logging()
+    return config
 
 
 @pytest.fixture

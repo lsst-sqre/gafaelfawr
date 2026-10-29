@@ -205,6 +205,7 @@ def init(*, config_path: Path | None, alembic_config_path: Path) -> None:
     if config_path:
         config_dependency.set_config_path(config_path)
     config = config_dependency.config()
+    config.configure_logging()
     logger = structlog.get_logger("gafaelfawr")
     logger.debug("Initializing database")
     asyncio.run(initialize_gafaelfawr_database(config, logger))
@@ -315,6 +316,7 @@ def update_schema(
     else:
         env = None
     config = config_dependency.config()
+    config.configure_logging()
     logger = structlog.get_logger("gafaelfawr")
     if not asyncio.run(is_database_initialized(config, logger)):
         logger.debug("Initializing database")
@@ -351,6 +353,7 @@ async def validate_schema(*, config_path: Path | None) -> None:
     if config_path:
         config_dependency.set_config_path(config_path)
     config = config_dependency.config()
+    config.configure_logging()
     logger = structlog.get_logger("gafaelfawr")
 
     async with engine_manager(config.database) as engine:

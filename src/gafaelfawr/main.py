@@ -142,6 +142,7 @@ def create_app(
     config = None
     if load_config:
         config = config_dependency.config()
+        config.configure_logging()
         configure_uvicorn_logging()
 
     # Install the middleware.

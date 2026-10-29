@@ -50,6 +50,7 @@ async def startup(
     settings.queueing.worker_limit = 5
 
     config = await config_dependency()
+    config.configure_logging()
     await initialize_kubernetes()
     context = await ProcessContext.from_config(config)
 
