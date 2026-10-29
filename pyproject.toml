@@ -227,3 +227,4 @@ required-environments = [
 
 [tool.uv.sources]
 rubin-gafaelfawr = { path = "client", editable = true }
+safir = { git = "https://github.com/lsst-sqre/safir", branch = "t/DM-56861" }
