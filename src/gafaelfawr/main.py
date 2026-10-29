@@ -1,7 +1,7 @@
 """Application definition for Gafaelfawr."""
 
 import json
-from collections.abc import AsyncGenerator, Awaitable, Callable
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from importlib.metadata import version
 
@@ -33,7 +33,6 @@ __all__ = ["create_app"]
 def create_app(
     *,
     load_config: bool = True,
-    extra_startup: Callable[[FastAPI], Awaitable[None]] | None = None,
     validate_schema: bool = True,
 ) -> FastAPI:
     """Create the FastAPI application.
@@ -50,9 +49,6 @@ def create_app(
         set of proxy IP addresses. This is used primarily for OpenAPI
         schema generation, where constructing the app is required but the
         configuration won't matter.
-    extra_startup
-        If provided, an additional coroutine to run as part of the startup
-        section of the lifespan context manager, used by the test suite.
     validate_schema
         If set to `True`, verify, with Alembic, that the schema is up to date
         and raise `~gafaelfawr.exceptions.DatabaseSchemaError` if it is not.
@@ -84,8 +80,6 @@ def create_app(
         await db_session_dependency.initialize(
             config.database_url, config.database_password
         )
-        if extra_startup:
-            await extra_startup(app)
 
         yield
 
