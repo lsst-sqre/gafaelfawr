@@ -17,6 +17,9 @@ Python internal API
 .. automodapi:: gafaelfawr.constants
    :include-all-objects:
 
+.. automodapi:: gafaelfawr.database
+   :include-all-objects:
+
 .. automodapi:: gafaelfawr.dependencies.auth
    :include-all-objects:
 
@@ -47,6 +50,9 @@ Python internal API
 .. automodapi:: gafaelfawr.models.auth
    :include-all-objects:
 
+.. automodapi:: gafaelfawr.models.database
+   :include-all-objects:
+
 .. automodapi:: gafaelfawr.models.enums
    :include-all-objects:
 
@@ -60,6 +66,9 @@ Python internal API
    :include-all-objects:
 
 .. automodapi:: gafaelfawr.models.oidc
+   :include-all-objects:
+
+.. automodapi:: gafaelfawr.models.quota
    :include-all-objects:
 
 .. automodapi:: gafaelfawr.models.state

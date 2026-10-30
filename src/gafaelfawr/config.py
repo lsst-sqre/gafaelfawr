@@ -5,12 +5,6 @@ contains a copy of the ``config`` key of the Helm chart values. However, many
 settings are based on Phalanx global settings or secrets, and those are
 injected via environment variables.
 
-Every part of the configuration that accepts environment variables uses the
-same prefix for simplicity in the Helm chart. Only the settings with explicit
-``validation_alias`` settings support configuration via environment variable.
-There is unfortunately no way to disable environment variable support for the
-other settings that should always come from the configuration file.
-
 Order of fields in the configuration models should match the order of the
 fields in Gafaelfawr's :file:`values.yaml` file, although there will be more
 settings here since some settings are only injected via environment variables
@@ -21,12 +15,9 @@ import re
 from collections import defaultdict
 from datetime import timedelta
 from ipaddress import IPv4Network, IPv6Network
-from pathlib import Path
 from typing import Annotated, Any, NotRequired, Self, TypedDict, override
 
-import yaml
 from pydantic import (
-    AliasChoices,
     AliasGenerator,
     BaseModel,
     ConfigDict,
@@ -40,18 +31,15 @@ from pydantic import (
 )
 from pydantic.alias_generators import to_camel
 from pydantic_core import Url
-from pydantic_settings import (
-    BaseSettings,
-    PydanticBaseSettingsSource,
-    SettingsConfigDict,
-)
+from pydantic_settings import SettingsConfigDict
 from safir.logging import LogLevel, configure_logging
 from safir.metrics import MetricsConfiguration
-from safir.pydantic import EnvAsyncPostgresDsn, EnvRedisDsn, HumanTimedelta
+from safir.pydantic import EnvRedisDsn, HumanTimedelta, YamlBaseSettings
 
 from .constants import MINIMUM_LIFETIME, SCOPE_REGEX
 from .exceptions import InvalidTokenError
 from .keypair import RSAKeyPair
+from .models.database import CloudSqlConfig, DatabaseConfig
 from .models.quota import QuotaConfig
 from .models.token import Token
 from .util import group_name_for_github_team
@@ -70,10 +58,10 @@ LdapDsn = Annotated[
 """DSN for connecting to an LDAP server."""
 
 __all__ = [
-    "CamelCaseSettings",
+    "CILogonConfig",
+    "CamelCaseConfig",
     "Config",
     "CookieParameters",
-    "EnvFirstSettings",
     "FirestoreConfig",
     "GitHubConfig",
     "GitHubGroup",
@@ -84,57 +72,21 @@ __all__ = [
     "OIDCConfig",
     "OIDCServerConfig",
     "QuotaConfig",
+    "SentryConfig",
 ]
 
 
-class CamelCaseSettings(BaseSettings):
-    """Base class for Pydantic settings supporting camel-case.
+class CamelCaseConfig(BaseModel):
+    """Base class to accept camel-case configuration settings."""
 
-    This base class also forbids all extra attributes. It should be used as
-    the base class (possibly indirectly) for all Gafaelfawr configuration
-    models that support environment variable overrides.
-    """
-
-    model_config = SettingsConfigDict(
+    model_config = ConfigDict(
         alias_generator=AliasGenerator(validation_alias=to_camel),
         extra="forbid",
         validate_by_name=True,
     )
 
 
-class EnvFirstSettings(CamelCaseSettings):
-    """Base class for Pydantic settings with environment overrides.
-
-    Classes that inherit from this base class will prioritize environment
-    variables over arguments to the class constructor.
-    """
-
-    @override
-    @classmethod
-    def settings_customise_sources(
-        cls,
-        settings_cls: type[BaseSettings],
-        init_settings: PydanticBaseSettingsSource,
-        env_settings: PydanticBaseSettingsSource,
-        dotenv_settings: PydanticBaseSettingsSource,
-        file_secret_settings: PydanticBaseSettingsSource,
-    ) -> tuple[PydanticBaseSettingsSource, ...]:
-        """Override the sources of settings.
-
-        Deactivate :file:`.env` and secret file support, since Phalanx doesn't
-        use them. Allow environment variables to override init parameters,
-        since init parameters come from the YAML configuration file and we
-        want environment variables to take precedent.
-
-        Ideally, this code would use Pydantic's ``YamlConfigSettingsSource``,
-        but unfortunately it currently doesn't support overriding the path to
-        the configuration file dynamically, which is required by the test
-        suite.
-        """
-        return (env_settings, init_settings)
-
-
-class GitHubConfig(EnvFirstSettings):
+class GitHubConfig(CamelCaseConfig):
     """Configuration for the GitHub authentication provider."""
 
     client_id: str = Field(
@@ -147,13 +99,10 @@ class GitHubConfig(EnvFirstSettings):
         ...,
         title="GitHub client secret",
         description="Secret for the GitHub OAuth App",
-        validation_alias=AliasChoices(
-            "GAFAELFAWR_GITHUB_CLIENT_SECRET", "clientSecret"
-        ),
     )
 
 
-class OIDCConfig(EnvFirstSettings):
+class OIDCConfig(CamelCaseConfig):
     """Configuration for a generic OpenID Connect authentication provider."""
 
     client_id: str = Field(
@@ -166,9 +115,6 @@ class OIDCConfig(EnvFirstSettings):
         ...,
         title="OpenID Connect client secret",
         description="Secret for talking to the OpenID Connect provider",
-        validation_alias=AliasChoices(
-            "GAFAELFAWR_OIDC_CLIENT_SECRET", "clientSecret"
-        ),
     )
 
     # This must come after client_id due to its custom validator.
@@ -200,9 +146,6 @@ class OIDCConfig(EnvFirstSettings):
             "Where the user should be sent after authentication. This must"
             " match the URL registered with CILogon. It should be the full"
             " URL of the ``/login`` route."
-        ),
-        validation_alias=AliasChoices(
-            "GAFAELFAWR_REDIRECT_URL", "redirectUrl"
         ),
     )
 
@@ -255,7 +198,7 @@ class OIDCConfig(EnvFirstSettings):
         return v
 
 
-class CILogonConfig(EnvFirstSettings):
+class CILogonConfig(CamelCaseConfig):
     """Configuration for the CILogon authentication provider."""
 
     client_id: str = Field(
@@ -268,9 +211,6 @@ class CILogonConfig(EnvFirstSettings):
         ...,
         title="CILogon client secret",
         description="Secret for talking to CILogon",
-        validation_alias=AliasChoices(
-            "GAFAELFAWR_CILOGON_CLIENT_SECRET", "clientSecret"
-        ),
     )
 
     enrollment_url: HttpUrl | None = Field(
@@ -307,9 +247,6 @@ class CILogonConfig(EnvFirstSettings):
             " match the URL registered with CILogon. It should be the full"
             " URL of the ``/login`` route."
         ),
-        validation_alias=AliasChoices(
-            "GAFAELFAWR_REDIRECT_URL", "redirectUrl"
-        ),
     )
 
     username_claim: str = Field(
@@ -335,10 +272,6 @@ class CILogonConfig(EnvFirstSettings):
         """
         host = "test.cilogon.org" if self.test else "cilogon.org"
         base_url = f"https://{host}"
-
-        # Do not include redirect_url here, since the OIDCConfig model will
-        # pull it from the environment and complain about extra inputs if it's
-        # also specified in the constructor.
         return OIDCConfig.model_validate(
             {
                 "audience": self.client_id,
@@ -349,13 +282,14 @@ class CILogonConfig(EnvFirstSettings):
                 "login_params": self.login_params,
                 "token_url": f"{base_url}/oauth2/token",
                 "issuer": base_url,
+                "redirect_url": self.redirect_url,
                 "scopes": ["email", "org.cilogon.userinfo"],
                 "username_claim": self.username_claim,
             }
         )
 
 
-class LDAPConfig(EnvFirstSettings):
+class LDAPConfig(CamelCaseConfig):
     """Configuration for LDAP support.
 
     In all known implementations, ``gidNumber`` holds the numeric GID of the
@@ -388,7 +322,6 @@ class LDAPConfig(EnvFirstSettings):
             "Password for simple bind authentication to the LDAP server."
             " Only used if ``user_dn`` is set."
         ),
-        validation_alias="GAFAELFAWR_LDAP_PASSWORD",
     )
 
     kerberos_config: str | None = Field(
@@ -563,14 +496,8 @@ class LDAPConfig(EnvFirstSettings):
         return self
 
 
-class FirestoreConfig(BaseModel):
+class FirestoreConfig(CamelCaseConfig):
     """Configuration for Firestore-based UID/GID assignment."""
-
-    model_config = ConfigDict(
-        alias_generator=AliasGenerator(validation_alias=to_camel),
-        extra="forbid",
-        validate_by_name=True,
-    )
 
     project: str = Field(
         ...,
@@ -607,7 +534,7 @@ class OIDCClientConfig(BaseModel):
     )
 
 
-class OIDCServerConfig(EnvFirstSettings):
+class OIDCServerConfig(CamelCaseConfig):
     """Configuration for the OpenID Connect server."""
 
     enabled: bool = Field(
@@ -623,23 +550,18 @@ class OIDCServerConfig(EnvFirstSettings):
             "Suffix to add to a random string when generating OpenID Connect"
             " client IDs"
         ),
-        validation_alias=AliasChoices(
-            "GAFAELFAWR_OIDC_SERVER_CLIENT_SUFFIX", "clientSuffix"
-        ),
     )
 
     issuer: HttpsUrl = Field(
         ...,
         title="Token issuer",
         description="Issuer (``iss``) claim in issued JWT tokens",
-        validation_alias="GAFAELFAWR_OIDC_SERVER_ISSUER",
     )
 
     key: SecretStr = Field(
         ...,
         title="RSA private key",
         description="RSA private key used to sign issued JWTs",
-        validation_alias="GAFAELFAWR_OIDC_SERVER_KEY",
     )
 
     key_id: str = Field(
@@ -664,7 +586,6 @@ class OIDCServerConfig(EnvFirstSettings):
             " supported to populate the client list as part of a schema"
             " migration."
         ),
-        validation_alias="GAFAELFAWR_OIDC_SERVER_CLIENTS",
     )
 
     data_rights_mapping: dict[str, list[str]] = Field(
@@ -693,10 +614,8 @@ class OIDCServerConfig(EnvFirstSettings):
         return self._keypair
 
 
-class GitHubGroupTeam(BaseModel):
+class GitHubGroupTeam(CamelCaseConfig):
     """Specification for a GitHub team."""
-
-    model_config = ConfigDict(extra="forbid")
 
     organization: str = Field(..., title="Name of the organization")
 
@@ -707,10 +626,8 @@ class GitHubGroupTeam(BaseModel):
         return group_name_for_github_team(self.organization, self.team)
 
 
-class GitHubGroup(BaseModel):
+class GitHubGroup(CamelCaseConfig):
     """An individual GitHub team."""
-
-    model_config = ConfigDict(extra="forbid")
 
     github: GitHubGroupTeam = Field(..., title="Details of the GitHub team")
 
@@ -727,7 +644,7 @@ class CookieParameters(TypedDict):
     secure: bool
 
 
-class SentryConfig(CamelCaseSettings):
+class SentryConfig(CamelCaseConfig):
     """Sentry configuration for Gafaelfawr.
 
     This configuration is not used internally, but has to be present in the
@@ -746,16 +663,17 @@ class SentryConfig(CamelCaseSettings):
     )
 
 
-class Config(EnvFirstSettings):
+class Config(YamlBaseSettings):
     """Configuration for Gafaelfawr."""
+
+    model_config = SettingsConfigDict(
+        env_nested_delimiter="__", env_prefix="GAFAELFAWR_"
+    )
 
     after_logout_url: HttpUrl = Field(
         ...,
         title="Destination URL after logout",
         description="Default URL to which to send the user after logging out",
-        validation_alias=AliasChoices(
-            "GAFAELFAWR_AFTER_LOGOUT_URL", "afterLogoutUrl"
-        ),
     )
 
     allow_subdomains: bool = Field(
@@ -775,7 +693,6 @@ class Config(EnvFirstSettings):
         ...,
         title="Base URL",
         description="Base URL for user-facing routes such as ``/login``",
-        validation_alias=AliasChoices("GAFAELFAWR_BASE_URL", "baseUrl"),
     )
 
     base_internal_url: HttpUrl = Field(
@@ -783,9 +700,6 @@ class Config(EnvFirstSettings):
         title="Internal base URL",
         description=(
             "Base URL for internal-only routes such as ``/ingress/auth``"
-        ),
-        validation_alias=AliasChoices(
-            "GAFAELFAWR_BASE_INTERNAL_URL", "baseInternalUrl"
         ),
     )
 
@@ -797,27 +711,11 @@ class Config(EnvFirstSettings):
             " can be used with specific routes in the admin API to change the"
             " list of admins and create service and user tokens."
         ),
-        validation_alias=AliasChoices(
-            "GAFAELFAWR_BOOTSTRAP_TOKEN", "bootstrapToken"
-        ),
     )
 
-    database_url: EnvAsyncPostgresDsn = Field(
-        ...,
-        title="Database DSN",
-        description="DSN for the PostgreSQL database",
-        validation_alias=AliasChoices(
-            "GAFAELFAWR_DATABASE_URL", "databaseUrl"
-        ),
-    )
-
-    database_password: SecretStr = Field(
-        ...,
-        title="Database password",
-        description="Password for the PostgreSQL database",
-        validation_alias=AliasChoices(
-            "GAFAELFAWR_DATABASE_PASSWORD", "databasePassword"
-        ),
+    database: CloudSqlConfig | DatabaseConfig = Field(
+        title="Cloud SQL",
+        description="Configuration for a Cloud SQL database",
     )
 
     error_footer: str | None = Field(
@@ -865,27 +763,18 @@ class Config(EnvFirstSettings):
         ...,
         title="Ephemeral Redis DSN",
         description="DSN for the Redis server that stores ephemeral data",
-        validation_alias=AliasChoices(
-            "GAFAELFAWR_REDIS_EPHEMERAL_URL", "redisEphemeralUrl"
-        ),
     )
 
     redis_persistent_url: EnvRedisDsn = Field(
         ...,
         title="Persistent Redis DSN",
         description="DSN for the Redis server that stores tokens",
-        validation_alias=AliasChoices(
-            "GAFAELFAWR_REDIS_PERSISTENT_URL", "redisPersistentUrl"
-        ),
     )
 
     redis_password: SecretStr | None = Field(
         None,
         title="Redis password",
         description="Password for both Redis servers",
-        validation_alias=AliasChoices(
-            "GAFAELFAWR_REDIS_PASSWORD", "redisPassword"
-        ),
     )
 
     sentry: SentryConfig | None = Field(None, title="Sentry configuration")
@@ -894,16 +783,13 @@ class Config(EnvFirstSettings):
         ...,
         title="Session encryption key",
         description="Fernet encryption key used for session cookie and store",
-        validation_alias=AliasChoices(
-            "GAFAELFAWR_SESSION_SECRET", "sessionSecret"
-        ),
     )
 
     slack_alerts: bool = Field(
         False,
         title="Enable Slack alerts",
         description=(
-            "Whether to enable Slack alerts. If true, ``slack_webhook`` must"
+            "Whether to enable Slack alerts. If true, slack_webhook must"
             " also be set."
         ),
     )
@@ -912,9 +798,6 @@ class Config(EnvFirstSettings):
         None,
         title="Slack webhook for alerts",
         description="If set, alerts will be posted to this Slack webhook",
-        validation_alias=AliasChoices(
-            "GAFAELFAWR_SLACK_WEBHOOK", "slackWebhook"
-        ),
     )
 
     token_lifetime: HumanTimedelta = Field(
@@ -1043,6 +926,7 @@ class Config(EnvFirstSettings):
             ("ldap", "url"),
             ("firestore", "project"),
             ("oidcServer", "enabled"),
+            ("oidc_server", "enabled"),
             ("quota", "default"),
         ):
             if data.get(key) is not None and not data[key].get(needed):
@@ -1088,38 +972,6 @@ class Config(EnvFirstSettings):
                 raise ValueError(msg)
 
         return self
-
-    @classmethod
-    def from_file(cls, path: Path) -> Self:
-        """Construct a Config object from a configuration file.
-
-        Parameters
-        ----------
-        path
-            Path to the configuration file in YAML.
-
-        Returns
-        -------
-        Config
-            The corresponding `Config` object.
-        """
-        with path.open("r") as f:
-            data = yaml.safe_load(f)
-
-        # Helm may also contain `None` values for settings that are overridden
-        # by environment variables. Pydantic validates those first before
-        # realizing they are overridden, and therefore may reject valid
-        # configurations. Remove those before further processing.
-        for key in ("afterLogoutUrl", "baseInternalUrl", "databaseUrl"):
-            if key in data and data[key] is None:
-                del data[key]
-        if "oidcServer" in data:
-            oidc_data = data["oidcServer"]
-            for key in ("clientSuffix", "issuer"):
-                if key in oidc_data and oidc_data[key] is None:
-                    del oidc_data[key]
-
-        return cls.model_validate(data)
 
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)

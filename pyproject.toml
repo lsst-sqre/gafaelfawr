@@ -25,6 +25,7 @@ dependencies = [
     "bonsai>=1.5.0",
     "cachetools",
     "click>8.1.4",
+    "cloud-sql-python-connector[asyncpg]>=1",
     "cryptography",
     "fastapi>=0.100",
     "google-api-core",
@@ -226,3 +227,4 @@ required-environments = [
 
 [tool.uv.sources]
 rubin-gafaelfawr = { path = "client", editable = true }
+safir = { git = "https://github.com/lsst-sqre/safir", branch = "t/DM-56861" }

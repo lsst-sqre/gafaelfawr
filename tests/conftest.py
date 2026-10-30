@@ -12,7 +12,7 @@ from asgi_lifespan import LifespanManager
 from cryptography.fernet import Fernet
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from safir.database import create_database_engine, stamp_database_async
+from safir.database import stamp_database_async
 from safir.testing.data import Data
 from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -20,7 +20,7 @@ from testcontainers.community.postgres import PostgresContainer
 from testcontainers.community.redis import RedisContainer
 
 from gafaelfawr.config import Config
-from gafaelfawr.database import initialize_gafaelfawr_database
+from gafaelfawr.database import engine_manager, initialize_gafaelfawr_database
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.factory import Factory
 from gafaelfawr.keypair import RSAKeyPair
@@ -144,12 +144,12 @@ def config(
     assert redis.password
 
     monkeypatch.setenv("GAFAELFAWR_BOOTSTRAP_TOKEN", str(Token()))
-    monkeypatch.setenv("GAFAELFAWR_DATABASE_PASSWORD", postgres.password)
-    monkeypatch.setenv("GAFAELFAWR_DATABASE_URL", postgres_url)
-    monkeypatch.setenv("GAFAELFAWR_CILOGON_CLIENT_SECRET", "oidc-secret")
-    monkeypatch.setenv("GAFAELFAWR_GITHUB_CLIENT_SECRET", "github-secret")
-    monkeypatch.setenv("GAFAELFAWR_OIDC_CLIENT_SECRET", "oidc-secret")
-    monkeypatch.setenv("GAFAELFAWR_OIDC_SERVER_KEY", oidc_server_key)
+    monkeypatch.setenv("GAFAELFAWR_DATABASE__PASSWORD", postgres.password)
+    monkeypatch.setenv("GAFAELFAWR_DATABASE__URL", postgres_url)
+    monkeypatch.setenv("GAFAELFAWR_CILOGON__CLIENT_SECRET", "oidc-secret")
+    monkeypatch.setenv("GAFAELFAWR_GITHUB__CLIENT_SECRET", "github-secret")
+    monkeypatch.setenv("GAFAELFAWR_OIDC__CLIENT_SECRET", "oidc-secret")
+    monkeypatch.setenv("GAFAELFAWR_OIDC_SERVER__KEY", oidc_server_key)
     monkeypatch.setenv("GAFAELFAWR_REDIS_EPHEMERAL_URL", redis_ephemeral_url)
     monkeypatch.setenv("GAFAELFAWR_REDIS_PASSWORD", redis.password)
     monkeypatch.setenv("GAFAELFAWR_REDIS_PERSISTENT_URL", redis_persistent_url)
@@ -158,7 +158,9 @@ def config(
 
     config_path = data.path(f"config/{request.param}.yaml")
     config_dependency.set_config_path(config_path)
-    return config_dependency.config()
+    config = config_dependency.config()
+    config.configure_logging()
+    return config
 
 
 @pytest.fixture
@@ -189,11 +191,8 @@ async def engine(config: Config) -> AsyncIterator[AsyncEngine]:
     pytest-asyncio was upgraded from 0.21.1 to 0.23.2 and the maintenance
     burden doesn't seem worth it.
     """
-    engine = create_database_engine(
-        config.database_url, config.database_password
-    )
-    yield engine
-    await engine.dispose()
+    async with engine_manager(config.database) as engine:
+        yield engine
 
 
 @pytest_asyncio.fixture

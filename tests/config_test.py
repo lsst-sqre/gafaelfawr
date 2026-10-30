@@ -18,9 +18,9 @@ def _environment(monkeypatch: pytest.MonkeyPatch) -> None:
     postgres_url = "postgresql://gafaelfawr@localhost/gafaelfawr"
     redis_persistent_url = "redis://localhost/0"
     monkeypatch.setenv("GAFAELFAWR_BOOTSTRAP_TOKEN", str(Token()))
-    monkeypatch.setenv("GAFAELFAWR_DATABASE_PASSWORD", "password")
-    monkeypatch.setenv("GAFAELFAWR_DATABASE_URL", postgres_url)
-    monkeypatch.setenv("GAFAELFAWR_GITHUB_CLIENT_SECRET", "github-secret")
+    monkeypatch.setenv("GAFAELFAWR_DATABASE__PASSWORD", "password")
+    monkeypatch.setenv("GAFAELFAWR_DATABASE__URL", postgres_url)
+    monkeypatch.setenv("GAFAELFAWR_GITHUB__CLIENT_SECRET", "github-secret")
     monkeypatch.setenv("GAFAELFAWR_REDIS_EPHEMERAL_URL", "redis://localhost/1")
     monkeypatch.setenv("GAFAELFAWR_REDIS_PASSWORD", "password")
     monkeypatch.setenv("GAFAELFAWR_REDIS_PERSISTENT_URL", redis_persistent_url)
@@ -50,7 +50,7 @@ def test_config_alembic(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("GAFAELFAWR_BASE_URL")
     monkeypatch.delenv("GAFAELFAWR_BASE_INTERNAL_URL")
     monkeypatch.delenv("GAFAELFAWR_BOOTSTRAP_TOKEN")
-    monkeypatch.delenv("GAFAELFAWR_GITHUB_CLIENT_SECRET")
+    monkeypatch.delenv("GAFAELFAWR_GITHUB__CLIENT_SECRET")
     monkeypatch.delenv("GAFAELFAWR_SESSION_SECRET")
     path = Path(__file__).parent.parent / "alembic" / "gafaelfawr.yaml"
     Config.from_file(path)
@@ -64,7 +64,7 @@ def test_config_no_provider(data: Data) -> None:
 def test_config_both_providers(
     data: Data, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("GAFAELFAWR_OIDC_CLIENT_SECRET", "oidc-secret")
+    monkeypatch.setenv("GAFAELFAWR_OIDC__CLIENT_SECRET", "oidc-secret")
     with pytest.raises(ValidationError, match=r"Only one of .* may be used"):
         Config.from_file(config_path(data, "both-providers"))
 
@@ -108,8 +108,10 @@ def test_config_scope_mismatch(data: Data) -> None:
 
 
 def test_config_cilogon(data: Data, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("GAFAELFAWR_CILOGON_CLIENT_SECRET", "some-secret")
-    monkeypatch.setenv("GAFAELFAWR_REDIRECT_URL", "https://example.com/login")
+    monkeypatch.setenv("GAFAELFAWR_CILOGON__CLIENT_SECRET", "some-secret")
+    monkeypatch.setenv(
+        "GAFAELFAWR_CILOGON__REDIRECT_URL", "https://example.com/login"
+    )
     config = Config.from_file(config_path(data, "cilogon"))
     assert config.oidc == OIDCConfig.model_validate(
         {
@@ -120,6 +122,7 @@ def test_config_cilogon(data: Data, monkeypatch: pytest.MonkeyPatch) -> None:
             "login_params": {},
             "token_url": "https://cilogon.org/oauth2/token",
             "issuer": "https://cilogon.org",
+            "redirect_url": "https://example.com/login",
             "scopes": ["email", "org.cilogon.userinfo"],
             "username_claim": "username",
         }
@@ -130,8 +133,10 @@ def test_config_cilogon(data: Data, monkeypatch: pytest.MonkeyPatch) -> None:
 def test_config_cilogon_test(
     data: Data, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("GAFAELFAWR_CILOGON_CLIENT_SECRET", "some-secret")
-    monkeypatch.setenv("GAFAELFAWR_REDIRECT_URL", "https://example.com/login")
+    monkeypatch.setenv("GAFAELFAWR_CILOGON__CLIENT_SECRET", "some-secret")
+    monkeypatch.setenv(
+        "GAFAELFAWR_CILOGON__REDIRECT_URL", "https://example.com/login"
+    )
     config = Config.from_file(config_path(data, "cilogon-test"))
     assert config.oidc == OIDCConfig.model_validate(
         {
@@ -143,6 +148,7 @@ def test_config_cilogon_test(
             "login_params": {},
             "token_url": "https://test.cilogon.org/oauth2/token",
             "issuer": "https://test.cilogon.org",
+            "redirect_url": "https://example.com/login",
             "scopes": ["email", "org.cilogon.userinfo"],
             "username_claim": "username",
         }

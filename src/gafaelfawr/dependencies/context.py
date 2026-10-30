@@ -11,7 +11,6 @@ from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, Request
 from limits.aio.strategies import RateLimiter
-from safir.dependencies.db_session import db_session_dependency
 from safir.dependencies.logger import logger_dependency
 from safir.metrics import EventManager
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +20,7 @@ from ..config import Config
 from ..events import FrontendEvents
 from ..factory import Factory, ProcessContext
 from ..models.state import State
+from .db_session import db_session_dependency
 
 __all__ = [
     "ContextDependency",

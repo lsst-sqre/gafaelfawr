@@ -1,6 +1,7 @@
 # Use OpenID Connect with an issuer that uses a subdomain and URL path.
 
 afterLogoutUrl: "https://example.com/landing"
+database: {}
 groupMapping:
   "exec:admin": ["admin"]
   "exec:test": ["test"]
