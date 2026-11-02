@@ -70,6 +70,7 @@ LdapDsn = Annotated[
 """DSN for connecting to an LDAP server."""
 
 __all__ = [
+    "CILogonConfig",
     "CamelCaseSettings",
     "Config",
     "CookieParameters",
@@ -84,6 +85,7 @@ __all__ = [
     "OIDCConfig",
     "OIDCServerConfig",
     "QuotaConfig",
+    "SentryConfig",
 ]
 
 

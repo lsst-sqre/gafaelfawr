@@ -62,6 +62,9 @@ Python internal API
 .. automodapi:: gafaelfawr.models.oidc
    :include-all-objects:
 
+.. automodapi:: gafaelfawr.models.quota
+   :include-all-objects:
+
 .. automodapi:: gafaelfawr.models.state
    :include-all-objects:
 
