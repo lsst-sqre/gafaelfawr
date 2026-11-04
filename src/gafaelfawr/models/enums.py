@@ -11,6 +11,7 @@ from enum import Enum
 
 __all__ = [
     "AdminChange",
+    "GitHubProjectChange",
     "TokenChange",
     "TokenType",
 ]
@@ -21,6 +22,14 @@ class AdminChange(Enum):
 
     add = "add"
     remove = "remove"
+
+
+class GitHubProjectChange(Enum):
+    """Type of change made to a GitHub project or project template."""
+
+    create = "create"
+    modify = "modify"
+    delete = "delete"
 
 
 class TokenChange(Enum):
@@ -60,3 +69,6 @@ class TokenType(Enum):
 
     oidc = "oidc"
     """Access token for an OpenID Connect client."""
+
+    github = "github"
+    """Token minted for a GitHub Actions workflow via OIDC token exchange."""

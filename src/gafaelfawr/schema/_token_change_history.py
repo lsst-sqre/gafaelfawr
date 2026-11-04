@@ -2,12 +2,11 @@
 
 from datetime import datetime
 
-from sqlalchemy import Index, Text
-from sqlalchemy.dialects import postgresql
+from sqlalchemy import Index, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..models.enums import TokenChange, TokenType
-from ._base import SchemaBase
+from ._base import INET_TYPE, SchemaBase
 
 __all__ = ["TokenChangeHistory"]
 
@@ -31,15 +30,21 @@ class TokenChangeHistory(SchemaBase):
     old_token_name: Mapped[str | None]
     old_scopes: Mapped[str | None]
     old_expires: Mapped[datetime | None]
-    ip_address: Mapped[str | None] = mapped_column(
-        Text().with_variant(postgresql.INET, "postgresql")
-    )
+    ip_address: Mapped[str | None] = mapped_column(INET_TYPE)
     event_time: Mapped[datetime]
+    github_project_id: Mapped[int | None]
 
     __table_args__ = (
         Index("token_change_history_by_time", "event_time", "id"),
         Index("token_change_history_by_token", "token", "event_time", "id"),
         Index(
             "token_change_history_by_username", "username", "event_time", "id"
+        ),
+        Index(
+            "token_change_history_by_github_project",
+            "github_project_id",
+            "event_time",
+            "id",
+            postgresql_where=text("github_project_id IS NOT NULL"),
         ),
     )
