@@ -110,7 +110,10 @@ async def is_database_initialized(
             config.database_url, config.database_password
         )
         engine_created = True
-    statement = select(Token).limit(1)
+    # Select only the primary key rather than the full ORM model so that
+    # an old schema missing columns added later is still detected as
+    # initialized (but out of date) rather than as uninitialized.
+    statement = select(Token.token).limit(1)
     try:
         for _ in range(5):
             try:
