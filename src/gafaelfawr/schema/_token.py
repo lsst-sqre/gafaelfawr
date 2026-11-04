@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import Index, Text, UniqueConstraint
+from sqlalchemy import Index, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..models.enums import TokenType
@@ -25,8 +25,14 @@ class Token(SchemaBase):
     created: Mapped[datetime]
     last_used: Mapped[datetime | None]
     expires: Mapped[datetime | None]
+    github_project_id: Mapped[int | None]
 
     __table_args__ = (
         UniqueConstraint("username", "token_name"),
         Index("token_by_username", "username", "token_type"),
+        Index(
+            "token_by_github_project",
+            "github_project_id",
+            postgresql_where=text("github_project_id IS NOT NULL"),
+        ),
     )
