@@ -15,6 +15,7 @@ While there is nothing intrinsic in Gafaelfawr that would prevent it from workin
    quotas
    service-tokens
    openid-connect
+   github-actions
    gms
 
 .. toctree::
