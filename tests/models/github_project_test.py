@@ -83,6 +83,68 @@ def test_create_validation() -> None:
         )
 
 
+def test_workflow_validation() -> None:
+    # Only a path relative to the repository root or a full path including
+    # the repository of a reusable workflow are accepted.
+    for workflow in (
+        ".github/workflows/docs.yaml",
+        "lsst-sqre/shared/.github/workflows/docs.yaml",
+        "LSST-SQRE/Shared.Repo/.github/workflows/docs.yml",
+    ):
+        create = GitHubProjectCreate(
+            repository="lsst-sqre/sqr-062", scopes=set(), workflow=workflow
+        )
+        assert create.workflow == workflow
+        update = GitHubProjectUpdate(workflow=workflow)
+        assert update.workflow == workflow
+        assert make_project(workflow=workflow).workflow == workflow
+
+    # Anything else could never match the path part of a job_workflow_ref
+    # claim, or would be mistaken for a reusable workflow elsewhere.
+    for workflow in (
+        "docs.yaml",
+        "workflows/docs.yaml",
+        "docs/ci/build.yaml",
+        ".github/workflows/",
+        ".github/workflows",
+        ".github/workflows/nested/docs.yaml",
+        ".github/docs.yaml",
+        "lsst-sqre/shared/docs.yaml",
+        "lsst-sqre/shared/.github/workflows/",
+        "-lsst/shared/.github/workflows/docs.yaml",
+        "lsst-sqre/shared/extra/.github/workflows/docs.yaml",
+        ".github/workflows/ci.yaml@refs/heads/main",
+        "lsst-sqre/shared/.github/workflows/docs.yaml@v1",
+    ):
+        with pytest.raises(ValidationError):
+            GitHubProjectCreate(
+                repository="lsst-sqre/sqr-062",
+                scopes=set(),
+                workflow=workflow,
+            )
+        with pytest.raises(ValidationError):
+            GitHubProjectUpdate(workflow=workflow)
+        with pytest.raises(ValidationError):
+            make_project(workflow=workflow)
+
+    # The accepted forms produce the full path of the job_workflow_ref
+    # claim, with only the repository part lowercased.
+    assert make_project().workflow_path is None
+    project = make_project(
+        "LSST-SQRE/SQR-062", workflow=".github/workflows/Docs.yaml"
+    )
+    assert (
+        project.workflow_path
+        == "lsst-sqre/sqr-062/.github/workflows/Docs.yaml"
+    )
+    project = make_project(
+        workflow="LSST-SQRE/Shared/.github/workflows/Docs.yaml"
+    )
+    assert (
+        project.workflow_path == "lsst-sqre/shared/.github/workflows/Docs.yaml"
+    )
+
+
 def test_update_validation() -> None:
     update = GitHubProjectUpdate(username=None, description="Some text")
     assert update.model_fields_set == {"username", "description"}

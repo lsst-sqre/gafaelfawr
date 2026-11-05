@@ -5,6 +5,7 @@ ID token to a bot username and a token policy. The registry of projects is
 the trust configuration of the GitHub Actions token exchange.
 """
 
+import re
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Self
 
@@ -97,13 +98,18 @@ _REPOSITORY_OWNER_ID = Field(
 _WORKFLOW = Field(
     title="Workflow",
     description=(
-        "Workflow file path, either relative to the repository root or a"
-        " full ``owner/repo/.github/workflows/file.yaml`` path for a"
-        " reusable workflow in another repository, compared against the path"
-        " part of the ``job_workflow_ref`` claim. Matches any workflow if"
-        " unset."
+        "Workflow file, compared against the path part of the"
+        " ``job_workflow_ref`` claim. Either ``.github/workflows/<file>``"
+        " for a workflow in the project repository or"
+        " ``<owner>/<repo>/.github/workflows/<file>`` for a reusable"
+        " workflow in another repository. No other forms are accepted, and"
+        " a ref suffix such as ``@refs/heads/main`` is not allowed. Matches"
+        " any workflow if unset."
     ),
-    examples=[".github/workflows/docs.yaml"],
+    examples=[
+        ".github/workflows/docs.yaml",
+        "lsst-sqre/shared/.github/workflows/docs.yaml",
+    ],
     min_length=1,
 )
 
@@ -176,12 +182,67 @@ _ENABLED = Field(
 )
 
 
+_WORKFLOWS_DIR = ".github/workflows/"
+"""Directory, relative to the repository root, that holds workflows."""
+
+
 def _validate_workflow(v: str | None) -> str | None:
-    """Reject workflow values that could never match a token."""
-    if v is not None and "@" in v:
+    """Require a workflow constraint to be one of the two accepted forms.
+
+    The path part of the ``job_workflow_ref`` claim is always
+    ``<owner>/<repo>/.github/workflows/<file>``, so a constraint must be
+    either ``.github/workflows/<file>``, which is taken relative to the
+    project repository, or that full path for a reusable workflow in
+    another repository. Anything else could never match a token, and some
+    other forms would be mistaken for a reusable workflow in a different
+    repository and so escape the overlap check.
+    """
+    if v is None:
+        return v
+    if "@" in v:
         msg = "workflow must be a file path without a ref"
         raise ValueError(msg)
+    repository, path = _split_workflow(v)
+    if repository is not None and not re.fullmatch(
+        GITHUB_REPOSITORY_REGEX, repository
+    ):
+        msg = _invalid_workflow_message(v)
+        raise ValueError(msg)
+    file = path.removeprefix(_WORKFLOWS_DIR)
+    if file == path or not file or "/" in file:
+        msg = _invalid_workflow_message(v)
+        raise ValueError(msg)
     return v
+
+
+def _invalid_workflow_message(workflow: str) -> str:
+    """Build the error message for a workflow not in an accepted form."""
+    return (
+        f"workflow must be {_WORKFLOWS_DIR}<file> or"
+        f" <owner>/<repo>/{_WORKFLOWS_DIR}<file>, not {workflow!r}"
+    )
+
+
+def _split_workflow(workflow: str) -> tuple[str | None, str]:
+    """Split a workflow constraint into its repository and path parts.
+
+    Parameters
+    ----------
+    workflow
+        Workflow constraint. Need not be valid.
+
+    Returns
+    -------
+    tuple
+        The ``owner/repo`` part of the workflow, or `None` if the workflow
+        is relative to the project repository, and the path within that
+        repository.
+    """
+    if workflow.startswith(".github/"):
+        return None, workflow
+    owner, _, rest = workflow.partition("/")
+    repo, _, path = rest.partition("/")
+    return f"{owner}/{repo}", path
 
 
 class GitHubProjectCreate(BaseModel):
@@ -360,6 +421,8 @@ class GitHubProject(BaseModel):
         examples=["someadmin"],
     )
 
+    _validate_workflow = field_validator("workflow")(_validate_workflow)
+
     def overlaps(self, other: GitHubProjectCreate | Self) -> bool:
         """Whether a GitHub Actions ID token could match both projects.
 
@@ -397,9 +460,11 @@ class GitHubProject(BaseModel):
     def workflow_path(self) -> str | None:
         """Workflow as a full path, as in the ``job_workflow_ref`` claim.
 
-        A workflow given relative to the repository root is prefixed with the
-        repository. The repository part is lowercased, since repository
-        names are matched case-insensitively, but the path part is not.
+        A workflow given as ``.github/workflows/<file>`` is prefixed with
+        the project repository, and one given as a full
+        ``<owner>/<repo>/.github/workflows/<file>`` path is used as is. The
+        repository part is lowercased, since repository names are matched
+        case-insensitively, but the path part is not.
         """
         return _workflow_path(self.repository, self.workflow)
 
@@ -421,8 +486,10 @@ def _workflow_path(repository: str, workflow: str | None) -> str | None:
     repository
         Repository of the project.
     workflow
-        Workflow constraint, either relative to the repository root or a
-        full path including the repository.
+        Workflow constraint in one of the forms accepted by
+        `_validate_workflow`: either ``.github/workflows/<file>``, relative
+        to the project repository, or a full
+        ``<owner>/<repo>/.github/workflows/<file>`` path.
 
     Returns
     -------
@@ -433,13 +500,10 @@ def _workflow_path(repository: str, workflow: str | None) -> str | None:
     """
     if workflow is None:
         return None
-    if workflow.startswith(".github/"):
-        return f"{repository.lower()}/{workflow}"
-    parts = workflow.split("/", 2)
-    if len(parts) < 3:
-        return workflow
-    owner, repo, path = parts
-    return f"{owner.lower()}/{repo.lower()}/{path}"
+    workflow_repository, path = _split_workflow(workflow)
+    if workflow_repository is None:
+        workflow_repository = repository
+    return f"{workflow_repository.lower()}/{path}"
 
 
 class GitHubProjectHistoryEntry(BaseModel):
