@@ -9,7 +9,13 @@ import re
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Self
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 from safir.pydantic import UtcDatetime
 
 from ..constants import GITHUB_BOT_USERNAME_REGEX, GITHUB_REPOSITORY_REGEX
@@ -18,11 +24,43 @@ from .enums import GitHubProjectChange
 from .userinfo import Group
 
 __all__ = [
+    "GitHubBotUsername",
     "GitHubProject",
     "GitHubProjectCreate",
     "GitHubProjectHistoryEntry",
+    "GitHubProjectRequester",
     "GitHubProjectUpdate",
+    "GitHubRepositoryName",
 ]
+
+# Validation constraints on the string fields that the list API also
+# accepts as filters. The constraints are attached to the types rather
+# than the field definitions below so that the filters in the API
+# handler can share them and cannot drift from the models. These are
+# plain aliases rather than PEP 695 type aliases because the latter
+# become separate component schemas in the OpenAPI document, which
+# hides the constraints from the query parameter documentation.
+
+GitHubBotUsername = Annotated[
+    str,
+    StringConstraints(
+        min_length=1, max_length=64, pattern=GITHUB_BOT_USERNAME_REGEX
+    ),
+]
+"""Bot username for which a GitHub project mints tokens."""
+
+GitHubProjectRequester = Annotated[
+    str, StringConstraints(min_length=1, max_length=256)
+]
+"""Opaque identifier of the person who requested a GitHub project."""
+
+GitHubRepositoryName = Annotated[
+    str,
+    StringConstraints(
+        min_length=3, max_length=140, pattern=GITHUB_REPOSITORY_REGEX
+    ),
+]
+"""GitHub repository as ``owner/name``."""
 
 # Field definitions shared between the create, update, and full models, so
 # that the API documentation is consistent between them. The models differ
@@ -43,8 +81,6 @@ _REQUESTED_BY = Field(
         " never interpreted."
     ),
     examples=["slack:U024BE7LH", "gafaelfawr:someuser"],
-    min_length=1,
-    max_length=256,
 )
 
 _USERNAME = Field(
@@ -54,9 +90,6 @@ _USERNAME = Field(
         " and otherwise be a valid username. Several projects may share one."
     ),
     examples=["bot-gh-lsst-sqre-sqr-062"],
-    min_length=1,
-    max_length=64,
-    pattern=GITHUB_BOT_USERNAME_REGEX,
 )
 
 _REPOSITORY = Field(
@@ -66,9 +99,6 @@ _REPOSITORY = Field(
         " against the ``repository`` claim. Must be a public repository."
     ),
     examples=["lsst-sqre/sqr-062"],
-    min_length=3,
-    max_length=140,
-    pattern=GITHUB_REPOSITORY_REGEX,
 )
 
 _REPOSITORY_ID = Field(
@@ -248,10 +278,12 @@ class GitHubProjectCreate(BaseModel):
 
     description: Annotated[str | None, _DESCRIPTION] = None
 
-    requested_by: Annotated[str | None, _REQUESTED_BY] = None
+    requested_by: Annotated[GitHubProjectRequester | None, _REQUESTED_BY] = (
+        None
+    )
 
     username: Annotated[
-        str | None,
+        GitHubBotUsername | None,
         _USERNAME,
         Field(
             description=(
@@ -263,7 +295,7 @@ class GitHubProjectCreate(BaseModel):
         ),
     ] = None
 
-    repository: Annotated[str, _REPOSITORY]
+    repository: Annotated[GitHubRepositoryName, _REPOSITORY]
 
     workflow: Annotated[str | None, _WORKFLOW] = None
 
@@ -307,10 +339,12 @@ class GitHubProjectUpdate(BaseModel):
 
     description: Annotated[str | None, _DESCRIPTION] = None
 
-    requested_by: Annotated[str | None, _REQUESTED_BY] = None
+    requested_by: Annotated[GitHubProjectRequester | None, _REQUESTED_BY] = (
+        None
+    )
 
     username: Annotated[
-        str | None,
+        GitHubBotUsername | None,
         _USERNAME,
         Field(
             description=(
@@ -322,7 +356,7 @@ class GitHubProjectUpdate(BaseModel):
         ),
     ] = None
 
-    repository: Annotated[str | None, _REPOSITORY] = None
+    repository: Annotated[GitHubRepositoryName | None, _REPOSITORY] = None
 
     workflow: Annotated[str | None, _WORKFLOW] = None
 
@@ -374,11 +408,13 @@ class GitHubProject(BaseModel):
 
     description: Annotated[str | None, _DESCRIPTION] = None
 
-    requested_by: Annotated[str | None, _REQUESTED_BY] = None
+    requested_by: Annotated[GitHubProjectRequester | None, _REQUESTED_BY] = (
+        None
+    )
 
-    username: Annotated[str, _USERNAME]
+    username: Annotated[GitHubBotUsername, _USERNAME]
 
-    repository: Annotated[str, _REPOSITORY]
+    repository: Annotated[GitHubRepositoryName, _REPOSITORY]
 
     repository_id: Annotated[int, _REPOSITORY_ID]
 
