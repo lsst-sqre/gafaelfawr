@@ -63,8 +63,8 @@ exchange only supports GitHub.com, not GitHub Enterprise Server.
 GITHUB_ACTIONS_JWT_LEEWAY = 30
 """Clock skew (in seconds) allowed when checking GitHub Actions ID tokens.
 
-Applied to the ``exp``, ``nbf``, and ``iat`` claims when verifying a GitHub
-Actions ID token presented to the token exchange.
+Applied to the ``nbf`` and ``iat`` claims when verifying a GitHub Actions ID
+token presented to the token exchange. The ``exp`` claim is checked strictly.
 """
 
 HTTP_TIMEOUT = 20.0

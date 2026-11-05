@@ -11,6 +11,7 @@ same role as `~gafaelfawr.providers.oidc.OIDCTokenVerifier` does for the
 OpenID Connect authentication provider.
 """
 
+from datetime import UTC, datetime
 from typing import Any
 
 import jwt
@@ -70,9 +71,13 @@ class GitHubActionsTokenVerifier:
 
         The token must be signed with ``RS256`` by a key in GitHub's JWKS,
         have the GitHub Actions issuer, carry the configured audience, and be
-        within its validity window (allowing a small clock skew for the
-        ``exp``, ``nbf``, and ``iat`` claims). It must also contain every
-        claim that the project registry matches on.
+        within its validity window. A small clock skew is allowed for the
+        ``nbf`` and ``iat`` claims, since rejecting a freshly issued token
+        would break every workflow if GitHub's clock is ahead, but ``exp`` is
+        checked strictly, since GitHub issues short-lived tokens precisely so
+        that a leaked token is quickly worthless and leeway there would only
+        widen the window in which one could be replayed. It must also contain
+        every claim that the project registry matches on.
 
         Parameters
         ----------
@@ -121,8 +126,20 @@ class GitHubActionsTokenVerifier:
             audience=self._config.audience,
             issuer=GITHUB_ACTIONS_ISSUER,
             leeway=GITHUB_ACTIONS_JWT_LEEWAY,
-            options={"require": ["aud", "exp", "iss"]},
+            options={"require": ["aud", "exp", "iss"], "verify_exp": False},
         )
+
+        # PyJWT applies the same leeway to exp as to nbf and iat, so check
+        # exp separately without leeway. The claim is guaranteed to be present
+        # by the require option above.
+        now = datetime.now(tz=UTC).timestamp()
+        try:
+            expires = float(payload["exp"])
+        except (TypeError, ValueError) as e:
+            msg = f"Invalid exp claim in token: {payload['exp']}"
+            raise jwt.DecodeError(msg) from e
+        if now >= expires:
+            raise jwt.ExpiredSignatureError("Signature has expired")
         self._logger.debug("Verified GitHub Actions token", token_data=payload)
 
         try:
