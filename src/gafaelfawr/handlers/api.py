@@ -6,6 +6,8 @@ in manager objects and the output formatting should be handled by response
 models.
 """
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
 from fastapi import (
@@ -32,7 +34,12 @@ from ..constants import (
 )
 from ..dependencies.auth import AuthenticateRead, AuthenticateWrite
 from ..dependencies.context import RequestContext, context_dependency
-from ..exceptions import ExternalUserInfoError, NotFoundError
+from ..exceptions import (
+    ExternalUserInfoError,
+    GitHubError,
+    GitHubWebError,
+    NotFoundError,
+)
 from ..models.auth import APIConfig, APILoginResponse, Scope
 from ..models.enums import TokenType
 from ..models.github_project import (
@@ -111,6 +118,65 @@ _github_project_responses: dict[int | str, dict[str, Any]] = {
         "model": ErrorModel,
     },
 }
+
+_github_project_write_responses: dict[int | str, dict[str, Any]] = {
+    422: {
+        "description": (
+            "The repository was not found on GitHub or is not public"
+            " (`unknown_repository`), the username derived from the"
+            " repository is not a valid username (`invalid_username`), the"
+            " scopes are unknown or not allowed (`invalid_scopes`), or the"
+            " maximum lifetime exceeds the configured limit"
+            " (`invalid_max_lifetime`)"
+        ),
+        "model": ErrorModel,
+    },
+    502: {
+        "description": (
+            "GitHub could not be contacted or returned an error while"
+            " looking up the repository (`github_unavailable`). Nothing was"
+            " changed, so retry the request later."
+        ),
+        "model": ErrorModel,
+    },
+}
+
+
+@asynccontextmanager
+async def _report_github_failure(
+    context: RequestContext,
+) -> AsyncIterator[None]:
+    """Convert a failed GitHub repository lookup into a 502 error.
+
+    Repository lookups are unauthenticated and therefore subject to GitHub's
+    low anonymous rate limit, and GitHub may be down. Those failures are
+    upstream problems that the caller should retry, so report them to Slack
+    and Sentry and return a Bad Gateway error with an
+    `~safir.models.ErrorModel` body rather than letting them propagate as an
+    uncaught exception.
+
+    Parameters
+    ----------
+    context
+        Context of the request.
+
+    Raises
+    ------
+    fastapi.HTTPException
+        Raised with status 502 if the body of the context manager raised a
+        GitHub error.
+    """
+    try:
+        yield
+    except (GitHubError, GitHubWebError) as e:
+        msg = "GitHub repository lookup failed, retry later"
+        context.logger.exception(msg, error=str(e))
+        slack_client = context.factory.create_slack_client()
+        await report_exception(e, slack_client=slack_client)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=[{"msg": msg, "type": "github_unavailable"}],
+        ) from e
 
 
 @router.get(
@@ -236,6 +302,7 @@ async def get_github_projects(
             ),
             "model": ErrorModel,
         },
+        **_github_project_write_responses,
     },
     status_code=201,
     summary="Create a GitHub project",
@@ -251,9 +318,10 @@ async def post_github_projects(
     response: Response,
 ) -> GitHubProject:
     project_service = context.factory.create_github_project_service()
-    project = await project_service.create_project(
-        create, auth_data, ip_address=context.ip_address
-    )
+    async with _report_github_failure(context):
+        project = await project_service.create_project(
+            create, auth_data, ip_address=context.ip_address
+        )
     url = context.request.url_for("get_github_project", project_id=project.id)
     response.headers["Location"] = str(url)
     return project
@@ -325,6 +393,7 @@ async def delete_github_project(
             ),
             "model": ErrorModel,
         },
+        **_github_project_write_responses,
     },
     summary="Update a GitHub project",
     tags=["admin"],
@@ -339,9 +408,10 @@ async def patch_github_project(
     context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> GitHubProject:
     project_service = context.factory.create_github_project_service()
-    return await project_service.update_project(
-        project_id, update, auth_data, ip_address=context.ip_address
-    )
+    async with _report_github_failure(context):
+        return await project_service.update_project(
+            project_id, update, auth_data, ip_address=context.ip_address
+        )
 
 
 @router.get(
