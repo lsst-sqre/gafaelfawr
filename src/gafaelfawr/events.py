@@ -13,6 +13,7 @@ __all__ = [
     "AuthUserEvent",
     "BaseAuthEvent",
     "FrontendEvents",
+    "GitHubTokenExchangeEvent",
     "LoginAttemptEvent",
     "LoginEnrollmentEvent",
     "LoginFailureEvent",
@@ -119,6 +120,83 @@ class AuthUserEvent(BaseAuthEvent):
     """
 
 
+class GitHubTokenExchangeEvent(EventPayload):
+    """A GitHub Actions workflow exchanged an ID token for a token.
+
+    Together with the token change history, this records which workflow run
+    obtained a given token and who triggered that run. The claims are those
+    of the GitHub Actions ID token that was exchanged.
+    """
+
+    username: str = Field(
+        ...,
+        title="Bot username",
+        description="Bot username of the matching GitHub project",
+    )
+
+    github_project_id: int = Field(
+        ...,
+        title="GitHub project ID",
+        description="ID of the GitHub project that authorized the token",
+    )
+
+    token: str = Field(
+        ..., title="Token key", description="Key of the minted token"
+    )
+
+    repository: str = Field(
+        ...,
+        title="Repository",
+        description="Full name of the repository running the workflow",
+    )
+
+    job_workflow_ref: str = Field(
+        ...,
+        title="Job workflow reference",
+        description="Path and ref of the workflow file running the job",
+    )
+
+    ref: str = Field(
+        ...,
+        title="Git ref",
+        description="Git ref that triggered the workflow run",
+    )
+
+    environment: str | None = Field(
+        None,
+        title="Environment",
+        description="GitHub Actions environment of the job, if any",
+    )
+
+    event_name: str | None = Field(
+        None,
+        title="Event name",
+        description="Name of the event that triggered the workflow run",
+    )
+
+    actor: str | None = Field(
+        None,
+        title="Actor",
+        description="GitHub login of the user who triggered the run",
+    )
+
+    run_id: str | None = Field(
+        None, title="Run ID", description="ID of the workflow run"
+    )
+
+    run_attempt: str | None = Field(
+        None,
+        title="Run attempt",
+        description="Attempt number of the workflow run",
+    )
+
+    jti: str = Field(
+        ...,
+        title="ID token ID",
+        description="Unique identifier of the exchanged ID token",
+    )
+
+
 class LoginAttemptEvent(EventPayload):
     """User attempted to log in and was directed to the identity provider.
 
@@ -198,6 +276,8 @@ class FrontendEvents(EventMaker):
     auth
         Event publisher for each user authentication to a service.
         Authentications from mobu bot users are not logged as events.
+    github_token_exchange
+        Event publisher for each successful GitHub Actions token exchange.
     login_attempt
         Event publisher for when an unauthenticated user is redirected to the
         authentication provider.
@@ -219,6 +299,9 @@ class FrontendEvents(EventMaker):
         )
         self.auth_user = await manager.create_publisher(
             "auth_user", AuthUserEvent
+        )
+        self.github_token_exchange = await manager.create_publisher(
+            "github_token_exchange", GitHubTokenExchangeEvent
         )
         self.login_attempt = await manager.create_publisher(
             "login_attempt", LoginAttemptEvent

@@ -23,3 +23,4 @@ githubTokenExchange:
 metrics:
   enabled: false
   application: "gafaelfawr"
+  mock: true
