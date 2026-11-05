@@ -113,6 +113,9 @@ Python internal API
 .. automodapi:: gafaelfawr.services.firestore
    :include-all-objects:
 
+.. automodapi:: gafaelfawr.services.github_actions
+   :include-all-objects:
+
 .. automodapi:: gafaelfawr.services.github_project
    :include-all-objects:
 

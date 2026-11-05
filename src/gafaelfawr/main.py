@@ -23,7 +23,16 @@ from .constants import COOKIE_NAME
 from .dependencies.config import config_dependency
 from .dependencies.context import context_dependency
 from .exceptions import DatabaseSchemaError
-from .handlers import api, gms, ingress, internal, login, logout, oidc
+from .handlers import (
+    api,
+    github_actions,
+    gms,
+    ingress,
+    internal,
+    login,
+    logout,
+    oidc,
+)
 from .middleware.state import StateMiddleware
 from .models.state import State
 
@@ -111,6 +120,12 @@ def create_app(
                 ),
             },
             {
+                "name": "github",
+                "description": (
+                    "GitHub Actions token exchange routes used by workflows."
+                ),
+            },
+            {
                 "name": "browser",
                 "description": "Routes intended for use from a web browser.",
             },
@@ -135,6 +150,7 @@ def create_app(
             403: {"description": "Permission denied", "model": ErrorModel},
         },
     )
+    app.include_router(github_actions.router)
     app.include_router(gms.router)
     app.include_router(ingress.router)
     app.include_router(internal.router)

@@ -54,6 +54,7 @@ from .providers.github_actions import GitHubActionsTokenVerifier
 from .providers.oidc import OIDCProvider, OIDCTokenVerifier
 from .schema import Token as SQLToken
 from .services.firestore import FirestoreService
+from .services.github_actions import GitHubTokenExchangeService
 from .services.github_project import GitHubProjectService
 from .services.health import HealthCheckService
 from .services.kubernetes import (
@@ -562,6 +563,34 @@ class Factory:
             config=config,
             jwks_cache=self._context.github_jwks_cache,
             http_client=self._context.http_client,
+            logger=self._logger,
+        )
+
+    def create_github_token_exchange_service(
+        self,
+    ) -> GitHubTokenExchangeService:
+        """Create a service to exchange GitHub Actions ID tokens.
+
+        Returns
+        -------
+        GitHubTokenExchangeService
+            A new GitHub Actions token exchange service.
+
+        Raises
+        ------
+        NotConfiguredError
+            Raised if the GitHub Actions token exchange is not configured.
+        """
+        config = self._context.config.github_token_exchange
+        if not config:
+            msg = "GitHub Actions token exchange not configured"
+            raise NotConfiguredError(msg)
+        return GitHubTokenExchangeService(
+            config=config,
+            verifier=self.create_github_actions_token_verifier(),
+            project_store=GitHubProjectStore(self.session),
+            token_service=self.create_token_service(),
+            session=self.session,
             logger=self._logger,
         )
 

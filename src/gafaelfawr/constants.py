@@ -31,6 +31,9 @@ __all__ = [
     "LDAP_TIMEOUT",
     "MINIMUM_LIFETIME",
     "NGINX_SNIPPET",
+    "OAUTH_ACCESS_TOKEN_TYPE",
+    "OAUTH_ID_TOKEN_TYPE",
+    "OAUTH_TOKEN_EXCHANGE_GRANT_TYPE",
     "OIDC_AUTHORIZATION_LIFETIME",
     "REDIS_BACKOFF_MAX",
     "REDIS_BACKOFF_START",
@@ -177,6 +180,25 @@ more_set_headers "X-RateLimit-Used: $auth_ratelimit_used";
 error_page 403 = @autherror;
 """
 """Code snippet to put into NGINX configuration for each ingress."""
+
+OAUTH_ACCESS_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:access_token"
+"""Token type identifier for access tokens, from RFC 8693.
+
+Returned as the ``issued_token_type`` of a successful GitHub Actions token
+exchange.
+"""
+
+OAUTH_ID_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:id_token"
+"""Token type identifier for OpenID Connect ID tokens, from RFC 8693.
+
+The only ``subject_token_type`` accepted by the GitHub Actions token
+exchange, since the subject token is always a GitHub Actions ID token.
+"""
+
+OAUTH_TOKEN_EXCHANGE_GRANT_TYPE = (
+    "urn:ietf:params:oauth:grant-type:token-exchange"
+)
+"""Grant type of an OAuth 2.0 token exchange request, from RFC 8693."""
 
 OIDC_AUTHORIZATION_LIFETIME = 60 * 60
 """How long (in seconds) an authorization code is good for."""
