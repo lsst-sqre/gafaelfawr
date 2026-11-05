@@ -147,7 +147,9 @@ Both routes require the ``admin:token`` scope.
 Modify a project
 ================
 
-Any field except ``repository_id`` and ``repository_owner_id`` can be changed with a ``PATCH`` request to ``/auth/api/v1/github/projects/{id}`` containing only the fields to change.
+Any field of the registration request can be changed with a ``PATCH`` request to ``/auth/api/v1/github/projects/{id}`` containing only the fields to change.
+The pinned ``repository_id`` and ``repository_owner_id`` follow the repository and cannot be set directly, and ``template`` cannot be changed through this API.
+A request that changes nothing leaves the project untouched, including its modification time, and is not recorded in the project history.
 Setting an optional field to null clears it.
 Setting ``username`` to null derives it from the repository again.
 Changing ``repository`` looks up its numeric IDs again but keeps the username unless it is also changed, since the bot identity should not move when the repository is renamed.
