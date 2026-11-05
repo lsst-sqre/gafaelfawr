@@ -218,9 +218,6 @@ class GitHubProjectService:
             project = await self._project_store.get(project_id)
             if not project:
                 raise NotFoundError(f"GitHub project {project_id} not found")
-            revoked = await self._token_service.revoke_github_project_tokens(
-                project_id, auth_data, ip_address=ip_address
-            )
             await self._project_store.delete(project_id)
             entry = GitHubProjectHistoryEntry(
                 project_id=project_id,
@@ -231,6 +228,15 @@ class GitHubProjectService:
                 old_values=project.model_dump(mode="json"),
             )
             await self._history_store.add(entry)
+
+            # Revoke the tokens last. Revocation deletes each token from
+            # Redis immediately, which is not rolled back with the
+            # transaction, so doing it after the database work means a
+            # failure there leaves the tokens intact rather than dead in
+            # Redis but still listed as live in the database.
+            revoked = await self._token_service.revoke_github_project_tokens(
+                project_id, auth_data, ip_address=ip_address
+            )
         self._logger.info(
             "Deleted GitHub project",
             github_project_id=project_id,
@@ -418,13 +424,6 @@ class GitHubProjectService:
             )
             await self._check_overlap(new, exclude_id=project_id)
             await self._project_store.update(new)
-            revoked = 0
-            if old.enabled and not new.enabled:
-                revoked = (
-                    await self._token_service.revoke_github_project_tokens(
-                        project_id, auth_data, ip_address=ip_address
-                    )
-                )
             entry = GitHubProjectHistoryEntry(
                 project_id=project_id,
                 template=new.template,
@@ -435,6 +434,17 @@ class GitHubProjectService:
                 new_values=new.model_dump(mode="json"),
             )
             await self._history_store.add(entry)
+
+            # Revoke the tokens last, for the same reason as in
+            # delete_project: the Redis deletes are immediate and survive a
+            # rollback of the database work.
+            revoked = 0
+            if old.enabled and not new.enabled:
+                revoked = (
+                    await self._token_service.revoke_github_project_tokens(
+                        project_id, auth_data, ip_address=ip_address
+                    )
+                )
 
         self._logger.info(
             "Modified GitHub project",
