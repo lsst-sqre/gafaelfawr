@@ -12,11 +12,7 @@ from typing import Annotated, Any, Self
 from pydantic import BaseModel, Field, field_validator, model_validator
 from safir.pydantic import UtcDatetime
 
-from ..constants import (
-    GITHUB_BOT_USERNAME_REGEX,
-    GITHUB_PROJECT_DEFAULT_LIFETIME,
-    GITHUB_REPOSITORY_REGEX,
-)
+from ..constants import GITHUB_BOT_USERNAME_REGEX, GITHUB_REPOSITORY_REGEX
 from ..types import IpAddress, Scopes
 from .enums import GitHubProjectChange
 from .userinfo import Group
@@ -277,9 +273,18 @@ class GitHubProjectCreate(BaseModel):
 
     scopes: Annotated[Scopes, _SCOPES]
 
-    max_lifetime: Annotated[timedelta, _MAX_LIFETIME] = (
-        GITHUB_PROJECT_DEFAULT_LIFETIME
-    )
+    max_lifetime: Annotated[
+        timedelta | None,
+        _MAX_LIFETIME,
+        Field(
+            description=(
+                "Maximum lifetime of a minted token, as a number of seconds"
+                " or an ISO 8601 duration. Capped by the Gafaelfawr"
+                " configuration. If omitted, defaults to one hour or the"
+                " configured maximum, whichever is shorter."
+            )
+        ),
+    ] = None
 
     uid: Annotated[int | None, _UID] = None
 

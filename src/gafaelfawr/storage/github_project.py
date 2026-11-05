@@ -1,7 +1,7 @@
 """Storage for the registry of GitHub projects."""
 
 import builtins
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 from safir.database import datetime_to_db
@@ -43,6 +43,7 @@ class GitHubProjectStore:
         *,
         username: str,
         repository: GitHubRepository,
+        max_lifetime: timedelta,
         created_by: str,
         template: str | None = None,
     ) -> GitHubProject:
@@ -58,6 +59,9 @@ class GitHubProjectStore:
         repository
             Repository metadata from GitHub, used for the canonical name of
             the repository and its pinned IDs.
+        max_lifetime
+            Maximum lifetime of tokens minted for the project, either as
+            given or as defaulted by the service.
         created_by
             Username of the person creating the project.
         template
@@ -77,6 +81,7 @@ class GitHubProjectStore:
             repository=repository.full_name,
             repository_id=repository.id,
             repository_owner_id=repository.owner_id,
+            max_lifetime=int(max_lifetime.total_seconds()),
             created=datetime_to_db(now),
             created_by=created_by,
             modified=datetime_to_db(now),
@@ -196,6 +201,7 @@ class GitHubProjectStore:
         columns["repository"] = project.repository
         columns["repository_id"] = project.repository_id
         columns["repository_owner_id"] = project.repository_owner_id
+        columns["max_lifetime"] = int(project.max_lifetime.total_seconds())
         columns["modified"] = datetime_to_db(project.modified)
         columns["modified_by"] = project.modified_by
         for column, value in columns.items():
@@ -218,8 +224,9 @@ class GitHubProjectStore:
         This covers the columns that are stored the same way whether a
         project is being created or updated, so that a new column need only
         be added here. The columns that are derived differently in the two
-        cases, such as the repository identifiers and the change metadata,
-        are set by the caller.
+        cases, such as the repository identifiers, the maximum lifetime,
+        which may be left for the service to default when creating a
+        project, and the change metadata, are set by the caller.
 
         Parameters
         ----------
@@ -242,7 +249,6 @@ class GitHubProjectStore:
             "environment": project.environment,
             "ref": project.ref,
             "scopes": ",".join(sorted(project.scopes)),
-            "max_lifetime": int(project.max_lifetime.total_seconds()),
             "uid": project.uid,
             "gid": project.gid,
             "groups": groups,

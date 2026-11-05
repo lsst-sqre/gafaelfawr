@@ -136,7 +136,6 @@ async def test_create_project(
     assert project.repository == "LSST-SQRE/Mixed.Case_Repo"
     assert project.repository_id == MIXED_CASE.id
     assert project.scopes == set()
-    assert project.max_lifetime == timedelta(hours=1)
     assert project.uid == 100000
     assert project.gid == 100000
     assert project.groups == [Group(name="bot-gh-mixed", id=100000)]
@@ -156,6 +155,68 @@ async def test_create_project(
     )
     project = await service.create_project(create, admin, ip_address=None)
     assert project.username == "bot-gh-lsst-sqre-mixed-case-repo"
+
+
+@pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
+@pytest.mark.asyncio
+async def test_create_project_default_lifetime(
+    config: Config, factory: Factory, respx_mock: respx.Router
+) -> None:
+    """Omitting max_lifetime stores the default lifetime of one hour."""
+    service = factory.create_github_project_service()
+    mock_github_repositories(respx_mock, [SQR_062])
+    admin = await create_admin(factory)
+    history_store = GitHubProjectHistoryStore(factory.session)
+
+    assert config.github_token_exchange
+    assert config.github_token_exchange.max_lifetime == timedelta(hours=6)
+    create = GitHubProjectCreate(
+        repository="lsst-sqre/sqr-062", scopes={"read:all"}
+    )
+    assert create.max_lifetime is None
+    project = await service.create_project(create, admin, ip_address=None)
+    assert project.max_lifetime == timedelta(hours=1)
+    assert await service.get_project(project.id, admin) == project
+    async with factory.session.begin():
+        history = await history_store.list(project_id=project.id)
+    assert len(history) == 1
+    assert history[0].new_values
+    assert history[0].new_values["max_lifetime"] == "PT1H"
+
+
+@pytest.mark.parametrize(
+    "config", ["github-token-exchange-short-lifetime"], indirect=True
+)
+@pytest.mark.asyncio
+async def test_create_project_capped_lifetime(
+    config: Config, factory: Factory, respx_mock: respx.Router
+) -> None:
+    """A configured maximum below one hour caps the default lifetime."""
+    service = factory.create_github_project_service()
+    mock_github_repositories(respx_mock, [SQR_062, OOK])
+    admin = await create_admin(factory)
+
+    assert config.github_token_exchange
+    assert config.github_token_exchange.max_lifetime == timedelta(minutes=30)
+    create = GitHubProjectCreate(
+        repository="lsst-sqre/sqr-062", scopes={"read:all"}
+    )
+    project = await service.create_project(create, admin, ip_address=None)
+    assert project.max_lifetime == timedelta(minutes=30)
+    assert await service.get_project(project.id, admin) == project
+
+    # An explicit lifetime within the configured maximum is kept as is, and
+    # one above it is still rejected.
+    create = GitHubProjectCreate(
+        repository="lsst-sqre/ook",
+        scopes={"read:all"},
+        max_lifetime=timedelta(minutes=10),
+    )
+    project = await service.create_project(create, admin, ip_address=None)
+    assert project.max_lifetime == timedelta(minutes=10)
+    bad = create.model_copy(update={"max_lifetime": timedelta(hours=1)})
+    with pytest.raises(InvalidMaxLifetimeError, match="at most 1800s"):
+        await service.create_project(bad, admin, ip_address=None)
 
 
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
