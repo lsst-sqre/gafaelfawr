@@ -21,6 +21,7 @@ __all__ = [
     "DatabaseSchemaError",
     "DisallowedCORSRequestError",
     "DuplicateAdminError",
+    "DuplicateGitHubUsernameError",
     "DuplicateTokenNameError",
     "ExternalUserInfoError",
     "FetchKeysError",
@@ -28,6 +29,7 @@ __all__ = [
     "FirestoreError",
     "FirestoreNotInitializedError",
     "GitHubError",
+    "GitHubProjectOverlapError",
     "GitHubWebError",
     "InputValidationError",
     "InsufficientScopeError",
@@ -36,8 +38,10 @@ __all__ = [
     "InvalidClientIdError",
     "InvalidDelegateToError",
     "InvalidExpiresError",
+    "InvalidGitHubUsernameError",
     "InvalidGrantError",
     "InvalidIPAddressError",
+    "InvalidMaxLifetimeError",
     "InvalidMinimumLifetimeError",
     "InvalidRequestError",
     "InvalidReturnURLError",
@@ -68,6 +72,7 @@ __all__ = [
     "ProviderWebError",
     "ReturnUriMismatchError",
     "UnknownAlgorithmError",
+    "UnknownGitHubRepositoryError",
     "UnknownKeyIdError",
     "UnsupportedGrantTypeError",
     "VerifyTokenError",
@@ -92,6 +97,22 @@ class DuplicateAdminError(InputValidationError):
         super().__init__(message, ErrorLocation.body, ["username"])
 
 
+class DuplicateGitHubUsernameError(InputValidationError):
+    """The derived bot username of a GitHub project is already in use.
+
+    Raised when the bot username derived from the repository of a GitHub
+    project is already used by a project for a different repository, since
+    the derivation is ambiguous once hyphens are involved. An explicit
+    username must be provided instead.
+    """
+
+    error = "duplicate_username"
+    status_code = status.HTTP_409_CONFLICT
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.body, ["username"])
+
+
 class DuplicateTokenNameError(InputValidationError):
     """The user tried to reuse the name of a token."""
 
@@ -100,6 +121,29 @@ class DuplicateTokenNameError(InputValidationError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message, ErrorLocation.body, ["token_name"])
+
+
+class GitHubProjectOverlapError(InputValidationError):
+    """The constraints of a GitHub project overlap an existing project.
+
+    Raised when creating or modifying a GitHub project whose constraints could
+    be satisfied by the same GitHub Actions ID token as an existing project
+    for the same repository, since at most one project may match a token.
+
+    Parameters
+    ----------
+    message
+        Error message.
+    project_id
+        ID of the conflicting project.
+    """
+
+    error = "github_project_overlap"
+    status_code = status.HTTP_409_CONFLICT
+
+    def __init__(self, message: str, project_id: int) -> None:
+        super().__init__(message, ErrorLocation.body, ["repository"])
+        self.project_id = project_id
 
 
 class InvalidClientIdError(InputValidationError):
@@ -140,6 +184,20 @@ class InvalidExpiresError(InputValidationError):
         super().__init__(message, ErrorLocation.body, ["expires"])
 
 
+class InvalidGitHubUsernameError(InputValidationError):
+    """The bot username of a GitHub project is invalid.
+
+    Raised when the username derived from the repository of a GitHub project
+    is not a valid username, in which case an explicit username must be
+    provided instead.
+    """
+
+    error = "invalid_username"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.body, ["username"])
+
+
 class InvalidIPAddressError(InputValidationError):
     """The provided IP address has invalid syntax."""
 
@@ -147,6 +205,15 @@ class InvalidIPAddressError(InputValidationError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message, ErrorLocation.query, ["ip_address"])
+
+
+class InvalidMaxLifetimeError(InputValidationError):
+    """The ``max_lifetime`` of a GitHub project is invalid."""
+
+    error = "invalid_max_lifetime"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.body, ["max_lifetime"])
 
 
 class InvalidMinimumLifetimeError(InputValidationError):
@@ -183,6 +250,20 @@ class InvalidServiceError(InputValidationError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message, ErrorLocation.query, ["delegate_to"])
+
+
+class UnknownGitHubRepositoryError(InputValidationError):
+    """The repository of a GitHub project was not found on GitHub.
+
+    Only public repositories can be registered, since the repository IDs are
+    looked up without credentials, so this is also raised for private
+    repositories.
+    """
+
+    error = "unknown_repository"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.body, ["repository"])
 
 
 class NoScopesError(InputValidationError):

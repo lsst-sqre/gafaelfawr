@@ -54,6 +54,7 @@ from .providers.github_actions import GitHubActionsTokenVerifier
 from .providers.oidc import OIDCProvider, OIDCTokenVerifier
 from .schema import Token as SQLToken
 from .services.firestore import FirestoreService
+from .services.github_project import GitHubProjectService
 from .services.health import HealthCheckService
 from .services.kubernetes import (
     KubernetesIngressService,
@@ -65,6 +66,11 @@ from .services.token import TokenService
 from .services.token_cache import TokenCacheService
 from .services.userinfo import UserInfoService
 from .storage.firestore import FirestoreStorage
+from .storage.github import GitHubStorage
+from .storage.github_project import (
+    GitHubProjectHistoryStore,
+    GitHubProjectStore,
+)
 from .storage.history import TokenChangeHistoryStore
 from .storage.kubernetes import (
     KubernetesIngressStorage,
@@ -498,6 +504,37 @@ class Factory:
             token_service=self.create_token_service(),
             user_info_service=self.create_user_info_service(),
             slack_client=self.create_slack_client(),
+            session=self.session,
+            logger=self._logger,
+        )
+
+    def create_github_project_service(self) -> GitHubProjectService:
+        """Create a service to manage the registry of GitHub projects.
+
+        Returns
+        -------
+        GitHubProjectService
+            A new GitHub project service.
+
+        Raises
+        ------
+        NotConfiguredError
+            Raised if the GitHub Actions token exchange is not configured.
+        """
+        config = self._context.config
+        if not config.github_token_exchange:
+            msg = "GitHub Actions token exchange not configured"
+            raise NotConfiguredError(msg)
+        github_storage = GitHubStorage(
+            http_client=self._context.http_client, logger=self._logger
+        )
+        return GitHubProjectService(
+            config=config.github_token_exchange,
+            known_scopes=set(config.known_scopes.keys()),
+            project_store=GitHubProjectStore(self.session),
+            history_store=GitHubProjectHistoryStore(self.session),
+            github_storage=github_storage,
+            token_service=self.create_token_service(),
             session=self.session,
             logger=self._logger,
         )

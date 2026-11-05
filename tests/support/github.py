@@ -10,11 +10,17 @@ import respx
 from httpx import Request, Response
 
 from gafaelfawr.config import GitHubConfig
+from gafaelfawr.constants import GITHUB_API_URL
 from gafaelfawr.dependencies.config import config_dependency
-from gafaelfawr.models.github import GitHubUserInfo
+from gafaelfawr.models.github import GitHubRepository, GitHubUserInfo
 from gafaelfawr.providers.github import GitHubProvider
 
-__all__ = ["MockGitHub", "mock_github"]
+__all__ = [
+    "MockGitHub",
+    "MockGitHubRepositories",
+    "mock_github",
+    "mock_github_repositories",
+]
 
 
 class MockGitHub:
@@ -189,3 +195,83 @@ def mock_github(
     teams_url = GitHubProvider._TEAMS_URL
     respx_mock.get(url__startswith=teams_url).mock(side_effect=mock.get_teams)
     respx_mock.get(GitHubProvider._USER_URL).mock(side_effect=mock.get_user)
+
+
+class MockGitHubRepositories:
+    """Pretends to be the GitHub repositories API for testing.
+
+    The methods of this object should be installed as respx mock side effects
+    using `mock_github_repositories`. Repositories can be added or removed
+    between requests, and the number of requests is counted so that tests can
+    check when lookups happen.
+
+    Parameters
+    ----------
+    repositories
+        Public repositories known to the mock.
+    """
+
+    def __init__(self, repositories: list[GitHubRepository]) -> None:
+        self.repositories = {r.full_name.lower(): r for r in repositories}
+        self.requests = 0
+
+    def get_repository(self, request: Request) -> Response:
+        self.requests += 1
+        assert request.headers["Accept"] == "application/vnd.github+json"
+        assert "Authorization" not in request.headers
+        prefix = f"{GITHUB_API_URL}/repos/"
+        assert str(request.url).startswith(prefix)
+        full_name = str(request.url)[len(prefix) :]
+        repository = self.repositories.get(full_name.lower())
+        if not repository:
+            return Response(
+                404,
+                json={
+                    "message": "Not Found",
+                    "documentation_url": "https://docs.github.com/rest",
+                    "status": "404",
+                },
+            )
+        owner, name = repository.full_name.split("/", 1)
+        return Response(
+            200,
+            json={
+                "id": repository.id,
+                "node_id": "R_kgDOBogus",
+                "name": name,
+                "full_name": repository.full_name,
+                "private": False,
+                "owner": {
+                    "login": owner,
+                    "id": repository.owner_id,
+                    "type": "Organization",
+                },
+                "default_branch": "main",
+            },
+        )
+
+
+def mock_github_repositories(
+    respx_mock: respx.Router, repositories: list[GitHubRepository]
+) -> MockGitHubRepositories:
+    """Set up the mocks for GitHub repository lookups.
+
+    Parameters
+    ----------
+    respx_mock
+        The mock router.
+    repositories
+        Public repositories known to the mock. Any other repository is
+        reported as not found, as GitHub does for private repositories.
+
+    Returns
+    -------
+    MockGitHubRepositories
+        The mock, so that tests can change the repositories or check the
+        number of requests.
+    """
+    mock = MockGitHubRepositories(repositories)
+    respx_mock.get(url__startswith=f"{GITHUB_API_URL}/repos/").mock(
+        side_effect=mock.get_repository
+    )
+    return mock

@@ -15,6 +15,11 @@ __all__ = [
     "GITHUB_ACTIONS_ISSUER",
     "GITHUB_ACTIONS_JWKS_MIN_REFRESH",
     "GITHUB_ACTIONS_JWT_LEEWAY",
+    "GITHUB_API_URL",
+    "GITHUB_BOT_USERNAME_PREFIX",
+    "GITHUB_BOT_USERNAME_REGEX",
+    "GITHUB_PROJECT_DEFAULT_LIFETIME",
+    "GITHUB_REPOSITORY_REGEX",
     "GROUPNAME_REGEX",
     "HTTP_TIMEOUT",
     "ID_CACHE_SIZE",
@@ -78,6 +83,20 @@ GITHUB_ACTIONS_JWT_LEEWAY = 30
 Applied to the ``nbf`` and ``iat`` claims when verifying a GitHub Actions ID
 token presented to the token exchange. The ``exp`` claim is checked strictly.
 """
+
+GITHUB_API_URL = "https://api.github.com"
+"""Base URL of the GitHub REST API, used to pin repository IDs."""
+
+GITHUB_BOT_USERNAME_PREFIX = "bot-gh-"
+"""Required prefix of the bot username of a GitHub project.
+
+Tokens minted by the GitHub Actions token exchange are issued to the bot user
+of the matching project. The prefix makes an identity minted from GitHub
+recognizable wherever a username appears.
+"""
+
+GITHUB_PROJECT_DEFAULT_LIFETIME = timedelta(hours=1)
+"""Default maximum lifetime of tokens minted for a GitHub project."""
 
 HTTP_TIMEOUT = 20.0
 """Timeout (in seconds) for outbound HTTP requests to auth providers."""
@@ -222,6 +241,14 @@ BOT_USERNAME_REGEX = "^bot-[a-z0-9](?:[a-z0-9]|-[a-z0-9])*$"
 
 CURSOR_REGEX = "^p?[0-9]+_[0-9]+$"
 """Regex matching a valid cursor."""
+
+GITHUB_BOT_USERNAME_REGEX = "^bot-gh-[a-z0-9](?:[a-z0-9]|-[a-z0-9])*$"
+"""Regex matching a valid bot username for a GitHub project."""
+
+GITHUB_REPOSITORY_REGEX = (
+    "^[a-zA-Z0-9](?:[a-zA-Z0-9]|-[a-zA-Z0-9])*/[a-zA-Z0-9._-]+$"
+)
+"""Regex matching a GitHub repository as ``owner/name``."""
 
 GROUPNAME_REGEX = (
     "^([a-zA-Z]|[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z])[a-zA-Z0-9._-]*$"
