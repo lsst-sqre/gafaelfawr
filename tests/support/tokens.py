@@ -85,12 +85,13 @@ async def add_github_token(
     scopes: set[str] | None = None,
     parent: str | None = None,
 ) -> TokenData:
-    """Add a token minted by the GitHub Actions token exchange.
+    """Add a token as if minted by the GitHub Actions token exchange.
 
-    Until the exchange endpoint exists, this requires going beneath the
-    service layer. The token is added to both Redis and the database, with a
-    creation history entry, so that it can be revoked and audited like a
-    real one.
+    This goes beneath the service layer so that tests of revocation and
+    auditing can create tokens for a project ID without registering a
+    project or performing an exchange. The token is added to both Redis and
+    the database, with a creation history entry, so that it can be revoked
+    and audited like a real one.
 
     Parameters
     ----------

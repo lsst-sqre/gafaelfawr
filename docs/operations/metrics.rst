@@ -27,6 +27,12 @@ auth_user
     The service name is present as the ``service`` tag, if known.
     If the request was affected by an API quota, the quota limit is included in the ``quota`` field (an integer number of requests allowed per minute) and the number of requests seen in that window is included in the ``quota_used`` field.
 
+github_token_exchange
+    A GitHub Actions workflow exchanged a GitHub ID token for a Gafaelfawr token (see :doc:`/user-guide/github-actions`).
+    The bot username is present as the ``username`` tag and the ID of the matching GitHub project as the ``github_project_id`` tag.
+    The key of the minted token is present as the ``token`` field.
+    The ``repository``, ``job_workflow_ref``, ``ref``, ``environment``, ``event_name``, ``actor``, ``run_id``, ``run_attempt``, and ``jti`` claims of the ID token are present as fields of the same names, so that the token can be traced to the workflow run that obtained it.
+
 login_attempt
     Gafaelfawr sent a user to the identity provider to authenticate, not including duplicate redirects when the user already has an authentication in progress.
     Duplicates are suppressed by not counting redirects if the ``state`` attribute of the user's cookie is already set.

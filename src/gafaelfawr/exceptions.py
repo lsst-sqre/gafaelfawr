@@ -47,6 +47,7 @@ __all__ = [
     "InvalidReturnURLError",
     "InvalidScopesError",
     "InvalidServiceError",
+    "InvalidSubjectTokenError",
     "InvalidTokenClaimsError",
     "InvalidTokenError",
     "KubernetesError",
@@ -71,6 +72,7 @@ __all__ = [
     "ProviderError",
     "ProviderWebError",
     "ReturnUriMismatchError",
+    "UnauthorizedScopeError",
     "UnknownAlgorithmError",
     "UnknownGitHubRepositoryError",
     "UnknownKeyIdError",
@@ -346,6 +348,40 @@ class InvalidGrantError(OAuthError):
     error = "invalid_grant"
     message = "Invalid authorization code"
     hide_error = True
+
+
+class InvalidSubjectTokenError(OAuthError):
+    """The GitHub Actions ID token presented to the token exchange is invalid.
+
+    This corresponds to the ``invalid_grant`` error in RFC 6749 and RFC 8693,
+    which the latter specifies for a subject token that is "invalid for any
+    reason, including being expired, revoked, or malformed." It is also used
+    when the token verifies but matches no enabled GitHub project.
+
+    Unlike `InvalidGrantError`, the details are sent to the client. The
+    message names the check that failed and values from the caller's own
+    token, which GitHub minted for the caller and which are already theirs
+    to read, so that a workflow author can fix the problem without access to
+    Gafaelfawr's logs. It must never describe registry entries that did not
+    match, so that the exchange cannot be used to probe what the registry
+    trusts.
+    """
+
+    error = "invalid_grant"
+    message = "Invalid GitHub Actions token"
+
+
+class UnauthorizedScopeError(OAuthError):
+    """The token exchange requested a scope the GitHub project does not allow.
+
+    This corresponds to the ``invalid_scope`` error in RFC 6749: "The
+    requested scope is invalid, unknown, malformed, or exceeds the scope
+    granted by the resource owner." The details, which name only the
+    requested scopes that were refused, are sent to the client.
+    """
+
+    error = "invalid_scope"
+    message = "Requested scope not allowed"
 
 
 class UnsupportedGrantTypeError(OAuthError):
