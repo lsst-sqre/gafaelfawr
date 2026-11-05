@@ -1,10 +1,12 @@
 """Tests for the GitHub project registry service."""
 
+import asyncio
 from datetime import timedelta
 from unittest.mock import ANY
 
 import pytest
 import respx
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gafaelfawr.config import Config
 from gafaelfawr.exceptions import (
@@ -22,6 +24,7 @@ from gafaelfawr.factory import Factory
 from gafaelfawr.models.enums import GitHubProjectChange, TokenChange
 from gafaelfawr.models.github import GitHubRepository
 from gafaelfawr.models.github_project import (
+    GitHubProject,
     GitHubProjectCreate,
     GitHubProjectUpdate,
 )
@@ -761,6 +764,88 @@ async def test_delete_project(
     assert {e.token for e in revoked} == {t.token.key for t in tokens}
     assert all(e.github_project_id == project.id for e in revoked)
     assert all(e.actor == "some-admin" for e in revoked)
+
+
+@pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
+@pytest.mark.asyncio
+async def test_concurrent_writes(
+    config: Config,
+    factory: Factory,
+    engine: AsyncEngine,
+    respx_mock: respx.Router,
+) -> None:
+    """Concurrent writers serialize on the registry lock.
+
+    The overlap and derived-username checks read the registry and then
+    write to it. Without the lock, two writers starting at the same time
+    both see no conflict and both commit, leaving two enabled projects that
+    match the same token. With the lock, the second writer waits for the
+    first to commit and then sees its row.
+    """
+    service = factory.create_github_project_service()
+    mock_github_repositories(respx_mock, [SQR_062, DOCS, SQRE_DOCS])
+    admin = await create_admin(factory)
+
+    # A second factory has its own session and therefore its own database
+    # connection and transaction, standing in for a second Gafaelfawr
+    # process handling a request at the same time.
+    async with Factory.standalone(config, engine) as other_factory:
+        other = other_factory.create_github_project_service()
+
+        # Two identical creates race. Exactly one wins and the other is
+        # refused as overlapping the winner.
+        create = GitHubProjectCreate(
+            repository="lsst-sqre/sqr-062", scopes={"read:all"}
+        )
+        results = await asyncio.gather(
+            service.create_project(create, admin, ip_address=None),
+            other.create_project(create, admin, ip_address=None),
+            return_exceptions=True,
+        )
+        projects = [r for r in results if isinstance(r, GitHubProject)]
+        errors = [r for r in results if isinstance(r, BaseException)]
+        assert len(projects) == 1
+        assert len(errors) == 1
+        assert isinstance(errors[0], GitHubProjectOverlapError)
+        assert errors[0].project_id == projects[0].id
+        assert await service.list_projects(admin) == projects
+
+        # Two creates for different repositories that derive the same
+        # username race. Again exactly one wins and the other is refused
+        # because the derived username now belongs to another repository.
+        results = await asyncio.gather(
+            service.create_project(
+                GitHubProjectCreate(repository="lsst-sqre/docs", scopes=set()),
+                admin,
+                ip_address=None,
+            ),
+            other.create_project(
+                GitHubProjectCreate(repository="lsst/sqre-docs", scopes=set()),
+                admin,
+                ip_address=None,
+            ),
+            return_exceptions=True,
+        )
+        docs = [r for r in results if isinstance(r, GitHubProject)]
+        errors = [r for r in results if isinstance(r, BaseException)]
+        assert len(docs) == 1
+        assert len(errors) == 1
+        assert isinstance(errors[0], DuplicateGitHubUsernameError)
+        assert docs[0].username == "bot-gh-lsst-sqre-docs"
+        assert await service.list_projects(admin) == projects + docs
+
+        # A delete and an update of the same project race. Whichever order
+        # they run in, the project is gone afterwards and the update either
+        # applied first or reported the project as missing.
+        update = GitHubProjectUpdate(description="Racing a delete")
+        deleted, updated = await asyncio.gather(
+            service.delete_project(docs[0].id, admin, ip_address=None),
+            other.update_project(docs[0].id, update, admin, ip_address=None),
+            return_exceptions=True,
+        )
+        assert deleted is None
+        assert isinstance(updated, GitHubProject | NotFoundError)
+        assert await service.list_projects(admin) == projects
 
 
 @pytest.mark.parametrize(

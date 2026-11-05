@@ -155,6 +155,7 @@ class GitHubProjectService:
         actor = auth_data.username
 
         async with self._session.begin():
+            await self._project_store.lock()
             username = await self._resolve_username(
                 create.username, repository.full_name
             )
@@ -215,6 +216,9 @@ class GitHubProjectService:
         self._check_authorization(auth_data)
         actor = auth_data.username
         async with self._session.begin():
+            # Deleting takes the registry lock too, so that the row cannot
+            # vanish between a concurrent writer's checks and its write.
+            await self._project_store.lock()
             project = await self._project_store.get(project_id)
             if not project:
                 raise NotFoundError(f"GitHub project {project_id} not found")
@@ -412,10 +416,12 @@ class GitHubProjectService:
 
         now = datetime.now(tz=UTC).replace(microsecond=0)
         async with self._session.begin():
-            # Read the project inside the transaction that modifies it. When
-            # the repository was looked up above, this also verifies that
-            # the project still exists and picks up any changes made
-            # underneath us while we were talking to GitHub.
+            # Read the project inside the transaction that modifies it,
+            # under the registry lock. When the repository was looked up
+            # above, this also verifies that the project still exists and
+            # picks up any changes made underneath us while we were talking
+            # to GitHub.
+            await self._project_store.lock()
             old = await self._project_store.get(project_id)
             if not old:
                 raise NotFoundError(f"GitHub project {project_id} not found")
@@ -495,7 +501,13 @@ class GitHubProjectService:
         enabled project, since ``project`` is then the project as it would
         be after the change.
 
-        Must be called from inside a transaction.
+        Must be called from inside a transaction that holds the registry
+        lock (see `GitHubProjectStore.lock`). The check reads the registry
+        and the caller then writes to it, so without the lock two
+        concurrent writers could both see no conflict and both commit. Even
+        so, the token exchange should treat several projects matching one
+        token as an error rather than rely on this check alone, since the
+        invariant is enforced here and not by the database.
 
         Parameters
         ----------
@@ -542,7 +554,10 @@ class GitHubProjectService:
         ambiguous once hyphens are involved, a derived username that is
         already used by a project for a different repository is refused.
 
-        Must be called from inside a transaction.
+        Must be called from inside a transaction that holds the registry
+        lock (see `GitHubProjectStore.lock`), for the same reason as
+        `_check_overlap`: the check spans every repository and is only
+        meaningful if no other writer can commit between it and the write.
 
         Parameters
         ----------
