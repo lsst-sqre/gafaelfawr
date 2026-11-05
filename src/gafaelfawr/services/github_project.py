@@ -390,30 +390,35 @@ class GitHubProjectService:
             self._validate_max_lifetime(update.max_lifetime)
         actor = auth_data.username
 
-        async with self._session.begin():
-            old = await self._project_store.get(project_id)
-        if not old:
-            raise NotFoundError(f"GitHub project {project_id} not found")
-
-        # Look up the new repository on GitHub outside of the transaction.
-        repository = None
-        if update.repository and update.repository != old.repository:
-            repository = await self._github.get_repository(update.repository)
-            changes["repository"] = repository.full_name
-            changes["repository_id"] = repository.id
-            changes["repository_owner_id"] = repository.owner_id
-        elif "repository" in changes:
-            del changes["repository"]
+        # Changing the repository means looking it up on GitHub, which is a
+        # network call and therefore must not happen inside a transaction.
+        # Only that case needs a preliminary read of the stored project, to
+        # avoid looking up a repository the project already has. Every other
+        # update goes straight to the single transaction below.
+        if update.repository:
+            async with self._session.begin():
+                stored = await self._project_store.get(project_id)
+            if not stored:
+                raise NotFoundError(f"GitHub project {project_id} not found")
+            if update.repository != stored.repository:
+                repository = await self._github.get_repository(
+                    update.repository
+                )
+                changes["repository"] = repository.full_name
+                changes["repository_id"] = repository.id
+                changes["repository_owner_id"] = repository.owner_id
+            else:
+                del changes["repository"]
 
         now = datetime.now(tz=UTC).replace(microsecond=0)
         async with self._session.begin():
-            # Verify the project still exists and hasn't changed underneath
-            # us while we were talking to GitHub.
-            current = await self._project_store.get(project_id)
-            if not current:
-                msg = f"GitHub project {project_id} not found"
-                raise NotFoundError(msg)
-            old = current
+            # Read the project inside the transaction that modifies it. When
+            # the repository was looked up above, this also verifies that
+            # the project still exists and picks up any changes made
+            # underneath us while we were talking to GitHub.
+            old = await self._project_store.get(project_id)
+            if not old:
+                raise NotFoundError(f"GitHub project {project_id} not found")
             if "username" in changes and changes["username"] is None:
                 full_name = changes.get("repository", old.repository)
                 changes["username"] = await self._resolve_username(
