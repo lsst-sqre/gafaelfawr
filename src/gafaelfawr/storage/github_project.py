@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 from safir.database import datetime_to_db
-from sqlalchemy import CursorResult, delete, func, select
+from sqlalchemy import CursorResult, delete, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.github import GitHubRepository
@@ -18,6 +18,9 @@ from ..schema import GitHubProject as SQLGitHubProject
 from ..schema import GitHubProjectHistory as SQLGitHubProjectHistory
 
 __all__ = ["GitHubProjectHistoryStore", "GitHubProjectStore"]
+
+_REGISTRY_LOCK_KEY = "gafaelfawr.github_project"
+"""Advisory lock key serializing writes to the GitHub project registry."""
 
 
 class GitHubProjectStore:
@@ -175,6 +178,39 @@ class GitHubProjectStore:
             GitHubProject.model_validate(p, from_attributes=True)
             for p in result.all()
         ]
+
+    async def lock(self) -> None:
+        """Take the lock serializing writes to the registry.
+
+        The registry has invariants that span rows, such as at most one
+        enabled project matching a given token and a derived username
+        belonging to a single repository, which the service checks by
+        reading the registry before writing to it. Holding this lock across
+        the check and the write makes those read-then-write sequences
+        atomic: a concurrent writer blocks here until this transaction
+        commits or rolls back, and then sees its rows.
+
+        Must be called from inside a transaction. The lock is scoped to
+        that transaction and is released automatically when it ends, so
+        there is no corresponding unlock.
+
+        Notes
+        -----
+        This is a single lock for the whole registry rather than one per
+        repository or per username. The invariants cross those boundaries
+        (a derived username ties together different repositories), so
+        finer-grained locks would need to be taken in a fixed order to
+        avoid deadlocks. Registry writes are rare administrative actions,
+        so serializing all of them costs nothing noticeable and keeps the
+        reasoning simple.
+
+        The lock is a PostgreSQL transaction-scoped advisory lock. If there
+        is ever a need to support a database without advisory locks,
+        fallback code (probably locking a dedicated row) will need to be
+        added here.
+        """
+        stmt = text("SELECT pg_advisory_xact_lock(hashtext(:key))")
+        await self._session.execute(stmt, {"key": _REGISTRY_LOCK_KEY})
 
     async def update(self, project: GitHubProject) -> bool:
         """Replace the stored fields of a GitHub project.
