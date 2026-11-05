@@ -6,14 +6,16 @@ wrapped in an `asyncio.Lock`, possibly with some complex structure to allow
 per-user locking.  These services sit below the main service layer and are
 only intended for use via their service layer
 (`~gafaelfawr.services.token_cache.TokenCacheService`,
-`~gafaelfawr.services.ldap.LDAPService`, and
-`~gafaelfawr.services.firestore.FirestoreService`).
+`~gafaelfawr.services.ldap.LDAPService`,
+`~gafaelfawr.services.firestore.FirestoreService`, and
+`~gafaelfawr.providers.github_actions.GitHubActionsTokenVerifier`).
 """
 
 import asyncio
 from abc import ABCMeta, abstractmethod
+from datetime import UTC, datetime, timedelta
 from types import TracebackType
-from typing import Literal, override
+from typing import Any, Literal, override
 
 from cachetools import LRUCache, TTLCache
 
@@ -32,6 +34,7 @@ __all__ = [
     "BaseCache",
     "IdCache",
     "InternalTokenCache",
+    "JWKSCache",
     "LDAPCache",
     "NotebookTokenCache",
     "PerUserCache",
@@ -170,6 +173,78 @@ class UserLockManager:
     ) -> Literal[False]:
         self._user_lock.release()
         return False
+
+
+class JWKSCache(BaseCache):
+    """A cache of the signing keys of a single JWT issuer.
+
+    This holds the keys from an issuer's JSON Web Key Set (JWKS) for a fixed
+    lifetime so that each token verification does not require retrieving the
+    keys again. All of the logic is handled by the verifier that uses it,
+    currently
+    `~gafaelfawr.providers.github_actions.GitHubActionsTokenVerifier`.
+
+    The caller should first call `get` without a lock and use the result if
+    it is not `None`. If it is `None`, or if the token names a key ID that is
+    not in the cached set, the caller should take the lock, call `get` again,
+    and only if the keys are still missing retrieve a fresh set and `store`
+    it, so that concurrent requests do not all fetch the keys at once.
+
+    Parameters
+    ----------
+    lifetime
+        How long to cache the keys.
+    """
+
+    def __init__(self, lifetime: timedelta) -> None:
+        self._lifetime = lifetime
+        self._keys: list[dict[str, Any]] | None = None
+        self._expires: datetime | None = None
+        self._lock = asyncio.Lock()
+
+    @override
+    async def clear(self) -> None:
+        """Invalidate the cache.
+
+        Used primarily for testing.
+        """
+        async with self._lock:
+            self._keys = None
+            self._expires = None
+
+    def get(self) -> list[dict[str, Any]] | None:
+        """Retrieve the cached keys, if available and not expired.
+
+        Returns
+        -------
+        list of dict or None
+            The cached keys in JWKS format, or `None` if there is no cached
+            key set or it has expired.
+        """
+        if self._expires is None or self._expires <= datetime.now(tz=UTC):
+            return None
+        return self._keys
+
+    def lock(self) -> asyncio.Lock:
+        """Return the cache lock for use in a context manager.
+
+        Returns
+        -------
+        asyncio.Lock
+            The lock for the cache.
+        """
+        return self._lock
+
+    def store(self, keys: list[dict[str, Any]]) -> None:
+        """Store a freshly retrieved key set in the cache.
+
+        Parameters
+        ----------
+        keys
+            The keys in JWKS format.
+        """
+        self._keys = keys
+        self._expires = datetime.now(tz=UTC) + self._lifetime
 
 
 class PerUserCache(BaseCache):
