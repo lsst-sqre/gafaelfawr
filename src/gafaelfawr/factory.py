@@ -24,9 +24,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from structlog.stdlib import BoundLogger
 
-from .cache import IdCache, InternalTokenCache, LDAPCache, NotebookTokenCache
+from .cache import (
+    IdCache,
+    InternalTokenCache,
+    JWKSCache,
+    LDAPCache,
+    NotebookTokenCache,
+)
 from .config import Config
 from .constants import (
+    GITHUB_ACTIONS_JWKS_MIN_REFRESH,
     REDIS_BACKOFF_MAX,
     REDIS_BACKOFF_START,
     REDIS_EPHEMERAL_POOL_SIZE,
@@ -43,6 +50,7 @@ from .models.token import TokenData
 from .models.userinfo import Group
 from .providers.base import Provider
 from .providers.github import GitHubProvider
+from .providers.github_actions import GitHubActionsTokenVerifier
 from .providers.oidc import OIDCProvider, OIDCTokenVerifier
 from .schema import Token as SQLToken
 from .services.firestore import FirestoreService
@@ -123,6 +131,9 @@ class ProcessContext:
     notebook_token_cache: NotebookTokenCache
     """Shared notebook token cache."""
 
+    github_jwks_cache: JWKSCache | None
+    """Cache of GitHub Actions signing keys, if token exchange is enabled."""
+
     @classmethod
     async def from_config(cls, config: Config) -> Self:
         """Create a new process context from the Gafaelfawr configuration.
@@ -154,6 +165,13 @@ class ProcessContext:
             elif config.ldap.use_kerberos:
                 client.set_credentials("GSSAPI")
             ldap_pool = AIOConnectionPool(client)
+
+        github_jwks_cache = None
+        if config.github_token_exchange:
+            lifetime = config.github_token_exchange.jwks_cache_lifetime
+            github_jwks_cache = JWKSCache(
+                lifetime, GITHUB_ACTIONS_JWKS_MIN_REFRESH
+            )
 
         redis_password = None
         if config.redis_password:
@@ -204,6 +222,7 @@ class ProcessContext:
             ldap_user_cache=LDAPCache(LDAPUserData),
             internal_token_cache=InternalTokenCache(),
             notebook_token_cache=NotebookTokenCache(),
+            github_jwks_cache=github_jwks_cache,
         )
 
     async def aclose(self) -> None:
@@ -223,6 +242,8 @@ class ProcessContext:
         await self.ldap_user_cache.clear()
         await self.internal_token_cache.clear()
         await self.notebook_token_cache.clear()
+        if self.github_jwks_cache:
+            await self.github_jwks_cache.clear()
 
 
 class Factory:
@@ -478,6 +499,32 @@ class Factory:
             user_info_service=self.create_user_info_service(),
             slack_client=self.create_slack_client(),
             session=self.session,
+            logger=self._logger,
+        )
+
+    def create_github_actions_token_verifier(
+        self,
+    ) -> GitHubActionsTokenVerifier:
+        """Create a verifier for GitHub Actions ID tokens.
+
+        Returns
+        -------
+        GitHubActionsTokenVerifier
+            A new GitHub Actions ID token verifier.
+
+        Raises
+        ------
+        NotConfiguredError
+            Raised if the GitHub Actions token exchange is not configured.
+        """
+        config = self._context.config.github_token_exchange
+        if not config or not self._context.github_jwks_cache:
+            msg = "GitHub Actions token exchange not configured"
+            raise NotConfiguredError(msg)
+        return GitHubActionsTokenVerifier(
+            config=config,
+            jwks_cache=self._context.github_jwks_cache,
+            http_client=self._context.http_client,
             logger=self._logger,
         )
 

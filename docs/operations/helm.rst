@@ -896,3 +896,40 @@ The following additional options customize the behavior of the OpenID Connect se
 ``config.oidcServer.keyId``
     The key ID of the signing key (the ``kid`` claim in JWTs).
     Default: ``gafaelfawr``
+
+.. _helm-github-token-exchange:
+
+GitHub Actions token exchange
+=============================
+
+Gafaelfawr can exchange the OpenID Connect ID token that GitHub issues to a GitHub Actions job for a short-lived Gafaelfawr token, so that workflows can call services in the Phalanx environment without storing a long-lived Gafaelfawr token as a GitHub Actions secret.
+See :sqr:`120` for the design.
+
+This feature is independent of the authentication provider and can be enabled alongside GitHub, CILogon, or OpenID Connect authentication.
+To enable it, set ``config.githubTokenExchange.enabled`` to true:
+
+.. code-block:: yaml
+
+   config:
+     githubTokenExchange:
+       enabled: true
+
+Gafaelfawr must be able to make outbound HTTPS requests to ``token.actions.githubusercontent.com`` to retrieve GitHub's signing keys.
+
+The following additional options customize the behavior of the token exchange:
+
+``config.githubTokenExchange.audience``
+    The audience (the ``aud`` claim) that GitHub Actions ID tokens must carry to be accepted.
+    Workflows must request their ID token with this audience.
+    Each Phalanx environment should use a distinct audience so that a token obtained for one environment cannot be exchanged in another.
+    Default: The base URL of the Phalanx environment, without a trailing slash.
+
+``config.githubTokenExchange.maxLifetime``
+    The upper limit on the lifetime of tokens minted by the exchange.
+    Default: 6 hours, the longest a GitHub-hosted job can run.
+
+``config.githubTokenExchange.jwksCacheLifetime``
+    How long to cache GitHub's signing keys before retrieving them again.
+    Keys are also retrieved again whenever a token names a key that is not in the cached set, so this setting only bounds how long a retired key is still trusted.
+    To prevent a stream of tokens with bogus key IDs from forcing a request to GitHub for each one, keys are retrieved in response to an unknown key ID at most once per minute.
+    Default: 1 hour.

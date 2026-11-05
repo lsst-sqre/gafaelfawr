@@ -79,6 +79,7 @@ __all__ = [
     "GitHubConfig",
     "GitHubGroup",
     "GitHubGroupTeam",
+    "GitHubTokenExchangeConfig",
     "HttpsUrl",
     "LDAPConfig",
     "OIDCClientConfig",
@@ -695,6 +696,65 @@ class OIDCServerConfig(EnvFirstSettings):
         return self._keypair
 
 
+class GitHubTokenExchangeConfig(EnvFirstSettings):
+    """Configuration for the GitHub Actions OIDC token exchange.
+
+    This is deliberately a top-level configuration block rather than part of
+    `GitHubConfig`, since the latter configures GitHub as the authentication
+    provider and cannot be used alongside CILogon or OpenID Connect
+    authentication, whereas the token exchange is independent of the
+    authentication provider.
+    """
+
+    enabled: bool = Field(
+        False,
+        title="Enable GitHub Actions token exchange",
+        description=(
+            "Whether to allow GitHub Actions workflows to exchange a GitHub"
+            " Actions ID token for a Gafaelfawr token"
+        ),
+    )
+
+    audience: str = Field(
+        "",
+        title="Expected audience",
+        description=(
+            "Audience (``aud``) claim that GitHub Actions ID tokens must"
+            " carry. Workflows request an ID token for this audience. The"
+            " default is the base URL of the Phalanx environment without a"
+            " trailing slash."
+        ),
+        examples=["https://example.com"],
+    )
+
+    max_lifetime: HumanTimedelta = Field(
+        timedelta(hours=6),
+        title="Maximum token lifetime",
+        description=(
+            "Upper limit on the lifetime of tokens minted by the exchange."
+            " The default matches the longest a GitHub-hosted job can run."
+        ),
+    )
+
+    jwks_cache_lifetime: HumanTimedelta = Field(
+        timedelta(hours=1),
+        title="Signing key cache lifetime",
+        description=(
+            "How long to cache GitHub's signing keys before fetching them"
+            " again. Keys are also refreshed when a token names an unknown"
+            " key ID, so this only bounds how long a retired key is trusted."
+        ),
+    )
+
+    @field_validator("max_lifetime")
+    @classmethod
+    def _validate_max_lifetime(cls, v: timedelta) -> timedelta:
+        if v < MINIMUM_LIFETIME:
+            limit = MINIMUM_LIFETIME
+            raise ValueError(f"must be longer than {limit.total_seconds()}s")
+        return v
+
+
 class GitHubGroupTeam(BaseModel):
     """Specification for a GitHub team."""
 
@@ -974,6 +1034,15 @@ class Config(EnvFirstSettings):
         ),
     )
 
+    github_token_exchange: GitHubTokenExchangeConfig | None = Field(
+        None,
+        title="GitHub Actions token exchange configuration",
+        description=(
+            "Configuration for exchanging GitHub Actions ID tokens for"
+            " Gafaelfawr tokens"
+        ),
+    )
+
     quota: QuotaConfig | None = Field(
         None,
         title="Quota for users",
@@ -1045,6 +1114,7 @@ class Config(EnvFirstSettings):
             ("ldap", "url"),
             ("firestore", "project"),
             ("oidcServer", "enabled"),
+            ("githubTokenExchange", "enabled"),
             ("quota", "default"),
         ):
             if data.get(key) is not None and not data[key].get(needed):
@@ -1058,6 +1128,14 @@ class Config(EnvFirstSettings):
             if scope not in self.known_scopes:
                 msg = f"Scope {scope} assigned but not in knownScopes"
                 raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def _validate_github_token_exchange(self) -> Self:
+        """Default the token exchange audience to the base URL."""
+        exchange = self.github_token_exchange
+        if exchange and not exchange.audience:
+            exchange.audience = str(self.base_url).rstrip("/")
         return self
 
     @model_validator(mode="after")
@@ -1120,6 +1198,10 @@ class Config(EnvFirstSettings):
             for key in ("clientSuffix", "issuer"):
                 if key in oidc_data and oidc_data[key] is None:
                     del oidc_data[key]
+        exchange_data = data.get("githubTokenExchange")
+        if isinstance(exchange_data, dict) and "audience" in exchange_data:
+            if not exchange_data["audience"]:
+                del exchange_data["audience"]
 
         return cls.model_validate(data)
 

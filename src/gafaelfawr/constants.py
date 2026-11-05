@@ -12,6 +12,9 @@ __all__ = [
     "CURSOR_REGEX",
     "GID_MAX",
     "GID_MIN",
+    "GITHUB_ACTIONS_ISSUER",
+    "GITHUB_ACTIONS_JWKS_MIN_REFRESH",
+    "GITHUB_ACTIONS_JWT_LEEWAY",
     "GROUPNAME_REGEX",
     "HTTP_TIMEOUT",
     "ID_CACHE_SIZE",
@@ -50,6 +53,31 @@ CONFIG_PATH = "/etc/gafaelfawr/gafaelfawr.yaml"
 
 COOKIE_NAME = "gafaelfawr"
 """Name of the state cookie."""
+
+GITHUB_ACTIONS_ISSUER = "https://token.actions.githubusercontent.com"
+"""Issuer (``iss`` claim) of GitHub Actions ID tokens.
+
+This is fixed rather than configurable because the GitHub Actions token
+exchange only supports GitHub.com, not GitHub Enterprise Server.
+"""
+
+GITHUB_ACTIONS_JWKS_MIN_REFRESH = timedelta(minutes=1)
+"""Minimum interval between key refreshes prompted by unknown key IDs.
+
+A GitHub Actions ID token naming a key ID that is not in the cached key set
+prompts a refresh of the keys, since GitHub rotates its signing keys. Without
+a limit, anyone could force a request to GitHub for each token they send to
+the token exchange. Within this interval after a refresh, tokens naming
+unknown key IDs are rejected without refreshing the keys again. Expiry of the
+cached keys after the configured cache lifetime always forces a refresh.
+"""
+
+GITHUB_ACTIONS_JWT_LEEWAY = 30
+"""Clock skew (in seconds) allowed when checking GitHub Actions ID tokens.
+
+Applied to the ``nbf`` and ``iat`` claims when verifying a GitHub Actions ID
+token presented to the token exchange. The ``exp`` claim is checked strictly.
+"""
 
 HTTP_TIMEOUT = 20.0
 """Timeout (in seconds) for outbound HTTP requests to auth providers."""
