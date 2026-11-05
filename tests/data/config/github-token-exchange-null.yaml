@@ -1,0 +1,19 @@
+# Use GitHub as the provider with the GitHub Actions token exchange block
+# present but null, as a values file may render it.
+
+slackAlerts: true
+afterLogoutUrl: "https://example.com/landing"
+groupMapping:
+  "exec:admin": ["admin"]
+knownScopes:
+  "admin:token": "token administration"
+  "admin:userinfo": "Can see user information for any user"
+  "exec:admin": "admin description"
+  "read:all": "can read everything"
+  "user:token": "Can create and modify user tokens"
+github:
+  clientId: "some-github-client-id"
+githubTokenExchange: null
+metrics:
+  enabled: false
+  application: "gafaelfawr"

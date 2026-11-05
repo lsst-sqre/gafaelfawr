@@ -12,7 +12,6 @@ OpenID Connect authentication provider.
 """
 
 from datetime import UTC, datetime
-from typing import Any
 
 import jwt
 from httpx import AsyncClient, HTTPError
@@ -34,7 +33,11 @@ from ..exceptions import (
     UnknownAlgorithmError,
     UnknownKeyIdError,
 )
-from ..models.github_actions import GitHubActionsClaims
+from ..models.github_actions import (
+    GitHubActionsClaims,
+    GitHubActionsJWKS,
+    GitHubActionsOIDCMetadata,
+)
 
 __all__ = ["GitHubActionsTokenVerifier"]
 
@@ -96,15 +99,15 @@ class GitHubActionsTokenVerifier:
             audience, is outside its validity window, or has an invalid
             signature.
         FetchKeysError
-            Raised if GitHub's key data is syntactically invalid.
+            Raised if GitHub's key data is syntactically invalid or contains
+            no usable keys.
         GitHubWebError
             Raised if unable to retrieve signing keys from GitHub.
         InvalidTokenClaimsError
             Raised if the token is missing a required claim or a claim has
             an invalid format.
         UnknownAlgorithmError
-            Raised if the token or its signing key uses an algorithm other
-            than ``RS256``.
+            Raised if the token uses an algorithm other than ``RS256``.
         UnknownKeyIdError
             Raised if the token does not name a key ID or names one that is
             not in GitHub's key set, even after refreshing the keys.
@@ -130,12 +133,15 @@ class GitHubActionsTokenVerifier:
         )
 
         # PyJWT applies the same leeway to exp as to nbf and iat, so check
-        # exp separately without leeway. The claim is guaranteed to be present
-        # by the require option above.
+        # exp separately without leeway, parsing the claim the same way PyJWT
+        # does. int rather than float matters: JSON parsing accepts NaN and
+        # Infinity, which float would pass through and which never compare
+        # as expired. The claim is guaranteed to be present by the require
+        # option above.
         now = datetime.now(tz=UTC).timestamp()
         try:
-            expires = float(payload["exp"])
-        except (TypeError, ValueError) as e:
+            expires = int(payload["exp"])
+        except (TypeError, ValueError, OverflowError) as e:
             msg = f"Invalid exp claim in token: {payload['exp']}"
             raise jwt.DecodeError(msg) from e
         if now >= expires:
@@ -157,7 +163,9 @@ class GitHubActionsTokenVerifier:
 
         Uses the cached key set if the key is present. Otherwise, retrieves a
         fresh key set from GitHub, since GitHub rotates its signing keys, and
-        fails if the key is still not present.
+        fails if the key is still not present. Since anyone can send a token
+        naming an unknown key ID, the key set is not retrieved again if it
+        was retrieved within the minimum refresh interval.
 
         Parameters
         ----------
@@ -172,82 +180,56 @@ class GitHubActionsTokenVerifier:
         Raises
         ------
         FetchKeysError
-            Raised if GitHub's key data is syntactically invalid.
+            Raised if GitHub's key data is syntactically invalid or contains
+            no usable keys.
         GitHubWebError
             Raised if unable to retrieve signing keys from GitHub.
-        UnknownAlgorithmError
-            Raised if the requested key ID was found but is for an
-            unsupported algorithm.
         UnknownKeyIdError
             Raised if the requested key ID was not found in GitHub's key set.
         """
-        key = self._find_key(self._jwks_cache.get(), key_id)
-        if not key:
-            async with self._jwks_cache.lock():
-                # Another request may have refreshed the keys while this one
-                # was waiting for the lock.
-                key = self._find_key(self._jwks_cache.get(), key_id)
-                if not key:
-                    keys = await self._fetch_keys()
-                    self._jwks_cache.store(keys)
-                    key = self._find_key(keys, key_id)
-        if not key:
+        keys = self._jwks_cache.get()
+        if keys is not None and key_id in keys:
+            return keys[key_id]
+        async with self._jwks_cache.lock():
+            # Another request may have refreshed the keys while this one
+            # was waiting for the lock.
+            keys = self._jwks_cache.get()
+            if keys is not None and key_id in keys:
+                return keys[key_id]
+            if keys is not None and self._jwks_cache.recently_refreshed():
+                self._logger.warning(
+                    "Not refreshing recently retrieved GitHub Actions keys",
+                    kid=key_id,
+                )
+                msg = f"GitHub Actions has no kid {key_id}"
+                raise UnknownKeyIdError(msg)
+            jwks_uri = self._jwks_cache.get_jwks_uri()
+            if not jwks_uri:
+                jwks_uri = await self._get_jwks_uri()
+            keys = await self._fetch_keys(jwks_uri)
+            self._jwks_cache.store(jwks_uri, keys)
+        if key_id not in keys:
             msg = f"GitHub Actions has no kid {key_id}"
             raise UnknownKeyIdError(msg)
-        if key.get("alg", ALGORITHM) != ALGORITHM:
-            msg = f"GitHub Actions kid {key_id} had algorithm {key['alg']}"
-            raise UnknownAlgorithmError(msg)
-        try:
-            return PyJWK.from_dict(key, algorithm=ALGORITHM)
-        except jwt.PyJWTError as e:
-            msg = f"GitHub Actions kid {key_id} is not a valid key: {e!s}"
-            raise FetchKeysError(msg) from e
+        return keys[key_id]
 
-    @staticmethod
-    def _find_key(
-        keys: list[dict[str, Any]] | None, key_id: str
-    ) -> dict[str, Any] | None:
-        """Find a key by key ID in a key set.
-
-        Parameters
-        ----------
-        keys
-            Key set in JWKS format, or `None` if there is no key set.
-        key_id
-            Key ID to find.
+    async def _get_jwks_uri(self) -> str:
+        """Retrieve the JWKS URI from GitHub's OpenID Connect metadata.
 
         Returns
         -------
-        dict or None
-            The matching key, or `None` if it is not in the key set.
-        """
-        if not keys:
-            return None
-        for key in keys:
-            if key.get("kid") == key_id:
-                return key
-        return None
-
-    async def _fetch_keys(self) -> list[dict[str, Any]]:
-        """Retrieve GitHub's current signing keys.
-
-        Reads the JWKS URI from GitHub's OpenID Connect configuration and
-        then retrieves the key set from that URI.
-
-        Returns
-        -------
-        list of dict
-            Keys in JWKS format.
+        str
+            URL of GitHub's JSON Web Key Set.
 
         Raises
         ------
         FetchKeysError
-            Raised if the OpenID Connect configuration or the key set does
-            not have the expected structure.
+            Raised if the OpenID Connect metadata does not have the expected
+            structure or the JWKS URI is not an HTTPS URL.
         GitHubWebError
-            Raised if unable to retrieve signing keys from GitHub.
+            Raised if unable to retrieve the metadata from GitHub.
         """
-        self._logger.debug("Fetching GitHub Actions signing keys")
+        self._logger.debug("Fetching GitHub Actions OpenID Connect metadata")
         config_url = (
             GITHUB_ACTIONS_ISSUER + "/.well-known/openid-configuration"
         )
@@ -257,22 +239,73 @@ class GitHubActionsTokenVerifier:
         except HTTPError as e:
             raise GitHubWebError.from_exception(e) from e
         try:
-            jwks_url = r.json()["jwks_uri"]
-        except Exception as e:
-            msg = f"No jwks_uri property in OIDC metadata for {config_url}"
+            metadata = GitHubActionsOIDCMetadata.model_validate(r.json())
+        except (ValidationError, ValueError) as e:
+            msg = f"Invalid OIDC metadata from {config_url}"
             raise FetchKeysError(msg) from e
+        return str(metadata.jwks_uri)
 
+    async def _fetch_keys(self, jwks_uri: str) -> dict[str, PyJWK]:
+        """Retrieve and parse GitHub's current signing keys.
+
+        Keys that are missing a key ID, use an algorithm other than
+        ``RS256``, or cannot be parsed are skipped with a warning rather than
+        failing the whole key set, so that one such key in GitHub's set does
+        not prevent verifying tokens signed with the others.
+
+        Parameters
+        ----------
+        jwks_uri
+            URL of GitHub's JSON Web Key Set.
+
+        Returns
+        -------
+        dict of jwt.PyJWK
+            Usable signing keys, indexed by key ID.
+
+        Raises
+        ------
+        FetchKeysError
+            Raised if the key set does not have the expected structure or
+            contains no usable keys.
+        GitHubWebError
+            Raised if unable to retrieve signing keys from GitHub.
+        """
+        self._logger.debug("Fetching GitHub Actions signing keys")
         try:
-            r = await self._http_client.get(jwks_url)
+            r = await self._http_client.get(jwks_uri)
             r.raise_for_status()
         except HTTPError as e:
             raise GitHubWebError.from_exception(e) from e
         try:
-            keys = r.json()["keys"]
-        except Exception as e:
-            msg = f"No keys property in JWKS metadata for {jwks_url}"
+            jwks = GitHubActionsJWKS.model_validate(r.json())
+        except (ValidationError, ValueError) as e:
+            msg = f"Invalid JWKS from {jwks_uri}"
             raise FetchKeysError(msg) from e
-        if not isinstance(keys, list):
-            msg = f"Invalid keys property in JWKS metadata for {jwks_url}"
+
+        keys: dict[str, PyJWK] = {}
+        for key in jwks.keys:
+            key_id = key.get("kid")
+            if not key_id or not isinstance(key_id, str):
+                self._logger.warning("Ignoring GitHub Actions key without kid")
+                continue
+            algorithm = key.get("alg", ALGORITHM)
+            if algorithm != ALGORITHM:
+                self._logger.warning(
+                    "Ignoring GitHub Actions key with unsupported algorithm",
+                    kid=key_id,
+                    alg=algorithm,
+                )
+                continue
+            try:
+                keys[key_id] = PyJWK.from_dict(key, algorithm=ALGORITHM)
+            except jwt.PyJWTError as e:
+                self._logger.warning(
+                    "Ignoring invalid GitHub Actions key",
+                    kid=key_id,
+                    error=str(e),
+                )
+        if not keys:
+            msg = f"No usable {ALGORITHM} keys in JWKS from {jwks_uri}"
             raise FetchKeysError(msg)
         return keys
