@@ -125,8 +125,8 @@ class GitHubProjectService:
         GitHubError
             Raised if GitHub returned invalid repository data.
         GitHubProjectOverlapError
-            Raised if the constraints of the project overlap those of an
-            existing project for the same repository.
+            Raised if the project is enabled and its constraints overlap
+            those of an existing enabled project for the same repository.
         GitHubWebError
             Raised if an HTTP error occurred talking to GitHub.
         InvalidGitHubUsernameError
@@ -345,8 +345,8 @@ class GitHubProjectService:
         GitHubError
             Raised if GitHub returned invalid repository data.
         GitHubProjectOverlapError
-            Raised if the constraints of the project overlap those of
-            another project for the same repository.
+            Raised if the project is enabled and its constraints overlap
+            those of another enabled project for the same repository.
         GitHubWebError
             Raised if an HTTP error occurred talking to GitHub.
         InvalidGitHubUsernameError
@@ -461,7 +461,14 @@ class GitHubProjectService:
         *,
         exclude_id: int | None = None,
     ) -> None:
-        """Check that a project does not overlap an existing project.
+        """Check that a project does not overlap an existing enabled project.
+
+        Disabled projects never match a token, so they do not participate in
+        the overlap check: a disabled project may overlap anything, and an
+        existing disabled project does not block a new or changed project.
+        Re-enabling a project is therefore refused if it would overlap an
+        enabled project, since ``project`` is then the project as it would
+        be after the change.
 
         Must be called from inside a transaction.
 
@@ -476,14 +483,16 @@ class GitHubProjectService:
         Raises
         ------
         GitHubProjectOverlapError
-            Raised if the constraints of the project overlap those of an
-            existing project for the same repository.
+            Raised if the project is enabled and its constraints overlap
+            those of an existing enabled project for the same repository.
         """
+        if not project.enabled:
+            return
         existing = await self._project_store.list(
             repository=project.repository
         )
         for other in existing:
-            if other.id == exclude_id:
+            if other.id == exclude_id or not other.enabled:
                 continue
             if other.overlaps(project):
                 msg = (

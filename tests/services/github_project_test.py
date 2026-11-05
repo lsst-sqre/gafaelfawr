@@ -566,6 +566,83 @@ async def test_update_project_errors(
 
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
+async def test_disabled_project_overlap(
+    config: Config, factory: Factory, respx_mock: respx.Router
+) -> None:
+    service = factory.create_github_project_service()
+    mock_github_repositories(respx_mock, [SQR_062])
+    admin = await create_admin(factory)
+    create = GitHubProjectCreate(
+        repository="lsst-sqre/sqr-062",
+        scopes={"read:all"},
+        ref="refs/heads/main",
+    )
+
+    # A disabled project does not block a replacement with the same
+    # constraints, so the old row can be kept rather than deleted.
+    old = await service.create_project(create, admin, ip_address=None)
+    update = GitHubProjectUpdate(enabled=False)
+    old = await service.update_project(old.id, update, admin, ip_address=None)
+    assert not old.enabled
+    new = await service.create_project(create, admin, ip_address=None)
+    assert new.id != old.id
+    assert new.enabled
+
+    # Re-enabling the old project would overlap the enabled replacement and
+    # is refused, naming the replacement, and the old project stays
+    # disabled.
+    update = GitHubProjectUpdate(enabled=True)
+    with pytest.raises(GitHubProjectOverlapError) as excinfo:
+        await service.update_project(old.id, update, admin, ip_address=None)
+    assert excinfo.value.project_id == new.id
+    assert await service.get_project(old.id, admin) == old
+
+    # Creating a disabled project skips the overlap check entirely, even
+    # against an enabled project, and two disabled overlapping projects may
+    # coexist.
+    disabled = await service.create_project(
+        create.model_copy(update={"ref": "refs/heads/", "enabled": False}),
+        admin,
+        ip_address=None,
+    )
+    assert not disabled.enabled
+    assert disabled.overlaps(new)
+    assert disabled.overlaps(old)
+
+    # Updating a disabled project so that it overlaps an enabled one is
+    # allowed, since it still matches nothing, and updating an enabled
+    # project so that it overlaps only disabled ones is allowed too.
+    update = GitHubProjectUpdate(ref=None)
+    moved = await service.update_project(
+        old.id, update, admin, ip_address=None
+    )
+    assert moved.ref is None
+    assert not moved.enabled
+    update = GitHubProjectUpdate(ref="refs/heads/")
+    widened = await service.update_project(
+        new.id, update, admin, ip_address=None
+    )
+    assert widened.ref == "refs/heads/"
+    assert widened.enabled
+
+    # Re-enabling a disabled project that no longer overlaps any enabled
+    # project is allowed, and once enabled it blocks overlap again.
+    update = GitHubProjectUpdate(ref="refs/tags/", enabled=True)
+    reenabled = await service.update_project(
+        disabled.id, update, admin, ip_address=None
+    )
+    assert reenabled.enabled
+    with pytest.raises(GitHubProjectOverlapError) as excinfo:
+        await service.create_project(
+            create.model_copy(update={"ref": "refs/tags/v1.0"}),
+            admin,
+            ip_address=None,
+        )
+    assert excinfo.value.project_id == reenabled.id
+
+
+@pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
+@pytest.mark.asyncio
 async def test_delete_project(
     config: Config, factory: Factory, respx_mock: respx.Router
 ) -> None:

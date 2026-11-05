@@ -176,8 +176,10 @@ _GROUPS = Field(
 _ENABLED = Field(
     title="Enabled",
     description=(
-        "Disabled projects are kept but never match. Disabling a project"
-        " revokes its outstanding tokens."
+        "Disabled projects are kept but never match and do not take part in"
+        " overlap checks, so a disabled project may overlap other projects."
+        " Disabling a project revokes its outstanding tokens. Re-enabling"
+        " one is refused if it would overlap an enabled project."
     ),
 )
 
