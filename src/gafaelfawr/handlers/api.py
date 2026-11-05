@@ -23,12 +23,23 @@ from safir.pydantic import UtcDatetime
 from safir.sentry import report_exception
 from safir.slack.webhook import SlackRouteErrorHandler
 
-from ..constants import ACTOR_REGEX, CURSOR_REGEX, USERNAME_REGEX
+from ..constants import (
+    ACTOR_REGEX,
+    CURSOR_REGEX,
+    GITHUB_BOT_USERNAME_REGEX,
+    GITHUB_REPOSITORY_REGEX,
+    USERNAME_REGEX,
+)
 from ..dependencies.auth import AuthenticateRead, AuthenticateWrite
 from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import ExternalUserInfoError, NotFoundError
 from ..models.auth import APIConfig, APILoginResponse, Scope
 from ..models.enums import TokenType
+from ..models.github_project import (
+    GitHubProject,
+    GitHubProjectCreate,
+    GitHubProjectUpdate,
+)
 from ..models.history import TokenChangeHistoryCursor, TokenChangeHistoryEntry
 from ..models.oidc import OIDCClient, OIDCClientUpdate, OIDCClientWithSecret
 from ..models.quota import QuotaConfig
@@ -83,6 +94,254 @@ _pagination_headers = {
         "schema": {"type": "integer"},
     },
 }
+
+
+_GITHUB_PROJECT_ID = Path(
+    title="Project ID",
+    description="Unique identifier of the GitHub project",
+    examples=[42],
+    ge=1,
+)
+
+_github_project_responses: dict[int | str, dict[str, Any]] = {
+    404: {
+        "description": (
+            "GitHub Actions token exchange not configured or project not found"
+        ),
+        "model": ErrorModel,
+    },
+}
+
+
+@router.get(
+    "/auth/api/v1/github/projects",
+    description=(
+        "List the registered GitHub projects, optionally limited to those"
+        " matching every given filter. Projects are the trust configuration"
+        " of the GitHub Actions token exchange and say which GitHub"
+        " workflows may obtain Gafaelfawr tokens, as which bot user, with"
+        " which scopes, and for how long."
+    ),
+    responses={
+        404: {
+            "description": "GitHub Actions token exchange not configured",
+            "model": ErrorModel,
+        },
+    },
+    summary="List GitHub projects",
+    tags=["admin"],
+)
+async def get_github_projects(
+    *,
+    repository: Annotated[
+        str | None,
+        Query(
+            title="Repository",
+            description=(
+                "Limit the results to projects for this GitHub repository,"
+                " given as ``owner/name`` and compared case-insensitively"
+            ),
+            examples=["lsst-sqre/sqr-062"],
+            min_length=3,
+            max_length=140,
+            pattern=GITHUB_REPOSITORY_REGEX,
+        ),
+    ] = None,
+    username: Annotated[
+        str | None,
+        Query(
+            title="Bot username",
+            description=(
+                "Limit the results to projects that mint tokens for this"
+                " bot username"
+            ),
+            examples=["bot-gh-lsst-sqre-sqr-062"],
+            min_length=1,
+            max_length=64,
+            pattern=GITHUB_BOT_USERNAME_REGEX,
+        ),
+    ] = None,
+    template: Annotated[
+        str | None,
+        Query(
+            title="Template",
+            description=(
+                "Limit the results to projects provisioned from this project"
+                " template"
+            ),
+            examples=["technote"],
+            min_length=1,
+            max_length=64,
+        ),
+    ] = None,
+    requested_by: Annotated[
+        str | None,
+        Query(
+            title="Requested by",
+            description=(
+                "Limit the results to projects created on behalf of this"
+                " identifier, as ``<source>:<identifier>``"
+            ),
+            examples=["slack:U024BE7LH"],
+            min_length=1,
+            max_length=256,
+        ),
+    ] = None,
+    auth_data: Annotated[TokenData, Depends(authenticate_admin_read)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+) -> list[GitHubProject]:
+    project_service = context.factory.create_github_project_service()
+    return await project_service.list_projects(
+        auth_data,
+        repository=repository,
+        username=username,
+        template=template,
+        requested_by=requested_by,
+    )
+
+
+@router.post(
+    "/auth/api/v1/github/projects",
+    description=(
+        "Register a new GitHub project. The repository must be a public"
+        " GitHub repository; its numeric GitHub IDs are looked up and pinned"
+        " so that the project keeps trusting the original repository if the"
+        " name is later reused. If no username is given, one is derived from"
+        " the repository as ``bot-gh-<owner>-<repo>``. The project is"
+        " refused if it is enabled and its constraints overlap those of an"
+        " existing enabled project for the same repository, since at most"
+        " one project may match a token. The response is the stored project,"
+        " including the resolved username and pinned IDs, which the caller"
+        " should check against the intended repository."
+    ),
+    responses={
+        201: {
+            "headers": {
+                "Location": {
+                    "description": "URL of the new project",
+                    "schema": {"type": "string"},
+                }
+            }
+        },
+        404: {
+            "description": "GitHub Actions token exchange not configured",
+            "model": ErrorModel,
+        },
+        409: {
+            "description": (
+                "Constraints overlap an existing project, or the derived"
+                " username is already used by a project for another"
+                " repository. The error message names the conflicting"
+                " project."
+            ),
+            "model": ErrorModel,
+        },
+    },
+    status_code=201,
+    summary="Create a GitHub project",
+    tags=["admin"],
+)
+async def post_github_projects(
+    *,
+    create: GitHubProjectCreate,
+    auth_data: Annotated[
+        TokenData, Depends(authenticate_admin_write_bootstrap)
+    ],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+    response: Response,
+) -> GitHubProject:
+    project_service = context.factory.create_github_project_service()
+    project = await project_service.create_project(
+        create, auth_data, ip_address=context.ip_address
+    )
+    url = context.request.url_for("get_github_project", project_id=project.id)
+    response.headers["Location"] = str(url)
+    return project
+
+
+@router.get(
+    "/auth/api/v1/github/projects/{project_id}",
+    description="Get details about a GitHub project",
+    responses=_github_project_responses,
+    summary="Get a GitHub project",
+    tags=["admin"],
+)
+async def get_github_project(
+    *,
+    project_id: Annotated[int, _GITHUB_PROJECT_ID],
+    auth_data: Annotated[TokenData, Depends(authenticate_admin_read)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+) -> GitHubProject:
+    project_service = context.factory.create_github_project_service()
+    return await project_service.get_project(project_id, auth_data)
+
+
+@router.delete(
+    "/auth/api/v1/github/projects/{project_id}",
+    description=(
+        "Delete a GitHub project and revoke every token minted for it that"
+        " is still outstanding"
+    ),
+    responses=_github_project_responses,
+    status_code=204,
+    summary="Delete a GitHub project",
+    tags=["admin"],
+)
+async def delete_github_project(
+    *,
+    project_id: Annotated[int, _GITHUB_PROJECT_ID],
+    auth_data: Annotated[
+        TokenData, Depends(authenticate_admin_write_bootstrap)
+    ],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+) -> None:
+    project_service = context.factory.create_github_project_service()
+    await project_service.delete_project(
+        project_id, auth_data, ip_address=context.ip_address
+    )
+
+
+@router.patch(
+    "/auth/api/v1/github/projects/{project_id}",
+    description=(
+        "Modify a GitHub project. Only the fields present in the request"
+        " are changed, and setting an optional field to null clears it."
+        " Changing the repository looks up its numeric IDs again but keeps"
+        " the username unless it is also changed. Setting the username to"
+        " null derives it from the repository again. Changes to the"
+        " constraints are checked for overlap with other enabled projects"
+        " as on creation. Setting ``enabled`` to false revokes every"
+        " outstanding token minted for the project; other changes do not"
+        " affect tokens already minted."
+    ),
+    responses={
+        **_github_project_responses,
+        409: {
+            "description": (
+                "Constraints would overlap an existing project, or the"
+                " derived username is already used by a project for another"
+                " repository. The error message names the conflicting"
+                " project."
+            ),
+            "model": ErrorModel,
+        },
+    },
+    summary="Update a GitHub project",
+    tags=["admin"],
+)
+async def patch_github_project(
+    *,
+    project_id: Annotated[int, _GITHUB_PROJECT_ID],
+    update: GitHubProjectUpdate,
+    auth_data: Annotated[
+        TokenData, Depends(authenticate_admin_write_bootstrap)
+    ],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+) -> GitHubProject:
+    project_service = context.factory.create_github_project_service()
+    return await project_service.update_project(
+        project_id, update, auth_data, ip_address=context.ip_address
+    )
 
 
 @router.get(
