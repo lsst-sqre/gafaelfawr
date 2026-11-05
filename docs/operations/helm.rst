@@ -931,4 +931,5 @@ The following additional options customize the behavior of the token exchange:
 ``config.githubTokenExchange.jwksCacheLifetime``
     How long to cache GitHub's signing keys before retrieving them again.
     Keys are also retrieved again whenever a token names a key that is not in the cached set, so this setting only bounds how long a retired key is still trusted.
+    To prevent a stream of tokens with bogus key IDs from forcing a request to GitHub for each one, keys are retrieved in response to an unknown key ID at most once per minute.
     Default: 1 hour.

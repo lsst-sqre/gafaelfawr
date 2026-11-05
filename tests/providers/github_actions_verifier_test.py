@@ -14,7 +14,9 @@ from jwt.exceptions import (
     MissingRequiredClaimError,
 )
 
+from gafaelfawr.cache import JWKSCache
 from gafaelfawr.config import Config
+from gafaelfawr.constants import GITHUB_ACTIONS_JWKS_MIN_REFRESH
 from gafaelfawr.exceptions import (
     FetchKeysError,
     GitHubWebError,
@@ -33,6 +35,12 @@ from ..support.github_actions import (
     create_github_actions_jwt,
     mock_github_actions_oidc,
 )
+
+
+def age_cache(jwks_cache: JWKSCache) -> None:
+    """Pretend the key set was retrieved long enough ago to allow a refresh."""
+    assert jwks_cache._refreshed
+    jwks_cache._refreshed -= GITHUB_ACTIONS_JWKS_MIN_REFRESH
 
 
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
@@ -148,6 +156,18 @@ async def test_verify_rejections(
     token = create_github_actions_jwt(extra={"exp": "soon"})
     with pytest.raises(DecodeError):
         await verifier.verify_token(token)
+    token = create_github_actions_jwt(extra={"exp": None})
+    with pytest.raises(MissingRequiredClaimError):
+        await verifier.verify_token(token)
+
+    # Python's JSON parser accepts NaN and Infinity, neither of which ever
+    # compares as expired, so they must be rejected as malformed.
+    token = create_github_actions_jwt(extra={"exp": float("nan")})
+    with pytest.raises(DecodeError):
+        await verifier.verify_token(token)
+    token = create_github_actions_jwt(extra={"exp": float("inf")})
+    with pytest.raises(DecodeError):
+        await verifier.verify_token(token)
 
     # Wrong signing key.
     token = create_github_actions_jwt(keypair=RSAKeyPair.generate())
@@ -173,17 +193,31 @@ async def test_key_rotation(
 ) -> None:
     verifier = factory.create_github_actions_token_verifier()
     mock = mock_github_actions_oidc(respx_mock, "old-kid")
+    jwks_cache = factory._context.github_jwks_cache
+    assert jwks_cache
 
     token = create_github_actions_jwt(kid="old-kid")
     assert await verifier.verify_token(token)
+    assert mock.config_requests == 1
     assert mock.jwks_requests == 1
 
-    # A token with an unknown key ID forces one refresh of the key set and
-    # then fails if the key is still not there.
+    # A token with an unknown key ID fails without refreshing the key set if
+    # the key set was retrieved recently, so that anyone with a bogus token
+    # cannot force a request to GitHub.
     token = create_github_actions_jwt(kid="new-kid")
     with pytest.raises(UnknownKeyIdError) as excinfo:
         await verifier.verify_token(token)
     assert str(excinfo.value) == "GitHub Actions has no kid new-kid"
+    assert mock.jwks_requests == 1
+
+    # Once the minimum refresh interval has passed, an unknown key ID forces
+    # one refresh of the key set and then fails if the key is still not
+    # there. The JWKS URI is cached, so only the key set is retrieved.
+    age_cache(jwks_cache)
+    with pytest.raises(UnknownKeyIdError) as excinfo:
+        await verifier.verify_token(token)
+    assert str(excinfo.value) == "GitHub Actions has no kid new-kid"
+    assert mock.config_requests == 1
     assert mock.jwks_requests == 2
 
     # Rotate the key at GitHub. The old key is still in the cache, so the
@@ -191,19 +225,26 @@ async def test_key_rotation(
     # cache is next refreshed.
     keypair = RSAKeyPair.generate()
     mock.keypairs = {"new-kid": keypair}
+    age_cache(jwks_cache)
     token = create_github_actions_jwt(kid="new-kid", keypair=keypair)
     assert await verifier.verify_token(token)
     assert mock.jwks_requests == 3
     token = create_github_actions_jwt(kid="old-kid")
     with pytest.raises(UnknownKeyIdError):
         await verifier.verify_token(token)
+    assert mock.jwks_requests == 3
+    age_cache(jwks_cache)
+    with pytest.raises(UnknownKeyIdError):
+        await verifier.verify_token(token)
     assert mock.jwks_requests == 4
+    assert mock.config_requests == 1
 
-    # Clearing the cache forces a fetch on the next verification.
-    assert factory._context.github_jwks_cache
-    await factory._context.github_jwks_cache.clear()
+    # Clearing the cache forces a full fetch, including the OpenID Connect
+    # metadata, on the next verification regardless of the refresh interval.
+    await jwks_cache.clear()
     token = create_github_actions_jwt(kid="new-kid", keypair=keypair)
     assert await verifier.verify_token(token)
+    assert mock.config_requests == 2
     assert mock.jwks_requests == 5
 
 
@@ -215,13 +256,30 @@ async def test_key_retrieval_errors(
     verifier = factory.create_github_actions_token_verifier()
     token = create_github_actions_jwt()
 
-    # GitHub's OpenID Connect configuration is unavailable or malformed.
+    # GitHub's OpenID Connect configuration is unavailable or malformed,
+    # including a JWKS URI that is not an HTTPS URL.
     respx_mock.get(GITHUB_ACTIONS_CONFIG_URL).respond(500)
     with pytest.raises(GitHubWebError):
         await verifier.verify_token(token)
     respx_mock.get(GITHUB_ACTIONS_CONFIG_URL).respond(json=["foo"])
     with pytest.raises(FetchKeysError):
         await verifier.verify_token(token)
+    respx_mock.get(GITHUB_ACTIONS_CONFIG_URL).respond(content=b"not json")
+    with pytest.raises(FetchKeysError):
+        await verifier.verify_token(token)
+    for jwks_uri in (
+        123,
+        None,
+        "",
+        "/.well-known/jwks",
+        "ftp://token.actions.githubusercontent.com/.well-known/jwks",
+        "http://token.actions.githubusercontent.com/.well-known/jwks",
+    ):
+        respx_mock.get(GITHUB_ACTIONS_CONFIG_URL).respond(
+            json={"jwks_uri": jwks_uri}
+        )
+        with pytest.raises(FetchKeysError):
+            await verifier.verify_token(token)
 
     # The key set is unavailable or malformed.
     respx_mock.get(GITHUB_ACTIONS_CONFIG_URL).respond(
@@ -236,26 +294,49 @@ async def test_key_retrieval_errors(
     respx_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(json={"keys": "foo"})
     with pytest.raises(FetchKeysError):
         await verifier.verify_token(token)
+    respx_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(json={"keys": ["foo"]})
+    with pytest.raises(FetchKeysError):
+        await verifier.verify_token(token)
 
-    # The key for the token uses an unsupported algorithm or is unusable.
-    # These key sets are cached since they were retrieved successfully, so
-    # clear the cache between them.
-    jwks_cache = factory._context.github_jwks_cache
-    assert jwks_cache
+    # A key set with no usable keys, because the only key uses an
+    # unsupported algorithm, has no key ID, or cannot be parsed, is an error
+    # and is not cached, so each attempt retries.
     jwks = TEST_KEYPAIR.public_key_as_jwks("github-kid").model_dump()
     jwks["keys"][0]["alg"] = "ES256"
     respx_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(json=jwks)
-    with pytest.raises(UnknownAlgorithmError):
+    with pytest.raises(FetchKeysError):
         await verifier.verify_token(token)
-    await jwks_cache.clear()
     jwks["keys"][0]["alg"] = "RS256"
+    jwks["keys"][0]["kid"] = None
+    respx_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(json=jwks)
+    with pytest.raises(FetchKeysError):
+        await verifier.verify_token(token)
+    jwks["keys"][0]["kid"] = "github-kid"
     jwks["keys"][0]["n"] = "not-a-modulus"
     respx_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(json=jwks)
     with pytest.raises(FetchKeysError):
         await verifier.verify_token(token)
-    await jwks_cache.clear()
 
-    # A working key set is picked up on the next verification.
+    # Unusable keys alongside a good key are skipped rather than failing
+    # the whole key set.
+    jwks = TEST_KEYPAIR.public_key_as_jwks("github-kid").model_dump()
+    jwks["keys"] = [
+        {**jwks["keys"][0], "kid": "other-kid", "alg": "ES256"},
+        {**jwks["keys"][0], "kid": "bad-kid", "n": "not-a-modulus"},
+        {**jwks["keys"][0], "kid": None},
+        *jwks["keys"],
+    ]
+    respx_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(json=jwks)
+    assert await verifier.verify_token(token)
+    for kid in ("other-kid", "bad-kid"):
+        with pytest.raises(UnknownKeyIdError):
+            await verifier.verify_token(create_github_actions_jwt(kid=kid))
+
+    # A working key set is picked up on the next verification once the cache
+    # is cleared.
+    jwks_cache = factory._context.github_jwks_cache
+    assert jwks_cache
+    await jwks_cache.clear()
     mock = mock_github_actions_oidc(respx_mock)
     assert await verifier.verify_token(token)
     assert mock.jwks_requests == 1

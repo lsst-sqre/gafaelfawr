@@ -33,6 +33,7 @@ from .cache import (
 )
 from .config import Config
 from .constants import (
+    GITHUB_ACTIONS_JWKS_MIN_REFRESH,
     REDIS_BACKOFF_MAX,
     REDIS_BACKOFF_START,
     REDIS_EPHEMERAL_POOL_SIZE,
@@ -168,7 +169,9 @@ class ProcessContext:
         github_jwks_cache = None
         if config.github_token_exchange:
             lifetime = config.github_token_exchange.jwks_cache_lifetime
-            github_jwks_cache = JWKSCache(lifetime)
+            github_jwks_cache = JWKSCache(
+                lifetime, GITHUB_ACTIONS_JWKS_MIN_REFRESH
+            )
 
         redis_password = None
         if config.redis_password:

@@ -15,9 +15,10 @@ import asyncio
 from abc import ABCMeta, abstractmethod
 from datetime import UTC, datetime, timedelta
 from types import TracebackType
-from typing import Any, Literal, override
+from typing import Literal, override
 
 from cachetools import LRUCache, TTLCache
+from jwt import PyJWK
 
 from .constants import (
     ID_CACHE_SIZE,
@@ -178,28 +179,37 @@ class UserLockManager:
 class JWKSCache(BaseCache):
     """A cache of the signing keys of a single JWT issuer.
 
-    This holds the keys from an issuer's JSON Web Key Set (JWKS) for a fixed
-    lifetime so that each token verification does not require retrieving the
-    keys again. All of the logic is handled by the verifier that uses it,
-    currently
+    This holds the parsed keys from an issuer's JSON Web Key Set (JWKS),
+    indexed by key ID, along with the JWKS URI discovered from the issuer's
+    OpenID Connect metadata, for a fixed lifetime so that each token
+    verification does not require retrieving and parsing the keys again. All
+    of the retrieval logic is handled by the verifier that uses it, currently
     `~gafaelfawr.providers.github_actions.GitHubActionsTokenVerifier`.
 
     The caller should first call `get` without a lock and use the result if
-    it is not `None`. If it is `None`, or if the token names a key ID that is
-    not in the cached set, the caller should take the lock, call `get` again,
-    and only if the keys are still missing retrieve a fresh set and `store`
-    it, so that concurrent requests do not all fetch the keys at once.
+    it contains the needed key. Otherwise, the caller should take the lock,
+    call `get` again, and only if the key is still missing retrieve a fresh
+    set and `store` it, so that concurrent requests do not all fetch the keys
+    at once. Since anyone can present a token naming an unknown key ID, the
+    caller should also check `~JWKSCache.recently_refreshed` before
+    retrieving the keys again, so that a stream of such tokens cannot force a
+    request to the issuer for each one.
 
     Parameters
     ----------
     lifetime
         How long to cache the keys.
+    min_refresh
+        Minimum interval between refreshes prompted by an unknown key ID.
     """
 
-    def __init__(self, lifetime: timedelta) -> None:
+    def __init__(self, lifetime: timedelta, min_refresh: timedelta) -> None:
         self._lifetime = lifetime
-        self._keys: list[dict[str, Any]] | None = None
+        self._min_refresh = min_refresh
+        self._keys: dict[str, PyJWK] | None = None
+        self._jwks_uri: str | None = None
         self._expires: datetime | None = None
+        self._refreshed: datetime | None = None
         self._lock = asyncio.Lock()
 
     @override
@@ -210,20 +220,40 @@ class JWKSCache(BaseCache):
         """
         async with self._lock:
             self._keys = None
+            self._jwks_uri = None
             self._expires = None
+            self._refreshed = None
 
-    def get(self) -> list[dict[str, Any]] | None:
+    def get(self) -> dict[str, PyJWK] | None:
         """Retrieve the cached keys, if available and not expired.
 
         Returns
         -------
-        list of dict or None
-            The cached keys in JWKS format, or `None` if there is no cached
-            key set or it has expired.
+        dict of jwt.PyJWK or None
+            The cached keys indexed by key ID, or `None` if there is no
+            cached key set or it has expired.
         """
-        if self._expires is None or self._expires <= datetime.now(tz=UTC):
+        if self._is_expired():
             return None
         return self._keys
+
+    def get_jwks_uri(self) -> str | None:
+        """Retrieve the cached JWKS URI, if available and not expired.
+
+        The URI is cached for the same lifetime as the keys, so that a
+        refresh prompted by an unknown key ID does not have to retrieve the
+        issuer's OpenID Connect metadata again, but a change to that
+        metadata is picked up once the cache expires.
+
+        Returns
+        -------
+        str or None
+            The JWKS URI from which the cached keys were retrieved, or `None`
+            if there is no cached key set or it has expired.
+        """
+        if self._is_expired():
+            return None
+        return self._jwks_uri
 
     def lock(self) -> asyncio.Lock:
         """Return the cache lock for use in a context manager.
@@ -235,16 +265,39 @@ class JWKSCache(BaseCache):
         """
         return self._lock
 
-    def store(self, keys: list[dict[str, Any]]) -> None:
+    def recently_refreshed(self) -> bool:
+        """Whether the keys were stored within the minimum refresh interval.
+
+        Returns
+        -------
+        bool
+            `True` if a key set was stored less than the minimum refresh
+            interval ago, in which case the caller should not retrieve the
+            keys again in response to an unknown key ID.
+        """
+        if self._refreshed is None:
+            return False
+        return datetime.now(tz=UTC) < self._refreshed + self._min_refresh
+
+    def store(self, jwks_uri: str, keys: dict[str, PyJWK]) -> None:
         """Store a freshly retrieved key set in the cache.
 
         Parameters
         ----------
+        jwks_uri
+            The JWKS URI from which the keys were retrieved.
         keys
-            The keys in JWKS format.
+            The parsed keys, indexed by key ID.
         """
+        now = datetime.now(tz=UTC)
         self._keys = keys
-        self._expires = datetime.now(tz=UTC) + self._lifetime
+        self._jwks_uri = jwks_uri
+        self._expires = now + self._lifetime
+        self._refreshed = now
+
+    def _is_expired(self) -> bool:
+        """Whether there is no cached key set or it has expired."""
+        return self._expires is None or self._expires <= datetime.now(tz=UTC)
 
 
 class PerUserCache(BaseCache):

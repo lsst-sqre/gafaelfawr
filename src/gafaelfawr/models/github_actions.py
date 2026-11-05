@@ -5,9 +5,15 @@ GitHub issues to GitHub Actions jobs, which the GitHub Actions token exchange
 verifies and matches against the project registry.
 """
 
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Annotated, Any
 
-__all__ = ["GitHubActionsClaims"]
+from pydantic import AnyUrl, BaseModel, ConfigDict, Field, UrlConstraints
+
+__all__ = [
+    "GitHubActionsClaims",
+    "GitHubActionsJWKS",
+    "GitHubActionsOIDCMetadata",
+]
 
 
 class GitHubActionsClaims(BaseModel):
@@ -131,4 +137,47 @@ class GitHubActionsClaims(BaseModel):
         None,
         title="Workflow commit",
         description="Commit SHA of the workflow file that is running",
+    )
+
+
+class GitHubActionsOIDCMetadata(BaseModel):
+    """OpenID Connect provider metadata for GitHub Actions.
+
+    Only the metadata used by the token exchange is modeled. Any other
+    metadata is ignored.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    jwks_uri: Annotated[
+        AnyUrl, UrlConstraints(allowed_schemes=["https"], host_required=True)
+    ] = Field(
+        ...,
+        title="JWKS URI",
+        description=(
+            "URL of GitHub's JSON Web Key Set, from which the signing keys"
+            " for GitHub Actions ID tokens are retrieved. Must be an HTTPS"
+            " URL, since the keys retrieved from it decide which tokens are"
+            " trusted."
+        ),
+        examples=[
+            "https://token.actions.githubusercontent.com/.well-known/jwks"
+        ],
+    )
+
+
+class GitHubActionsJWKS(BaseModel):
+    """JSON Web Key Set published by GitHub for GitHub Actions ID tokens.
+
+    The keys are not modeled further. The verifier parses each one with PyJWT
+    and skips any that it cannot use, so that one unusable key in the set
+    does not prevent verifying tokens signed with the others.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    keys: list[dict[str, Any]] = Field(
+        ...,
+        title="Signing keys",
+        description="Keys in JWK format",
     )

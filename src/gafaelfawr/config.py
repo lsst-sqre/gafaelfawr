@@ -1198,9 +1198,9 @@ class Config(EnvFirstSettings):
             for key in ("clientSuffix", "issuer"):
                 if key in oidc_data and oidc_data[key] is None:
                     del oidc_data[key]
-        if "githubTokenExchange" in data:
-            exchange_data = data["githubTokenExchange"]
-            if "audience" in exchange_data and not exchange_data["audience"]:
+        exchange_data = data.get("githubTokenExchange")
+        if isinstance(exchange_data, dict) and "audience" in exchange_data:
+            if not exchange_data["audience"]:
                 del exchange_data["audience"]
 
         return cls.model_validate(data)
