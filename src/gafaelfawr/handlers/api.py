@@ -25,13 +25,7 @@ from safir.pydantic import UtcDatetime
 from safir.sentry import report_exception
 from safir.slack.webhook import SlackRouteErrorHandler
 
-from ..constants import (
-    ACTOR_REGEX,
-    CURSOR_REGEX,
-    GITHUB_BOT_USERNAME_REGEX,
-    GITHUB_REPOSITORY_REGEX,
-    USERNAME_REGEX,
-)
+from ..constants import ACTOR_REGEX, CURSOR_REGEX, USERNAME_REGEX
 from ..dependencies.auth import AuthenticateRead, AuthenticateWrite
 from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import (
@@ -43,9 +37,12 @@ from ..exceptions import (
 from ..models.auth import APIConfig, APILoginResponse, Scope
 from ..models.enums import TokenType
 from ..models.github_project import (
+    GitHubBotUsername,
     GitHubProject,
     GitHubProjectCreate,
+    GitHubProjectRequester,
     GitHubProjectUpdate,
+    GitHubRepositoryName,
 )
 from ..models.history import TokenChangeHistoryCursor, TokenChangeHistoryEntry
 from ..models.oidc import OIDCClient, OIDCClientUpdate, OIDCClientWithSecret
@@ -200,7 +197,7 @@ async def _report_github_failure(
 async def get_github_projects(
     *,
     repository: Annotated[
-        str | None,
+        GitHubRepositoryName | None,
         Query(
             title="Repository",
             description=(
@@ -208,13 +205,10 @@ async def get_github_projects(
                 " given as ``owner/name`` and compared case-insensitively"
             ),
             examples=["lsst-sqre/sqr-062"],
-            min_length=3,
-            max_length=140,
-            pattern=GITHUB_REPOSITORY_REGEX,
         ),
     ] = None,
     username: Annotated[
-        str | None,
+        GitHubBotUsername | None,
         Query(
             title="Bot username",
             description=(
@@ -222,9 +216,6 @@ async def get_github_projects(
                 " bot username"
             ),
             examples=["bot-gh-lsst-sqre-sqr-062"],
-            min_length=1,
-            max_length=64,
-            pattern=GITHUB_BOT_USERNAME_REGEX,
         ),
     ] = None,
     template: Annotated[
@@ -237,11 +228,10 @@ async def get_github_projects(
             ),
             examples=["technote"],
             min_length=1,
-            max_length=64,
         ),
     ] = None,
     requested_by: Annotated[
-        str | None,
+        GitHubProjectRequester | None,
         Query(
             title="Requested by",
             description=(
@@ -249,8 +239,6 @@ async def get_github_projects(
                 " identifier, as ``<source>:<identifier>``"
             ),
             examples=["slack:U024BE7LH"],
-            min_length=1,
-            max_length=256,
         ),
     ] = None,
     auth_data: Annotated[TokenData, Depends(authenticate_admin_read)],

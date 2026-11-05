@@ -1,10 +1,13 @@
 """Tests for the GitHub project models."""
 
+import json
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
 
+from gafaelfawr.main import create_openapi
 from gafaelfawr.models.github_project import (
     GitHubProject,
     GitHubProjectCreate,
@@ -210,3 +213,59 @@ def test_overlaps() -> None:
     )
     assert not narrow.overlaps(create)
     assert base.overlaps(create)
+
+
+def test_field_lengths() -> None:
+    # Length limits are enforced as well as patterns.
+    long_name = "a" * 138
+    create = GitHubProjectCreate(repository=f"o/{long_name}", scopes=set())
+    assert create.repository == f"o/{long_name}"
+    with pytest.raises(ValidationError):
+        GitHubProjectCreate(repository=f"o/{long_name}a", scopes=set())
+    username = "bot-gh-" + "a" * 57
+    create = GitHubProjectCreate(
+        repository="lsst-sqre/sqr-062", scopes=set(), username=username
+    )
+    assert create.username == username
+    with pytest.raises(ValidationError):
+        GitHubProjectCreate(
+            repository="lsst-sqre/sqr-062",
+            scopes=set(),
+            username=username + "a",
+        )
+    with pytest.raises(ValidationError):
+        GitHubProjectUpdate(requested_by="a" * 257)
+    with pytest.raises(ValidationError):
+        GitHubProjectUpdate(requested_by="")
+
+
+def test_filter_constraints() -> None:
+    """The list filters must enforce the same constraints as the models.
+
+    The filters are declared separately from the model fields in the API
+    handler, so check the generated OpenAPI schema to catch any drift
+    between them.
+    """
+    schema = json.loads(create_openapi())
+    route = schema["paths"]["/auth/api/v1/github/projects"]["get"]
+    filters = {p["name"]: p["schema"] for p in route["parameters"]}
+    fields = schema["components"]["schemas"]["GitHubProject"]["properties"]
+
+    def string_schema(schema: dict[str, Any]) -> dict[str, Any]:
+        """Extract the string branch of a possibly nullable schema."""
+        for option in schema.get("anyOf", [schema]):
+            if option.get("type") == "string":
+                return option
+        raise AssertionError(f"No string schema in {schema}")
+
+    for name in ("repository", "username", "requested_by"):
+        expected = string_schema(fields[name])
+        actual = string_schema(filters[name])
+        for constraint in ("minLength", "maxLength", "pattern"):
+            assert actual.get(constraint) == expected.get(constraint), (
+                f"{name} filter {constraint} differs from the model"
+            )
+
+    # Template names are stored in an unbounded column, so the filter must
+    # not impose a length limit that would reject a stored name.
+    assert "maxLength" not in string_schema(filters["template"])
