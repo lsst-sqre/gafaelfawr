@@ -10,6 +10,7 @@ from ..config import GitHubTokenExchangeConfig
 from ..constants import (
     GITHUB_BOT_USERNAME_PREFIX,
     GITHUB_BOT_USERNAME_REGEX,
+    GITHUB_PROJECT_DEFAULT_LIFETIME,
     MINIMUM_LIFETIME,
 )
 from ..exceptions import (
@@ -100,7 +101,9 @@ class GitHubProjectService:
         """Create a new GitHub project.
 
         The repository is looked up on GitHub to pin its numeric IDs. If no
-        username was given, one is derived from the repository.
+        username was given, one is derived from the repository. If no
+        maximum lifetime was given, the default lifetime is used, capped by
+        the configured maximum lifetime of the token exchange.
 
         Parameters
         ----------
@@ -142,7 +145,12 @@ class GitHubProjectService:
         """
         self._check_authorization(auth_data)
         self._validate_scopes(create.scopes)
-        self._validate_max_lifetime(create.max_lifetime)
+        max_lifetime = create.max_lifetime
+        if max_lifetime is None:
+            max_lifetime = min(
+                GITHUB_PROJECT_DEFAULT_LIFETIME, self._config.max_lifetime
+            )
+        self._validate_max_lifetime(max_lifetime)
         repository = await self._github.get_repository(create.repository)
         actor = auth_data.username
 
@@ -154,6 +162,7 @@ class GitHubProjectService:
                 update={
                     "username": username,
                     "repository": repository.full_name,
+                    "max_lifetime": max_lifetime,
                 }
             )
             await self._check_overlap(candidate)
@@ -161,6 +170,7 @@ class GitHubProjectService:
                 create,
                 username=username,
                 repository=repository,
+                max_lifetime=max_lifetime,
                 created_by=actor,
             )
             entry = GitHubProjectHistoryEntry(

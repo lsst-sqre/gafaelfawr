@@ -96,7 +96,12 @@ recognizable wherever a username appears.
 """
 
 GITHUB_PROJECT_DEFAULT_LIFETIME = timedelta(hours=1)
-"""Default maximum lifetime of tokens minted for a GitHub project."""
+"""Default maximum lifetime of tokens minted for a GitHub project.
+
+Used when a project is created without a maximum lifetime. Capped by the
+configured maximum lifetime of the GitHub Actions token exchange, which may
+be shorter than this.
+"""
 
 HTTP_TIMEOUT = 20.0
 """Timeout (in seconds) for outbound HTTP requests to auth providers."""
