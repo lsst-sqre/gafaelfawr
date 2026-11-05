@@ -28,6 +28,7 @@ Currently, three scopes in that reserved namespace are used:
 * ``admin:oidc`` grants the ability to add and manage OpenID Connect clients if the OpenID Connect server is enabled (see :ref:`helm-oidc-server`).
 * ``admin:token`` grants token administrator powers.
   Users authenticated with a token with this scope can view, create, modify, and delete tokens for any user.
+  It also grants the ability to manage the registry of GitHub projects if the GitHub Actions token exchange is enabled (see :ref:`github-actions`).
   Administrators are automatically granted this scope when they authenticate.
   The bootstrap token (configured with the ``bootstrap-token`` Kubernetes secret) is automatically granted ``admin:token`` scope.
 * ``admin:userinfo`` grants access to the :samp:`/auth/api/v1/users/{username}` route, which allows retrieval of user information from LDAP (and Firestore if configured) for arbitrary usernames without having a delegated token for that user.
