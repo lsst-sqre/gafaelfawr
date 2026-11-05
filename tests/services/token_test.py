@@ -36,7 +36,11 @@ from gafaelfawr.schema import Subtoken
 from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
 
-from ..support.tokens import create_session_token
+from ..support.tokens import (
+    add_github_project,
+    add_github_token,
+    create_session_token,
+)
 from ..support.util import assert_is_now
 
 
@@ -1838,3 +1842,81 @@ async def test_state_metrics(config: Config, factory: Factory) -> None:
     events.active_user_tokens.published.assert_published_all([{"count": 1}])
 
     await event_manager.aclose()
+
+
+@pytest.mark.asyncio
+async def test_revoke_github_project_tokens(
+    config: Config, factory: Factory
+) -> None:
+    token_service = factory.create_token_service()
+    admin = await create_session_token(
+        factory, username="some-admin", scopes={"admin:token"}
+    )
+    user = await create_session_token(factory, scopes={"user:token"})
+    project_id = await add_github_project(factory)
+    other_id = await add_github_project(factory, repository="lsst-sqre/other")
+    project_tokens = [
+        await add_github_token(
+            factory,
+            username="bot-gh-some-repo",
+            github_project_id=project_id,
+        )
+        for _ in range(2)
+    ]
+    child = await add_github_token(
+        factory,
+        username="bot-gh-some-repo",
+        github_project_id=project_id,
+        parent=project_tokens[0].token.key,
+    )
+    other = await add_github_token(
+        factory, username="bot-gh-some-repo", github_project_id=other_id
+    )
+
+    with pytest.raises(PermissionDeniedError):
+        async with factory.session.begin():
+            await token_service.revoke_github_project_tokens(
+                project_id, user, ip_address="127.0.0.1"
+            )
+
+    async with factory.session.begin():
+        count = await token_service.revoke_github_project_tokens(
+            project_id, admin, ip_address="127.0.0.1"
+        )
+    assert count == 3
+    for data in (*project_tokens, child):
+        assert await token_service.get_data(data.token) is None
+        info = await token_service.get_token_info_unchecked(data.token.key)
+        assert info is None
+    assert await token_service.get_data(other.token) == other
+    info = await token_service.get_token_info_unchecked(other.token.key)
+    assert info
+    assert info.github_project_id == other_id
+    assert info.token_type == TokenType.github
+
+    history = await token_service.get_change_history(
+        admin, token_type=TokenType.github
+    )
+    revoked = [e for e in history.entries if e.action == TokenChange.revoke]
+    assert {e.token for e in revoked} == {
+        d.token.key for d in (*project_tokens, child)
+    }
+    for entry in revoked:
+        assert entry.actor == "some-admin"
+        assert entry.ip_address == "127.0.0.1"
+        assert entry.github_project_id == project_id
+    created = [e for e in history.entries if e.action == TokenChange.create]
+    assert all(e.github_project_id in (project_id, other_id) for e in created)
+    assert revoked[0].model_dump_reduced()["github_project_id"] == project_id
+    session_history = await token_service.get_change_history(
+        admin, token_type=TokenType.session
+    )
+    reduced = session_history.entries[0].model_dump_reduced()
+    assert "github_project_id" not in reduced
+
+    # Revoking again finds nothing.
+    async with factory.session.begin():
+        count = await token_service.revoke_github_project_tokens(
+            project_id, admin, ip_address=None
+        )
+    assert count == 0

@@ -199,6 +199,16 @@ class TokenInfo(TokenBase):
         max_length=22,
     )
 
+    github_project_id: int | None = Field(
+        None,
+        title="GitHub project ID",
+        description=(
+            "ID of the GitHub project that authorized the token. Only set"
+            " for tokens of type github."
+        ),
+        examples=[42],
+    )
+
 
 class TokenUserInfo(BaseModel):
     """User metadata stored with the token.
