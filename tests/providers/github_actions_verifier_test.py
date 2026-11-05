@@ -5,6 +5,7 @@ from datetime import timedelta
 import pytest
 import respx
 from jwt.exceptions import (
+    DecodeError,
     ExpiredSignatureError,
     ImmatureSignatureError,
     InvalidAudienceError,
@@ -122,19 +123,30 @@ async def test_verify_rejections(
     with pytest.raises(MissingRequiredClaimError):
         await verifier.verify_token(token)
 
-    # Validity window, with a small amount of clock skew allowed.
-    token = create_github_actions_jwt(lifetime=timedelta(seconds=-10))
-    assert await verifier.verify_token(token)
-    token = create_github_actions_jwt(lifetime=timedelta(minutes=-5))
-    with pytest.raises(ExpiredSignatureError):
-        await verifier.verify_token(token)
+    # Validity window. A small amount of clock skew is allowed for nbf and
+    # iat, but exp is checked strictly.
     token = create_github_actions_jwt(not_before=timedelta(seconds=10))
     assert await verifier.verify_token(token)
     token = create_github_actions_jwt(not_before=timedelta(minutes=5))
     with pytest.raises(ImmatureSignatureError):
         await verifier.verify_token(token)
+    token = create_github_actions_jwt(
+        not_before=timedelta(seconds=-10), lifetime=timedelta(seconds=15)
+    )
+    assert await verifier.verify_token(token)
+    token = create_github_actions_jwt(
+        not_before=timedelta(seconds=-10), lifetime=timedelta(seconds=5)
+    )
+    with pytest.raises(ExpiredSignatureError):
+        await verifier.verify_token(token)
+    token = create_github_actions_jwt(lifetime=timedelta(minutes=-5))
+    with pytest.raises(ExpiredSignatureError):
+        await verifier.verify_token(token)
     token = create_github_actions_jwt(omit={"exp"})
     with pytest.raises(MissingRequiredClaimError):
+        await verifier.verify_token(token)
+    token = create_github_actions_jwt(extra={"exp": "soon"})
+    with pytest.raises(DecodeError):
         await verifier.verify_token(token)
 
     # Wrong signing key.
