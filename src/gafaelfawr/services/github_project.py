@@ -338,7 +338,9 @@ class GitHubProjectService:
         repository looks up its numeric IDs again, but keeps the username
         unless it is also changed, since identity should not move when a
         label does. Disabling the project revokes its outstanding tokens.
-        Other changes do not affect tokens already minted.
+        Other changes do not affect tokens already minted. An update that
+        changes nothing is not recorded in the project history and leaves
+        the modification time and actor alone.
 
         Parameters
         ----------
@@ -399,11 +401,9 @@ class GitHubProjectService:
         # Only that case needs a preliminary read of the stored project, to
         # avoid looking up a repository the project already has. Every other
         # update goes straight to the single transaction below.
+        stored = None
         if update.repository:
-            async with self._session.begin():
-                stored = await self._project_store.get(project_id)
-            if not stored:
-                raise NotFoundError(f"GitHub project {project_id} not found")
+            stored = await self._read_project(project_id)
             if update.repository != stored.repository:
                 repository = await self._github.get_repository(
                     update.repository
@@ -413,6 +413,21 @@ class GitHubProjectService:
                 changes["repository_owner_id"] = repository.owner_id
             else:
                 del changes["repository"]
+
+        # An update that sets nothing, or only re-sends the repository the
+        # project already has, changes nothing, so return the stored project
+        # without taking the registry lock or recording a history entry.
+        # Setting the username to null is not a no-op, since it is resolved
+        # again below and may differ from the stored username.
+        if not changes:
+            stored = stored or await self._read_project(project_id)
+            self._logger.info(
+                "GitHub project unchanged",
+                github_project_id=project_id,
+                repository=stored.repository,
+                username=stored.username,
+            )
+            return stored
 
         now = datetime.now(tz=UTC).replace(microsecond=0)
         async with self._session.begin():
@@ -433,6 +448,23 @@ class GitHubProjectService:
             new = old.model_copy(
                 update={**changes, "modified": now, "modified_by": actor}
             )
+
+            # An update that only sets fields to their current values, or
+            # whose null username resolves to the current one, also changes
+            # nothing. Return the stored project rather than bump its
+            # modification time and record a history entry whose old and
+            # new values differ only in that time and actor.
+            audit = {"modified", "modified_by"}
+            if new.model_dump(exclude=audit) == old.model_dump(exclude=audit):
+                self._logger.info(
+                    "GitHub project unchanged",
+                    github_project_id=project_id,
+                    repository=old.repository,
+                    username=old.username,
+                    changes=sorted(changes.keys()),
+                )
+                return old
+
             await self._check_overlap(new, exclude_id=project_id)
             await self._project_store.update(new)
             entry = GitHubProjectHistoryEntry(
@@ -537,6 +569,35 @@ class GitHubProjectService:
                     f" {other.repository}"
                 )
                 raise GitHubProjectOverlapError(msg, other.id)
+
+    async def _read_project(self, project_id: int) -> GitHubProject:
+        """Read a project in a transaction of its own.
+
+        This is for reads outside of the transaction that writes to the
+        registry, such as before a network call. The project may change
+        between this read and that transaction, which must therefore read
+        it again under the registry lock.
+
+        Parameters
+        ----------
+        project_id
+            ID of the project.
+
+        Returns
+        -------
+        GitHubProject
+            The stored project.
+
+        Raises
+        ------
+        NotFoundError
+            Raised if no project has that ID.
+        """
+        async with self._session.begin():
+            project = await self._project_store.get(project_id)
+        if not project:
+            raise NotFoundError(f"GitHub project {project_id} not found")
+        return project
 
     async def _resolve_username(
         self,

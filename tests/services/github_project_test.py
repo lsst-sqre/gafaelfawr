@@ -520,24 +520,121 @@ async def test_update_project(
     assert revocation[0].ip_address == "127.0.0.1"
     assert revocation[0].github_project_id == project.id
 
-    # Disabling an already-disabled project or re-enabling it doesn't try
-    # to revoke anything.
+    # Disabling an already-disabled project changes nothing, and re-enabling
+    # it doesn't try to revoke anything.
     update = GitHubProjectUpdate(enabled=False)
-    await service.update_project(project.id, update, admin, ip_address=None)
+    still = await service.update_project(
+        project.id, update, admin, ip_address=None
+    )
+    assert still == disabled
     update = GitHubProjectUpdate(enabled=True)
     enabled = await service.update_project(
         project.id, update, admin, ip_address=None
     )
     assert enabled.enabled
 
-    # Empty updates are allowed and still bump the modification metadata.
+    # Empty updates are allowed but change nothing, including the
+    # modification metadata.
     empty = await service.update_project(
         project.id, GitHubProjectUpdate(), other_admin, ip_address=None
     )
-    assert empty.modified_by == "other-admin"
+    assert empty == enabled
     async with factory.session.begin():
         history = await history_store.list(project_id=project.id)
-    assert len(history) == 10
+    assert len(history) == 8
+
+
+@pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
+@pytest.mark.asyncio
+async def test_update_project_unchanged(
+    config: Config, factory: Factory, respx_mock: respx.Router
+) -> None:
+    service = factory.create_github_project_service()
+    mock = mock_github_repositories(respx_mock, [SQR_062])
+    admin = await create_admin(factory)
+    other_admin = await create_session_token(
+        factory, username="other-admin", scopes={"admin:token"}
+    )
+    user = await create_session_token(factory, scopes={"user:token"})
+    history_store = GitHubProjectHistoryStore(factory.session)
+
+    project = await service.create_project(
+        GitHubProjectCreate(
+            repository="lsst-sqre/sqr-062",
+            workflow=".github/workflows/docs.yaml",
+            scopes={"read:all"},
+            groups=[Group(name="some-group", id=100001)],
+        ),
+        admin,
+        ip_address=None,
+    )
+    assert mock.requests == 1
+
+    # An empty update, re-sending the repository the project already has,
+    # setting fields to their current values, and deriving a username that
+    # is already the derived one all change nothing. None of them record a
+    # history entry, bump the modification time, or look up the repository.
+    updates = [
+        GitHubProjectUpdate(),
+        GitHubProjectUpdate(repository="lsst-sqre/sqr-062"),
+        GitHubProjectUpdate(
+            description=None,
+            workflow=".github/workflows/docs.yaml",
+            scopes={"read:all"},
+            groups=[Group(name="some-group", id=100001)],
+            enabled=True,
+        ),
+        GitHubProjectUpdate(username=None),
+    ]
+    for update in updates:
+        same = await service.update_project(
+            project.id, update, other_admin, ip_address="127.0.0.1"
+        )
+        assert same == project
+    assert await service.get_project(project.id, admin) == project
+    assert mock.requests == 1
+    async with factory.session.begin():
+        history = await history_store.list(project_id=project.id)
+    assert len(history) == 1
+    assert history[0].action == GitHubProjectChange.create
+
+    # A no-op update still requires an existing project and an admin.
+    update = GitHubProjectUpdate()
+    with pytest.raises(NotFoundError):
+        await service.update_project(
+            project.id + 1000, update, admin, ip_address=None
+        )
+    with pytest.raises(PermissionDeniedError):
+        await service.update_project(project.id, update, user, ip_address=None)
+    update = GitHubProjectUpdate(repository="lsst-sqre/sqr-062")
+    with pytest.raises(NotFoundError):
+        await service.update_project(
+            project.id + 1000, update, admin, ip_address=None
+        )
+    assert mock.requests == 1
+
+    # Setting the username to null is not a no-op when the stored username
+    # is not the derived one, since it is derived again.
+    update = GitHubProjectUpdate(username="bot-gh-some-other-name")
+    renamed = await service.update_project(
+        project.id, update, admin, ip_address=None
+    )
+    assert renamed.username == "bot-gh-some-other-name"
+    update = GitHubProjectUpdate(username=None)
+    derived = await service.update_project(
+        project.id, update, other_admin, ip_address="127.0.0.1"
+    )
+    assert derived.username == "bot-gh-lsst-sqre-sqr-062"
+    assert derived.modified >= renamed.modified
+    assert_is_now(derived.modified)
+    assert derived.modified_by == "other-admin"
+    async with factory.session.begin():
+        history = await history_store.list(project_id=project.id)
+    assert len(history) == 3
+    assert history[2].action == GitHubProjectChange.modify
+    assert history[2].actor == "other-admin"
+    assert history[2].old_values == renamed.model_dump(mode="json")
+    assert history[2].new_values == derived.model_dump(mode="json")
 
 
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
