@@ -1,5 +1,6 @@
 """Test configuration parsing."""
 
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
@@ -148,3 +149,43 @@ def test_config_cilogon_test(
         }
     )
     assert str(config.oidc.redirect_url) == "https://example.com/login"
+
+
+def test_config_github_token_exchange(data: Data) -> None:
+    config = Config.from_file(config_path(data, "github-token-exchange"))
+    assert config.github_token_exchange
+    assert config.github_token_exchange.enabled
+    assert config.github_token_exchange.audience == "https://example.com"
+    assert config.github_token_exchange.max_lifetime == timedelta(hours=6)
+    lifetime = config.github_token_exchange.jwks_cache_lifetime
+    assert lifetime == timedelta(hours=1)
+
+    # The block is dropped entirely if the exchange is disabled.
+    path = config_path(data, "github-token-exchange-disabled")
+    config = Config.from_file(path)
+    assert config.github_token_exchange is None
+
+    # The block is also absent if the configuration doesn't mention it.
+    config = Config.from_file(config_path(data, "github"))
+    assert config.github_token_exchange is None
+
+
+def test_config_github_token_exchange_options(
+    data: Data, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GAFAELFAWR_OIDC_CLIENT_SECRET", "oidc-secret")
+    path = config_path(data, "github-token-exchange-options")
+    config = Config.from_file(path)
+    assert config.oidc
+    assert config.github_token_exchange
+    assert config.github_token_exchange.enabled
+    assert config.github_token_exchange.audience == "https://data.example.com"
+    assert config.github_token_exchange.max_lifetime == timedelta(hours=2)
+    lifetime = config.github_token_exchange.jwks_cache_lifetime
+    assert lifetime == timedelta(minutes=10)
+
+
+def test_config_github_token_exchange_bad_lifetime(data: Data) -> None:
+    path = config_path(data, "github-token-exchange-bad-lifetime")
+    with pytest.raises(ValidationError, match=r"must be longer than"):
+        Config.from_file(path)
