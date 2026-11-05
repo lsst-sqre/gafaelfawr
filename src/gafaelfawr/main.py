@@ -8,7 +8,7 @@ from importlib.metadata import version
 import structlog
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
-from safir.database import create_database_engine, is_database_current
+from safir.database import engine_manager, is_database_current
 from safir.dependencies.db_session import db_session_dependency
 from safir.dependencies.http_client import http_client_dependency
 from safir.fastapi import ClientRequestError, client_request_error_handler
@@ -66,25 +66,19 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         config = config_dependency.config()
-        if validate_schema:
-            logger = structlog.get_logger("gafaelfawr")
-            engine = create_database_engine(
-                config.database_url, config.database_password
-            )
-            if not await is_database_current(engine, logger):
-                raise DatabaseSchemaError("Database schema out of date")
-            await engine.dispose()
+        logger = structlog.get_logger("gafaelfawr")
         event_manager = config.metrics.make_manager()
         await event_manager.initialize()
         await context_dependency.initialize(config, event_manager)
-        await db_session_dependency.initialize(
-            config.database_url, config.database_password
-        )
 
-        yield
+        async with engine_manager(config.database) as engine:
+            if validate_schema:
+                if not await is_database_current(engine, logger):
+                    raise DatabaseSchemaError("Database schema out of date")
+            await db_session_dependency.initialize_with_engine(engine)
+            yield
 
         await http_client_dependency.aclose()
-        await db_session_dependency.aclose()
         await context_dependency.aclose()
         await event_manager.aclose()
 
@@ -147,6 +141,7 @@ def create_app(
     config = None
     if load_config:
         config = config_dependency.config()
+        config.configure_logging()
         configure_uvicorn_logging()
 
     # Install the middleware.

@@ -331,7 +331,7 @@ def test_update_schema(
         {"id": "other-id", "secret": "other", "return_uri": return_uri + "/a"},
     ]
     monkeypatch.setenv(
-        "GAFAELFAWR_OIDC_SERVER_CLIENTS", json.dumps(oidc_clients)
+        "GAFAELFAWR_OIDC_SERVER__CLIENTS", json.dumps(oidc_clients)
     )
 
     # Start with an empty database. This should produce exactly the same
@@ -382,7 +382,7 @@ def test_validate_schema(
     # Validating should fail with an appropriate error message.
     result = runner.invoke(main, ["validate-schema"], catch_exceptions=False)
     assert result.exit_code == 1
-    assert "Database has not been initialized" in result.output
+    assert "Database schema is not current" in result.output
 
     # Initialize the database from an old schema. This was the database schema
     # before Alembic was introduced, so it has to be stamped with the version

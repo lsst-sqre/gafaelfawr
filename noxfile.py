@@ -82,8 +82,8 @@ def _start_containers() -> Iterator[_Containers]:
             username="gafaelfawr",
             password=os.urandom(16).hex(),
         ) as postgres:
-            env["GAFAELFAWR_DATABASE_PASSWORD"] = postgres.password
-            env["GAFAELFAWR_DATABASE_URL"] = postgres.get_connection_url()
+            env["GAFAELFAWR_DATABASE__PASSWORD"] = postgres.password
+            env["GAFAELFAWR_DATABASE__URL"] = postgres.get_connection_url()
             yield _Containers(env=env, postgres=postgres)
 
 

@@ -1,6 +1,7 @@
 # Use GitHub as the authentication provider.
 
 slackAlerts: true
+database: {}
 proxies:
   - "10.0.0.0/8"
 afterLogoutUrl: "https://example.com/landing"
@@ -41,10 +42,6 @@ firestore: {}
 oidcServer:
   keyId: "gafaelfawr"
 quota: {}
-
-# Ensure that the configuration parser ignores required values set to null
-# when the correct value is set as an environment variable.
-databaseUrl: null
 
 metrics:
   enabled: false

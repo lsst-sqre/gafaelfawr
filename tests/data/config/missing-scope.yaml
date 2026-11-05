@@ -1,6 +1,7 @@
 # Bad configuration file with missing required scope user:token.
 
 afterLogoutUrl: "https://example.com/landing"
+database: {}
 groupMapping:
   "exec:admin": ["admin"]
   "exec:test": ["test"]
