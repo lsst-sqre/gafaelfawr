@@ -165,8 +165,11 @@ def test_config_github_token_exchange(data: Data) -> None:
     config = Config.from_file(path)
     assert config.github_token_exchange is None
 
-    # The block is also absent if the configuration doesn't mention it.
+    # The block is also absent if the configuration doesn't mention it or
+    # sets it to null.
     config = Config.from_file(config_path(data, "github"))
+    assert config.github_token_exchange is None
+    config = Config.from_file(config_path(data, "github-token-exchange-null"))
     assert config.github_token_exchange is None
 
 
