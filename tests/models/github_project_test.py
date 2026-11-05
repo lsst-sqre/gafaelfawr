@@ -44,7 +44,7 @@ def test_create_validation() -> None:
         repository="lsst-sqre/sqr-062", scopes={"read:all"}
     )
     assert create.username is None
-    assert create.max_lifetime == timedelta(hours=1)
+    assert create.max_lifetime is None
     assert create.enabled
 
     # Durations can be given as seconds or ISO 8601 and serialize to ISO
