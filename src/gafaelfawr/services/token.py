@@ -1034,6 +1034,8 @@ class TokenService:
         recorded in the token change history with the acting administrator
         as the actor. Must be called from inside a transaction, so that the
         revocations are committed together with the change to the project.
+        Calling it outside a transaction is a programming error and raises
+        `RuntimeError` before any token is touched.
 
         Parameters
         ----------
@@ -1057,7 +1059,21 @@ class TokenService:
         ------
         PermissionDeniedError
             Raised if the authenticated user is not a token administrator.
+        RuntimeError
+            Raised if called outside a transaction.
         """
+        # Deleting a token removes it from Redis immediately but only adds
+        # the database deletion and history entry to the current transaction.
+        # Without a transaction opened by the caller, SQLAlchemy would
+        # autobegin one that is rolled back when the session closes, leaving
+        # the tokens gone from Redis while their rows remain, with no history
+        # entries.
+        if not self._session.in_transaction():
+            msg = (
+                "revoke_github_project_tokens must be called inside a"
+                " transaction"
+            )
+            raise RuntimeError(msg)
         self._check_authorization(None, auth_data)
         tokens = await self._token_db_store.list_for_github_project(project_id)
         for info in tokens:

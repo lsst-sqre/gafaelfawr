@@ -1915,6 +1915,35 @@ async def test_revoke_github_project_tokens(
 
 
 @pytest.mark.asyncio
+async def test_revoke_github_project_tokens_no_transaction(
+    config: Config, factory: Factory
+) -> None:
+    token_service = factory.create_token_service()
+    admin = await create_session_token(
+        factory, username="some-admin", scopes={"admin:token"}
+    )
+    data = await add_github_token(
+        factory, username="bot-gh-some-repo", github_project_id=42
+    )
+
+    # Calling outside a transaction must fail before touching any token,
+    # since otherwise the Redis deletion would happen immediately while the
+    # database deletion and history entry would be rolled back.
+    with pytest.raises(RuntimeError, match="inside a transaction"):
+        await token_service.revoke_github_project_tokens(
+            42, admin, ip_address="127.0.0.1"
+        )
+    assert await token_service.get_data(data.token) == data
+    info = await token_service.get_token_info_unchecked(data.token.key)
+    assert info
+    assert info.github_project_id == 42
+    history = await token_service.get_change_history(
+        admin, token_type=TokenType.github
+    )
+    assert all(e.action != TokenChange.revoke for e in history.entries)
+
+
+@pytest.mark.asyncio
 async def test_audit_github_project(
     config: Config, factory: Factory, mock_slack: MockSlackWebhook
 ) -> None:
