@@ -7,7 +7,7 @@ from unittest.mock import ANY
 from urllib.parse import parse_qs
 
 import respx
-from httpx import Request, Response
+from httpx import Request, RequestError, Response
 
 from gafaelfawr.config import GitHubConfig
 from gafaelfawr.constants import GITHUB_API_URL
@@ -209,10 +209,21 @@ class MockGitHubRepositories:
     ----------
     repositories
         Public repositories known to the mock.
+
+    Attributes
+    ----------
+    failure
+        If set, every lookup returns this response or raises this HTTPX
+        request exception type instead of looking at the known repositories, to
+        simulate GitHub rate limiting or being down. Clear it to restore
+        normal behavior.
+    requests
+        Number of repository lookups received so far, including failures.
     """
 
     def __init__(self, repositories: list[GitHubRepository]) -> None:
         self.repositories = {r.full_name.lower(): r for r in repositories}
+        self.failure: Response | type[RequestError] | None = None
         self.requests = 0
 
     def get_repository(self, request: Request) -> Response:
@@ -221,6 +232,10 @@ class MockGitHubRepositories:
         assert "Authorization" not in request.headers
         prefix = f"{GITHUB_API_URL}/repos/"
         assert str(request.url).startswith(prefix)
+        if isinstance(self.failure, Response):
+            return self.failure
+        if self.failure:
+            raise self.failure("Mock Error", request=request)
         full_name = str(request.url)[len(prefix) :]
         repository = self.repositories.get(full_name.lower())
         if not repository:

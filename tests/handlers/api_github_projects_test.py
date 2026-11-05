@@ -6,11 +6,11 @@ from unittest.mock import ANY
 
 import pytest
 import respx
-from httpx import AsyncClient
+from httpx import AsyncClient, ConnectError, Response
 from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config
-from gafaelfawr.constants import COOKIE_NAME
+from gafaelfawr.constants import COOKIE_NAME, GITHUB_API_URL
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.enums import GitHubProjectChange, TokenChange
 from gafaelfawr.models.github import GitHubRepository
@@ -532,6 +532,166 @@ async def test_errors(
     assert r.status_code == 422
 
     # None of these errors should have resulted in Slack alerts.
+    assert mock_slack.messages == []
+
+
+@pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
+@pytest.mark.asyncio
+async def test_github_failure(
+    client: AsyncClient,
+    factory: Factory,
+    respx_mock: respx.Router,
+    mock_slack: MockSlackWebhook,
+) -> None:
+    mock = mock_github_repositories(respx_mock, [SQR_062, OOK])
+    admin_data = await create_session_token(factory, scopes={"admin:token"})
+    headers = {"Authorization": f"Bearer {admin_data.token}"}
+    create = {"repository": "lsst-sqre/sqr-062", "scopes": ["read:all"]}
+    expected_error = {
+        "detail": [
+            {
+                "msg": "GitHub repository lookup failed, retry later",
+                "type": "github_unavailable",
+            }
+        ]
+    }
+
+    # Repository lookups are unauthenticated and therefore subject to the
+    # anonymous rate limit, which GitHub reports as a 403. The failure is
+    # reported to the client as a 502 with an ErrorModel body, nothing is
+    # created, and the failure is reported to Slack with the response body.
+    rate_limit = {
+        "message": "API rate limit exceeded for 198.51.100.1.",
+        "documentation_url": (
+            "https://docs.github.com/rest/overview/rate-limits-for-the-rest-api"
+        ),
+    }
+    mock.failure = Response(403, json=rate_limit)
+    r = await client.post(URL, json=create, headers=headers)
+    assert r.status_code == 502
+    assert r.json() == expected_error
+    assert mock.requests == 1
+    r = await client.get(URL, headers=headers)
+    assert r.status_code == 200
+    assert r.json() == []
+    assert mock_slack.messages == [
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "Error in Gafaelfawr: Status 403 from GET"
+                            f" {GITHUB_API_URL}/repos/lsst-sqre/sqr-062"
+                        ),
+                        "verbatim": True,
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Exception type*\nGitHubWebError",
+                            "verbatim": True,
+                        },
+                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
+                    ],
+                },
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": (
+                            "*URL*\nGET"
+                            f" {GITHUB_API_URL}/repos/lsst-sqre/sqr-062"
+                        ),
+                        "verbatim": True,
+                    },
+                },
+            ],
+            "attachments": [
+                {
+                    "blocks": [
+                        {
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": ANY,
+                                "verbatim": True,
+                            },
+                        },
+                    ]
+                }
+            ],
+        },
+    ]
+    attachment = mock_slack.messages[0]["attachments"][0]["blocks"][0]
+    assert rate_limit["message"] in attachment["text"]["text"]
+    mock_slack.messages.clear()
+
+    # GitHub being down or unreachable is handled the same way.
+    mock.failure = Response(503, text="Service Unavailable")
+    r = await client.post(URL, json=create, headers=headers)
+    assert r.status_code == 502
+    assert r.json() == expected_error
+    assert len(mock_slack.messages) == 1
+    alert = mock_slack.messages[0]["blocks"][0]["text"]["text"]
+    assert alert.startswith("Error in Gafaelfawr: Status 503 from GET")
+    mock_slack.messages.clear()
+    mock.failure = ConnectError
+    r = await client.post(URL, json=create, headers=headers)
+    assert r.status_code == 502
+    assert r.json() == expected_error
+    assert len(mock_slack.messages) == 1
+    alert = mock_slack.messages[0]["blocks"][0]["text"]["text"]
+    assert alert == "Error in Gafaelfawr: ConnectError: Mock Error"
+    mock_slack.messages.clear()
+    assert mock.requests == 3
+    r = await client.get(URL, headers=headers)
+    assert r.status_code == 200
+    assert r.json() == []
+
+    # Once GitHub recovers, the same request succeeds.
+    mock.failure = None
+    r = await client.post(URL, json=create, headers=headers)
+    assert r.status_code == 201
+    project = r.json()
+    project_url = f"{URL}/{project['id']}"
+    assert mock.requests == 4
+
+    # Changing the repository of a project looks it up on GitHub and fails
+    # the same way, leaving the project untouched.
+    mock.failure = Response(403, json=rate_limit)
+    r = await client.patch(
+        project_url, json={"repository": "lsst-sqre/ook"}, headers=headers
+    )
+    assert r.status_code == 502
+    assert r.json() == expected_error
+    assert mock.requests == 5
+    assert len(mock_slack.messages) == 1
+    mock_slack.messages.clear()
+    r = await client.get(project_url, headers=headers)
+    assert r.status_code == 200
+    assert r.json() == project
+
+    # Changes that do not touch the repository, or that re-send the same
+    # repository, do not call GitHub and therefore succeed while it is down.
+    r = await client.patch(
+        project_url, json={"description": "Still works"}, headers=headers
+    )
+    assert r.status_code == 200
+    assert r.json()["description"] == "Still works"
+    r = await client.patch(
+        project_url,
+        json={"repository": "lsst-sqre/sqr-062", "scopes": []},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    assert r.json()["repository"] == "lsst-sqre/sqr-062"
+    assert r.json()["scopes"] == []
+    assert mock.requests == 5
     assert mock_slack.messages == []
 
 

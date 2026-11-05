@@ -135,6 +135,7 @@ At most one project may match a given ID token, so registration is refused with 
 Two projects overlap when a token could satisfy both: for each of ``workflow``, ``environment``, and ``ref``, the constraint is unset in at least one of them, the values are equal, or one ref is a prefix of the other.
 The error names the conflicting project.
 To give one repository a general policy and a narrower one, register disjoint projects, for example one for ``refs/pull/`` and another for ``refs/heads/main``.
+If the repository lookup fails because GitHub is unavailable or the anonymous API rate limit was exceeded, registration is refused with status 502 and should be retried later; the same applies when modifying a project's ``repository``.
 
 List and inspect projects
 =========================
