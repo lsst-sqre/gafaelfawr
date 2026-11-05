@@ -50,7 +50,13 @@ Python internal API
 .. automodapi:: gafaelfawr.models.enums
    :include-all-objects:
 
+.. automodapi:: gafaelfawr.models.github
+   :include-all-objects:
+
 .. automodapi:: gafaelfawr.models.github_actions
+   :include-all-objects:
+
+.. automodapi:: gafaelfawr.models.github_project
    :include-all-objects:
 
 .. automodapi:: gafaelfawr.models.history
@@ -107,6 +113,9 @@ Python internal API
 .. automodapi:: gafaelfawr.services.firestore
    :include-all-objects:
 
+.. automodapi:: gafaelfawr.services.github_project
+   :include-all-objects:
+
 .. automodapi:: gafaelfawr.services.health
    :include-all-objects:
 
@@ -129,6 +138,12 @@ Python internal API
    :include-all-objects:
 
 .. automodapi:: gafaelfawr.storage.firestore
+   :include-all-objects:
+
+.. automodapi:: gafaelfawr.storage.github
+   :include-all-objects:
+
+.. automodapi:: gafaelfawr.storage.github_project
    :include-all-objects:
 
 .. automodapi:: gafaelfawr.storage.history

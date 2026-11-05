@@ -14,6 +14,7 @@ from gafaelfawr.storage.token import TokenDatabaseStore
 
 __all__ = [
     "add_expired_session_token",
+    "add_github_token",
     "create_session_token",
 ]
 
@@ -74,6 +75,78 @@ async def add_expired_session_token(
 
     await token_db_store.add(data)
     await token_change_store.add(history_entry)
+
+
+async def add_github_token(
+    factory: Factory,
+    *,
+    username: str,
+    github_project_id: int,
+    scopes: set[str] | None = None,
+    parent: str | None = None,
+) -> TokenData:
+    """Add a token minted by the GitHub Actions token exchange.
+
+    Until the exchange endpoint exists, this requires going beneath the
+    service layer. The token is added to both Redis and the database, with a
+    creation history entry, so that it can be revoked and audited like a
+    real one.
+
+    Parameters
+    ----------
+    factory
+        Factory used to create the backing stores.
+    username
+        Bot username of the token.
+    github_project_id
+        ID of the GitHub project that authorized the token.
+    scopes
+        Scopes of the token.
+    parent
+        Key of the parent token, if the token is a child token.
+
+    Returns
+    -------
+    TokenData
+        The data for the generated token.
+    """
+    token_db_store = TokenDatabaseStore(factory.session)
+    token_change_store = TokenChangeHistoryStore(factory.session)
+    token_redis_store = factory.create_token_redis_store()
+    if scopes is None:
+        scopes = {"read:all"}
+
+    created = datetime.now(tz=UTC).replace(microsecond=0)
+    expires = created + timedelta(hours=1)
+    data = TokenData(
+        token=Token(),
+        username=username,
+        token_type=TokenType.github,
+        scopes=scopes,
+        created=created,
+        expires=expires,
+    )
+    history_entry = TokenChangeHistoryEntry(
+        token=data.token.key,
+        username=username,
+        token_type=TokenType.github,
+        parent=parent,
+        scopes=scopes,
+        expires=expires,
+        actor=username,
+        action=TokenChange.create,
+        ip_address="192.0.2.1",
+        event_time=created,
+        github_project_id=github_project_id,
+    )
+
+    await token_redis_store.store_data(data)
+    async with factory.session.begin():
+        await token_db_store.add(
+            data, parent=parent, github_project_id=github_project_id
+        )
+        await token_change_store.add(history_entry)
+    return data
 
 
 async def create_session_token(

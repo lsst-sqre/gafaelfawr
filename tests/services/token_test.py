@@ -36,7 +36,7 @@ from gafaelfawr.schema import Subtoken
 from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
 
-from ..support.tokens import create_session_token
+from ..support.tokens import add_github_token, create_session_token
 from ..support.util import assert_is_now
 
 
@@ -1838,3 +1838,151 @@ async def test_state_metrics(config: Config, factory: Factory) -> None:
     events.active_user_tokens.published.assert_published_all([{"count": 1}])
 
     await event_manager.aclose()
+
+
+@pytest.mark.asyncio
+async def test_revoke_github_project_tokens(
+    config: Config, factory: Factory
+) -> None:
+    token_service = factory.create_token_service()
+    admin = await create_session_token(
+        factory, username="some-admin", scopes={"admin:token"}
+    )
+    user = await create_session_token(factory, scopes={"user:token"})
+    project_tokens = [
+        await add_github_token(
+            factory, username="bot-gh-some-repo", github_project_id=42
+        )
+        for _ in range(2)
+    ]
+    child = await add_github_token(
+        factory,
+        username="bot-gh-some-repo",
+        github_project_id=42,
+        parent=project_tokens[0].token.key,
+    )
+    other = await add_github_token(
+        factory, username="bot-gh-some-repo", github_project_id=43
+    )
+
+    with pytest.raises(PermissionDeniedError):
+        async with factory.session.begin():
+            await token_service.revoke_github_project_tokens(
+                42, user, ip_address="127.0.0.1"
+            )
+
+    async with factory.session.begin():
+        count = await token_service.revoke_github_project_tokens(
+            42, admin, ip_address="127.0.0.1"
+        )
+    assert count == 3
+    for data in (*project_tokens, child):
+        assert await token_service.get_data(data.token) is None
+        info = await token_service.get_token_info_unchecked(data.token.key)
+        assert info is None
+    assert await token_service.get_data(other.token) == other
+    info = await token_service.get_token_info_unchecked(other.token.key)
+    assert info
+    assert info.github_project_id == 43
+    assert info.token_type == TokenType.github
+
+    history = await token_service.get_change_history(
+        admin, token_type=TokenType.github
+    )
+    revoked = [e for e in history.entries if e.action == TokenChange.revoke]
+    assert {e.token for e in revoked} == {
+        d.token.key for d in (*project_tokens, child)
+    }
+    for entry in revoked:
+        assert entry.actor == "some-admin"
+        assert entry.ip_address == "127.0.0.1"
+        assert entry.github_project_id == 42
+    created = [e for e in history.entries if e.action == TokenChange.create]
+    assert all(e.github_project_id in (42, 43) for e in created)
+    assert revoked[0].model_dump_reduced()["github_project_id"] == 42
+    session_history = await token_service.get_change_history(
+        admin, token_type=TokenType.session
+    )
+    reduced = session_history.entries[0].model_dump_reduced()
+    assert "github_project_id" not in reduced
+
+    # Revoking again finds nothing.
+    async with factory.session.begin():
+        count = await token_service.revoke_github_project_tokens(
+            42, admin, ip_address=None
+        )
+    assert count == 0
+
+
+@pytest.mark.asyncio
+async def test_revoke_github_project_tokens_no_transaction(
+    config: Config, factory: Factory
+) -> None:
+    token_service = factory.create_token_service()
+    admin = await create_session_token(
+        factory, username="some-admin", scopes={"admin:token"}
+    )
+    data = await add_github_token(
+        factory, username="bot-gh-some-repo", github_project_id=42
+    )
+
+    # Calling outside a transaction must fail before touching any token,
+    # since otherwise the Redis deletion would happen immediately while the
+    # database deletion and history entry would be rolled back.
+    with pytest.raises(RuntimeError, match="inside a transaction"):
+        await token_service.revoke_github_project_tokens(
+            42, admin, ip_address="127.0.0.1"
+        )
+    assert await token_service.get_data(data.token) == data
+    info = await token_service.get_token_info_unchecked(data.token.key)
+    assert info
+    assert info.github_project_id == 42
+    history = await token_service.get_change_history(
+        admin, token_type=TokenType.github
+    )
+    assert all(e.action != TokenChange.revoke for e in history.entries)
+
+
+@pytest.mark.asyncio
+async def test_audit_github_project(
+    config: Config, factory: Factory, mock_slack: MockSlackWebhook
+) -> None:
+    token_service = factory.create_token_service()
+    orphan = await add_github_token(
+        factory, username="bot-gh-some-repo", github_project_id=42
+    )
+    child = await add_github_token(
+        factory,
+        username="bot-gh-some-repo",
+        github_project_id=42,
+        parent=orphan.token.key,
+    )
+
+    alerts = await token_service.audit()
+    expected = [
+        (
+            f"Token `{orphan.token.key}` for `bot-gh-some-repo` references"
+            " GitHub project `42`, which does not exist"
+        ),
+        (
+            f"Token `{child.token.key}` for `bot-gh-some-repo` references"
+            " GitHub project `42`, which does not exist"
+        ),
+    ]
+    assert sorted(alerts) == sorted(expected)
+
+    # Fixing revokes the tokens.
+    alerts = await token_service.audit(fix=True)
+    assert sorted(alerts) == sorted(e + " (fixed)" for e in expected)
+    assert await token_service.get_data(orphan.token) is None
+    assert await token_service.get_data(child.token) is None
+    assert await token_service.audit() == []
+    admin = TokenData.internal_token()
+    history = await token_service.get_change_history(
+        admin, token_type=TokenType.github
+    )
+    revoked = [e for e in history.entries if e.action == TokenChange.revoke]
+    assert len(revoked) == 2
+    assert all(e.actor == "<internal>" for e in revoked)
+    assert all(e.ip_address is None for e in revoked)
+    assert mock_slack.messages == []

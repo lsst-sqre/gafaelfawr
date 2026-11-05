@@ -16,6 +16,7 @@ from structlog.stdlib import BoundLogger
 from ..exceptions import DuplicateTokenNameError
 from ..models.enums import TokenType
 from ..models.token import Token, TokenData, TokenInfo
+from ..schema import GitHubProject as SQLGitHubProject
 from ..schema import Subtoken as SQLSubtoken
 from ..schema import Token as SQLToken
 
@@ -46,6 +47,7 @@ class TokenDatabaseStore:
         *,
         token_name: str | None = None,
         parent: str | None = None,
+        github_project_id: int | None = None,
     ) -> None:
         """Store a new token.
 
@@ -59,6 +61,9 @@ class TokenDatabaseStore:
             The service for an internal token.
         parent
             The key of the parent of this token.
+        github_project_id
+            The ID of the GitHub project that authorized a token minted by
+            the GitHub Actions token exchange.
 
         Raises
         ------
@@ -76,6 +81,7 @@ class TokenDatabaseStore:
             service=data.service,
             created=datetime_to_db(data.created),
             expires=datetime_to_db(data.expires),
+            github_project_id=github_project_id,
         )
         self._session.add(new)
         await self._session.flush()
@@ -354,6 +360,32 @@ class TokenDatabaseStore:
             for t in result.all()
         ]
 
+    async def list_for_github_project(
+        self, project_id: int
+    ) -> list[TokenInfo]:
+        """List all tokens minted for a GitHub project.
+
+        Parameters
+        ----------
+        project_id
+            ID of the GitHub project.
+
+        Returns
+        -------
+        list of TokenInfo
+            Information about the tokens.
+        """
+        stmt = (
+            select(SQLToken)
+            .where(SQLToken.github_project_id == project_id)
+            .order_by(SQLToken.created, SQLToken.token)
+        )
+        result = await self._session.scalars(stmt)
+        return [
+            TokenInfo.model_validate(t, from_attributes=True)
+            for t in result.all()
+        ]
+
     async def list_orphaned(self) -> list[TokenInfo]:
         """List all orphaned tokens.
 
@@ -369,6 +401,38 @@ class TokenDatabaseStore:
             select(SQLToken)
             .join(SQLSubtoken, SQLSubtoken.child == SQLToken.token)
             .where(SQLSubtoken.parent.is_(None))
+        )
+        result = await self._session.scalars(stmt)
+        return [
+            TokenInfo.model_validate(t, from_attributes=True)
+            for t in result.all()
+        ]
+
+    async def list_with_missing_github_project(self) -> list[TokenInfo]:
+        """List tokens whose GitHub project no longer exists.
+
+        Tokens minted by the GitHub Actions token exchange record the ID of
+        the project that authorized them, but without a foreign key, so that
+        the service can revoke them when the project is deleted. This finds
+        any that escaped that revocation.
+
+        Returns
+        -------
+        list of TokenInfo
+            Information about the tokens.
+        """
+        stmt = (
+            select(SQLToken)
+            .join(
+                SQLGitHubProject,
+                SQLGitHubProject.id == SQLToken.github_project_id,
+                isouter=True,
+            )
+            .where(
+                SQLToken.github_project_id.is_not(None),
+                SQLGitHubProject.id.is_(None),
+            )
+            .order_by(SQLToken.created, SQLToken.token)
         )
         result = await self._session.scalars(stmt)
         return [

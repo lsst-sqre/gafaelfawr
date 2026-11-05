@@ -161,6 +161,9 @@ class TokenService:
         # Check for orphaned tokens.
         alerts.extend(await self._audit_orphaned())
 
+        # Check for tokens whose GitHub project no longer exists.
+        alerts.extend(await self._audit_github_projects(fix=fix))
+
         # Check for unknown scopes.
         alerts.extend(self._audit_unknown_scopes(redis_tokens.values()))
 
@@ -573,16 +576,8 @@ class TokenService:
             return False
         self._check_authorization(info.username, auth_data)
 
-        # Recursively delete the children of this token first. Children are
-        # returned in breadth-first order, so delete them in reverse order to
-        # delete the tokens farthest down in the tree first.  This minimizes
-        # the number of orphaned children at any given point.
         async with self._session.begin():
-            children = await self._token_db_store.get_children(key)
-            children.reverse()
-            for child in children:
-                await self._delete_one_token(child, auth_data, ip_address)
-            return await self._delete_one_token(key, auth_data, ip_address)
+            return await self._delete_token_tree(key, auth_data, ip_address)
 
     async def expire_tokens(self) -> None:
         """Bookkeeping for expired tokens.
@@ -616,6 +611,7 @@ class TokenService:
                     expires=info.expires,
                     actor="<internal>",
                     action=TokenChange.expire,
+                    github_project_id=info.github_project_id,
                 )
                 await self._token_change_store.add(history_entry)
 
@@ -1025,6 +1021,74 @@ class TokenService:
         )
         return info
 
+    async def revoke_github_project_tokens(
+        self,
+        project_id: int,
+        auth_data: TokenData,
+        *,
+        ip_address: str | None,
+    ) -> int:
+        """Revoke all tokens minted for a GitHub project.
+
+        Used when a GitHub project is deleted or disabled. Each revocation is
+        recorded in the token change history with the acting administrator
+        as the actor. Must be called from inside a transaction, so that the
+        revocations are committed together with the change to the project.
+        Calling it outside a transaction is a programming error and raises
+        `RuntimeError` before any token is touched.
+
+        Parameters
+        ----------
+        project_id
+            ID of the GitHub project.
+        auth_data
+            The token data for the authentication token of the administrator
+            making the change.
+        ip_address
+            The IP address from which the request came, or `None` for
+            internal requests by Gafaelfawr.
+
+        Returns
+        -------
+        int
+            Number of tokens revoked. Child tokens of a revoked token are
+            also revoked but are only counted if they were minted for the
+            project themselves.
+
+        Raises
+        ------
+        PermissionDeniedError
+            Raised if the authenticated user is not a token administrator.
+        RuntimeError
+            Raised if called outside a transaction.
+        """
+        # Deleting a token removes it from Redis immediately but only adds
+        # the database deletion and history entry to the current transaction.
+        # Without a transaction opened by the caller, SQLAlchemy would
+        # autobegin one that is rolled back when the session closes, leaving
+        # the tokens gone from Redis while their rows remain, with no history
+        # entries.
+        if not self._session.in_transaction():
+            msg = (
+                "revoke_github_project_tokens must be called inside a"
+                " transaction"
+            )
+            raise RuntimeError(msg)
+        self._check_authorization(None, auth_data)
+        tokens = await self._token_db_store.list_for_github_project(project_id)
+        for info in tokens:
+            # This may find nothing if the token was already deleted as the
+            # child of an earlier token in the list, which is fine.
+            await self._delete_token_tree(info.token, auth_data, ip_address)
+        count = len(tokens)
+        if count:
+            self._logger.info(
+                "Revoked tokens for GitHub project",
+                github_project_id=project_id,
+                count=count,
+            )
+        return count
+
     async def truncate_history(self) -> None:
         """Drop history entries older than the cutoff date.
 
@@ -1073,6 +1137,47 @@ class TokenService:
                 await self._token_db_store.modify(key, expires=now)
             alert += " (fixed)"
         return [alert]
+
+    async def _audit_github_projects(self, *, fix: bool) -> list[str]:
+        """Audit for tokens whose GitHub project no longer exists.
+
+        Deleting a GitHub project revokes its tokens, so a token that still
+        references a missing project escaped that revocation. If fixing, the
+        token is revoked.
+
+        Parameters
+        ----------
+        fix
+            Whether to fix errors if possible.
+
+        Returns
+        -------
+        list of str
+            Alerts to report.
+        """
+        alerts = []
+        store = self._token_db_store
+        internal = TokenData.internal_token()
+        async with self._session.begin():
+            for token in await store.list_with_missing_github_project():
+                key = token.token
+                username = token.username
+                project_id = token.github_project_id
+                self._logger.warning(
+                    "Token references missing GitHub project",
+                    token=key,
+                    user=username,
+                    github_project_id=project_id,
+                )
+                alert = (
+                    f"Token `{key}` for `{username}` references GitHub"
+                    f" project `{project_id}`, which does not exist"
+                )
+                if fix:
+                    await self._delete_token_tree(key, internal, None)
+                    alert += " (fixed)"
+                alerts.append(alert)
+        return alerts
 
     async def _audit_orphaned(self) -> list[str]:
         """Audit for orphaned tokens.
@@ -1277,11 +1382,49 @@ class TokenService:
             self._logger.warning("Permission denied", error=msg)
             raise PermissionDeniedError(msg)
 
+    async def _delete_token_tree(
+        self,
+        key: str,
+        auth_data: TokenData,
+        ip_address: str | None,
+    ) -> bool:
+        """Delete a token and all of its child tokens.
+
+        Assumes authorization has already been checked. Must be called from
+        inside a transaction.
+
+        Parameters
+        ----------
+        key
+            The key of the token to delete.
+        auth_data
+            The token data for the authentication token of the user deleting
+            the token.
+        ip_address
+            The IP address from which the request came, or `None` for
+            internal requests by Gafaelfawr.
+
+        Returns
+        -------
+        bool
+            `True` if the token was deleted, `False` if the token was not
+            found.
+        """
+        # Recursively delete the children of this token first. Children are
+        # returned in breadth-first order, so delete them in reverse order to
+        # delete the tokens farthest down in the tree first.  This minimizes
+        # the number of orphaned children at any given point.
+        children = await self._token_db_store.get_children(key)
+        children.reverse()
+        for child in children:
+            await self._delete_one_token(child, auth_data, ip_address)
+        return await self._delete_one_token(key, auth_data, ip_address)
+
     async def _delete_one_token(
         self,
         key: str,
         auth_data: TokenData,
-        ip_address: str,
+        ip_address: str | None,
     ) -> bool:
         """Delete a single token.
 
@@ -1296,7 +1439,8 @@ class TokenService:
             The token data for the authentication token of the user deleting
             the token.
         ip_address
-            The IP address from which the request came.
+            The IP address from which the request came, or `None` for
+            internal requests by Gafaelfawr.
 
         Returns
         -------
@@ -1320,6 +1464,7 @@ class TokenService:
             actor=auth_data.username,
             action=TokenChange.revoke,
             ip_address=ip_address,
+            github_project_id=info.github_project_id,
         )
 
         await self._token_redis_store.delete(key)

@@ -1,4 +1,4 @@
-"""Models for the GitHub authentication provider.
+"""Models for data retrieved from the GitHub API.
 
 Notes
 -----
@@ -11,9 +11,29 @@ from dataclasses import dataclass
 from ..util import group_name_for_github_team
 
 __all__ = [
+    "GitHubRepository",
     "GitHubTeam",
     "GitHubUserInfo",
 ]
+
+
+@dataclass(frozen=True)
+class GitHubRepository:
+    """Metadata about a repository gathered from the GitHub API.
+
+    Used to pin the numeric GitHub IDs of a repository and its owner when
+    registering a GitHub project, since those IDs never change or get reused
+    whereas names can be renamed, transferred, or re-registered.
+    """
+
+    full_name: str
+    """Full name of the repository as ``owner/name``, as GitHub reports it."""
+
+    id: int
+    """Numeric GitHub ID of the repository."""
+
+    owner_id: int
+    """Numeric GitHub ID of the owner of the repository."""
 
 
 @dataclass(frozen=True)

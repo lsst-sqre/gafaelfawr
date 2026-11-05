@@ -189,6 +189,16 @@ class TokenChangeHistoryEntry(BaseModel):
         examples=[1614985631],
     )
 
+    github_project_id: int | None = Field(
+        None,
+        title="GitHub project ID",
+        description=(
+            "ID of the GitHub project that authorized the token. Only set"
+            " for tokens of type github."
+        ),
+        examples=[42],
+    )
+
     def model_dump_reduced(self) -> dict[str, Any]:
         """Convert to a dictionary while suppressing some fields.
 
@@ -210,7 +220,7 @@ class TokenChangeHistoryEntry(BaseModel):
         """
         v = self.model_dump()
 
-        for field in ("token_name", "parent", "service"):
+        for field in ("token_name", "parent", "service", "github_project_id"):
             if v[field] is None:
                 del v[field]
         if v["action"] == TokenChange.edit:
