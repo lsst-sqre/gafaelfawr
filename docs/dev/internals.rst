@@ -50,6 +50,9 @@ Python internal API
 .. automodapi:: gafaelfawr.models.enums
    :include-all-objects:
 
+.. automodapi:: gafaelfawr.models.github_actions
+   :include-all-objects:
+
 .. automodapi:: gafaelfawr.models.history
    :include-all-objects:
 
@@ -93,6 +96,9 @@ Python internal API
    :include-all-objects:
 
 .. automodapi:: gafaelfawr.providers.github
+   :include-all-objects:
+
+.. automodapi:: gafaelfawr.providers.github_actions
    :include-all-objects:
 
 .. automodapi:: gafaelfawr.providers.oidc

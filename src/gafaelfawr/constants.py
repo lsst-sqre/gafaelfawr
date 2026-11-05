@@ -12,6 +12,8 @@ __all__ = [
     "CURSOR_REGEX",
     "GID_MAX",
     "GID_MIN",
+    "GITHUB_ACTIONS_ISSUER",
+    "GITHUB_ACTIONS_JWT_LEEWAY",
     "GROUPNAME_REGEX",
     "HTTP_TIMEOUT",
     "ID_CACHE_SIZE",
@@ -50,6 +52,20 @@ CONFIG_PATH = "/etc/gafaelfawr/gafaelfawr.yaml"
 
 COOKIE_NAME = "gafaelfawr"
 """Name of the state cookie."""
+
+GITHUB_ACTIONS_ISSUER = "https://token.actions.githubusercontent.com"
+"""Issuer (``iss`` claim) of GitHub Actions ID tokens.
+
+This is fixed rather than configurable because the GitHub Actions token
+exchange only supports GitHub.com, not GitHub Enterprise Server.
+"""
+
+GITHUB_ACTIONS_JWT_LEEWAY = 30
+"""Clock skew (in seconds) allowed when checking GitHub Actions ID tokens.
+
+Applied to the ``exp``, ``nbf``, and ``iat`` claims when verifying a GitHub
+Actions ID token presented to the token exchange.
+"""
 
 HTTP_TIMEOUT = 20.0
 """Timeout (in seconds) for outbound HTTP requests to auth providers."""

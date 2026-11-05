@@ -1,0 +1,20 @@
+# GitHub Actions token exchange with a maximum lifetime below the minimum.
+
+slackAlerts: true
+afterLogoutUrl: "https://example.com/landing"
+groupMapping:
+  "exec:admin": ["admin"]
+knownScopes:
+  "admin:token": "token administration"
+  "admin:userinfo": "Can see user information for any user"
+  "exec:admin": "admin description"
+  "read:all": "can read everything"
+  "user:token": "Can create and modify user tokens"
+github:
+  clientId: "some-github-client-id"
+githubTokenExchange:
+  enabled: true
+  maxLifetime: "1m"
+metrics:
+  enabled: false
+  application: "gafaelfawr"
