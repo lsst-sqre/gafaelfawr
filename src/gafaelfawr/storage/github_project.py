@@ -2,7 +2,7 @@
 
 import builtins
 from datetime import UTC, datetime
-from typing import cast
+from typing import Any, cast
 
 from safir.database import datetime_to_db
 from sqlalchemy import CursorResult, delete, func, select
@@ -70,26 +70,13 @@ class GitHubProjectStore:
             The stored project, including its assigned ID.
         """
         now = datetime.now(tz=UTC).replace(microsecond=0)
-        groups = None
-        if create.groups is not None:
-            groups = [g.model_dump(mode="json") for g in create.groups]
         new = SQLGitHubProject(
+            **self._to_columns(create),
             template=template,
-            description=create.description,
-            requested_by=create.requested_by,
             username=username,
             repository=repository.full_name,
             repository_id=repository.id,
             repository_owner_id=repository.owner_id,
-            workflow=create.workflow,
-            environment=create.environment,
-            ref=create.ref,
-            scopes=",".join(sorted(create.scopes)),
-            max_lifetime=int(create.max_lifetime.total_seconds()),
-            uid=create.uid,
-            gid=create.gid,
-            groups=groups,
-            enabled=create.enabled,
             created=datetime_to_db(now),
             created_by=created_by,
             modified=datetime_to_db(now),
@@ -204,26 +191,15 @@ class GitHubProjectStore:
         existing = await self._get(project.id)
         if not existing:
             return False
-        groups = None
-        if project.groups is not None:
-            groups = [g.model_dump(mode="json") for g in project.groups]
-        existing.description = project.description
-        existing.requested_by = project.requested_by
-        existing.username = project.username
-        existing.repository = project.repository
-        existing.repository_id = project.repository_id
-        existing.repository_owner_id = project.repository_owner_id
-        existing.workflow = project.workflow
-        existing.environment = project.environment
-        existing.ref = project.ref
-        existing.scopes = ",".join(sorted(project.scopes))
-        existing.max_lifetime = int(project.max_lifetime.total_seconds())
-        existing.uid = project.uid
-        existing.gid = project.gid
-        existing.groups = groups
-        existing.enabled = project.enabled
-        existing.modified = datetime_to_db(project.modified)
-        existing.modified_by = project.modified_by
+        columns = self._to_columns(project)
+        columns["username"] = project.username
+        columns["repository"] = project.repository
+        columns["repository_id"] = project.repository_id
+        columns["repository_owner_id"] = project.repository_owner_id
+        columns["modified"] = datetime_to_db(project.modified)
+        columns["modified_by"] = project.modified_by
+        for column, value in columns.items():
+            setattr(existing, column, value)
         return True
 
     async def _get(self, project_id: int) -> SQLGitHubProject | None:
@@ -232,6 +208,46 @@ class GitHubProjectStore:
             SQLGitHubProject.id == project_id
         )
         return await self._session.scalar(stmt)
+
+    @staticmethod
+    def _to_columns(
+        project: GitHubProject | GitHubProjectCreate,
+    ) -> dict[str, Any]:
+        """Convert the settings of a project to database column values.
+
+        This covers the columns that are stored the same way whether a
+        project is being created or updated, so that a new column need only
+        be added here. The columns that are derived differently in the two
+        cases, such as the repository identifiers and the change metadata,
+        are set by the caller.
+
+        Parameters
+        ----------
+        project
+            Project or request to create a project.
+
+        Returns
+        -------
+        dict of str to Any
+            Column values keyed by column name, suitable for passing to the
+            constructor of the ORM class or assigning to an existing row.
+        """
+        groups = None
+        if project.groups is not None:
+            groups = [g.model_dump(mode="json") for g in project.groups]
+        return {
+            "description": project.description,
+            "requested_by": project.requested_by,
+            "workflow": project.workflow,
+            "environment": project.environment,
+            "ref": project.ref,
+            "scopes": ",".join(sorted(project.scopes)),
+            "max_lifetime": int(project.max_lifetime.total_seconds()),
+            "uid": project.uid,
+            "gid": project.gid,
+            "groups": groups,
+            "enabled": project.enabled,
+        }
 
 
 class GitHubProjectHistoryStore:
