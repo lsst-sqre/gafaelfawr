@@ -559,9 +559,12 @@ class GitHubProject(BaseModel):
 def _job_workflow_path(claims: GitHubActionsClaims) -> str:
     """Extract the workflow path from the ``job_workflow_ref`` claim.
 
-    The claim is ``<owner>/<repo>/.github/workflows/<file>@<ref>``. The ref
-    is dropped and the repository part is lowercased, producing the same
-    form as `GitHubProject.workflow_path` so that the two can be compared.
+    The claim is always ``<owner>/<repo>/.github/workflows/<file>@<ref>``,
+    naming the repository that holds the workflow even when it is the one
+    running the job, so unlike a workflow constraint it is never relative
+    to the ``repository`` claim. The ref is dropped and the owner and
+    repository parts are lowercased, producing the same form as
+    `GitHubProject.workflow_path` so that the two can be compared.
 
     Parameters
     ----------
@@ -574,7 +577,9 @@ def _job_workflow_path(claims: GitHubActionsClaims) -> str:
         Workflow path with the repository lowercased.
     """
     path, _, _ = claims.job_workflow_ref.partition("@")
-    return _workflow_path(claims.repository, path) or path
+    owner, _, rest = path.partition("/")
+    repo, _, file_path = rest.partition("/")
+    return f"{owner.lower()}/{repo.lower()}/{file_path}"
 
 
 def _ref_matches(constraint: str, ref: str) -> bool:
