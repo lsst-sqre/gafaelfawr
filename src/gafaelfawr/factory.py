@@ -71,6 +71,7 @@ from .storage.github import GitHubStorage
 from .storage.github_project import (
     GitHubProjectHistoryStore,
     GitHubProjectStore,
+    GitHubProjectTemplateStore,
 )
 from .storage.history import TokenChangeHistoryStore
 from .storage.kubernetes import (
@@ -533,6 +534,7 @@ class Factory:
             config=config.github_token_exchange,
             known_scopes=set(config.known_scopes.keys()),
             project_store=GitHubProjectStore(self.session),
+            template_store=GitHubProjectTemplateStore(self.session),
             history_store=GitHubProjectHistoryStore(self.session),
             github_storage=github_storage,
             token_service=self.create_token_service(),

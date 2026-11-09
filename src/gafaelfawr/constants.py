@@ -18,7 +18,10 @@ __all__ = [
     "GITHUB_API_URL",
     "GITHUB_BOT_USERNAME_PREFIX",
     "GITHUB_BOT_USERNAME_REGEX",
+    "GITHUB_OWNER_REGEX",
     "GITHUB_PROJECT_DEFAULT_LIFETIME",
+    "GITHUB_PROJECT_TEMPLATE_NAME_REGEX",
+    "GITHUB_PROVISION_SCOPE",
     "GITHUB_REPOSITORY_REGEX",
     "GROUPNAME_REGEX",
     "HTTP_TIMEOUT",
@@ -104,6 +107,14 @@ GITHUB_PROJECT_DEFAULT_LIFETIME = timedelta(hours=1)
 Used when a project is created without a maximum lifetime. Capped by the
 configured maximum lifetime of the GitHub Actions token exchange, which may
 be shorter than this.
+"""
+
+GITHUB_PROVISION_SCOPE = "admin:github-oidc-provision"
+"""Scope that allows provisioning a GitHub project from a project template.
+
+This scope grants exactly one capability: creating a project from a template
+through the provisioning route. ``admin:token`` also satisfies that route.
+Like every ``admin:`` scope, it may not be granted to a GitHub project.
 """
 
 HTTP_TIMEOUT = 20.0
@@ -271,6 +282,12 @@ CURSOR_REGEX = "^p?[0-9]+_[0-9]+$"
 
 GITHUB_BOT_USERNAME_REGEX = "^bot-gh-[a-z0-9](?:[a-z0-9]|-[a-z0-9])*$"
 """Regex matching a valid bot username for a GitHub project."""
+
+GITHUB_OWNER_REGEX = "^[a-zA-Z0-9](?:[a-zA-Z0-9]|-[a-zA-Z0-9])*$"
+"""Regex matching the login of a GitHub owner (organization or user)."""
+
+GITHUB_PROJECT_TEMPLATE_NAME_REGEX = "^[a-z0-9](?:[a-z0-9]|-[a-z0-9])*$"
+"""Regex matching the name of a GitHub project template."""
 
 GITHUB_REPOSITORY_REGEX = (
     "^[a-zA-Z0-9](?:[a-zA-Z0-9]|-[a-zA-Z0-9])*/[a-zA-Z0-9._-]+$"

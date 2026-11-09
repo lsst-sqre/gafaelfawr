@@ -11,6 +11,7 @@ See :sqr:`120` for the design.
 Which repositories may do this, what scopes they receive, and how long the token lives are governed by a registry of GitHub projects.
 A project binds a set of constraints on the claims of the GitHub ID token to a bot username and a token policy.
 Token administrators manage the registry through the admin API described on this page.
+A service such as Templatebot can also create projects of an administrator-defined shape from a project template, under a narrower scope, as described in :ref:`github-actions-provisioning`.
 Workflow authors obtain tokens as described in :ref:`github-actions-workflow`.
 
 Configure Gafaelfawr
@@ -120,7 +121,7 @@ In addition to the fields of the request, the stored project has the following f
     Check them against the intended repository.
 
 ``template``
-    The name of the project template the project was provisioned from, or null for projects registered through this route.
+    The name of the project template the project was provisioned from (see :ref:`github-actions-provisioning`), or null for projects registered through this route.
 
 ``created``, ``created_by``, ``modified``, ``modified_by``
     When the project was created and last modified, and the username of the token that made each change.
@@ -160,6 +161,122 @@ Delete a project
 ================
 
 A ``DELETE`` request to ``/auth/api/v1/github/projects/{id}`` deletes the project, revokes every outstanding token minted for it, and responds with status 204.
+
+.. _github-actions-provisioning:
+
+Provision projects from templates
+=================================
+
+Most projects in the registry are for technotes, which are created by Templatebot in response to a Slack request rather than by hand.
+Templatebot must create the project for a new repository before its first documentation build runs, but giving it ``admin:token`` would let a compromise of Templatebot control every identity in the environment.
+Instead, an administrator defines a project template that fixes every field of a project except the repository, and Templatebot creates projects from that template with a token holding only the ``admin:github-oidc-provision`` scope.
+
+Define a project template
+-------------------------
+
+Templates are created via ``POST`` of a JSON object to the ``/auth/api/v1/github/project-templates`` route, which requires the ``admin:token`` scope like the other registry routes.
+The body of the request contains the following fields:
+
+``name``
+    The identifier of the template, used in URLs and by provisioners, such as ``technote``.
+    It must consist of lowercase letters, digits, and hyphens.
+    The name cannot be changed once the template is created.
+
+``owners``
+    The GitHub organizations or users whose repositories may be provisioned from this template, as a list of logins.
+    Each is looked up through the GitHub API when the template is created or the list is changed, and its numeric ID is pinned alongside its name.
+    A repository may be provisioned only if its owner matches an entry by name and by ID, so that an organization deleted and re-registered under the same name by someone else is not trusted.
+
+``repository_pattern`` (optional)
+    A regular expression that the name of the repository, without its owner, must match in full to be provisioned from this template.
+    The match is case-insensitive, since GitHub repository names are.
+    For example, ``^[a-z]+-[0-9]{3,}$`` matches the names of technote repositories.
+    If omitted, any repository name is allowed.
+
+``workflow``, ``environment``, ``ref`` (optional)
+    Constraints copied into every project provisioned from the template, with the same meaning and forms as for a project.
+    A ``workflow`` of the form ``.github/workflows/<file>`` is relative to the provisioned repository.
+
+``scopes``, ``max_lifetime``, ``uid``, ``gid``, ``groups``
+    The token policy copied into every project provisioned from the template, with the same meaning and restrictions as for a project.
+    ``max_lifetime`` defaults as for a project if omitted.
+
+``enabled`` (optional)
+    Whether the template may be used to provision projects.
+    Defaults to true.
+    Projects already provisioned from a disabled template are unaffected.
+
+``description`` (optional)
+    A human-readable, free-form description of this template.
+
+For example, a template for technotes pins the reusable workflow that every technote repository calls, leaves ``ref`` unset because an edition is published for every branch and pull request, and grants the documentation scopes:
+
+.. code-block:: json
+
+   {
+     "name": "technote",
+     "description": "Documentation builds for technotes created by Templatebot",
+     "owners": ["lsst-dm", "lsst", "lsst-sqre", "lsst-sqre-testing"],
+     "repository_pattern": "^[a-z]+-[0-9]{3,}$",
+     "workflow": "lsst-sqre/rubin-sphinx-technote-workflows/.github/workflows/ci.yaml",
+     "scopes": ["write:docverse", "exec:linkcheck"],
+     "max_lifetime": "PT1H"
+   }
+
+On success, the response has status 201, a ``Location`` header with the URL of the new template, and a body containing the stored template, in which each owner is an object with ``name`` and ``id`` fields.
+Templates are listed with ``GET /auth/api/v1/github/project-templates``, retrieved with ``GET /auth/api/v1/github/project-templates/{name}``, and modified with a ``PATCH`` request to that URL containing only the fields to change, as for projects.
+Changing ``owners`` looks up only the owners that were not already in the list and keeps the pinned IDs of those that remain.
+Changing a template affects only projects provisioned afterwards.
+A fleet-wide change, such as a new path for the reusable workflow, is made by a token administrator with a script that lists the template's projects (using the ``template`` filter of the project list route) and patches each one.
+
+A ``DELETE`` request to ``/auth/api/v1/github/project-templates/{name}`` deletes the template, provided that no project records it.
+Otherwise the request fails with status 409 and a message giving the number of such projects, so that the ``template`` field of a project always names a template that exists.
+A template whose projects should remain is retired by disabling it instead.
+
+Changes to templates are recorded in the project history table alongside changes to projects.
+
+Provision a project
+-------------------
+
+A provisioner creates a project from a template with a ``POST`` of a JSON object to ``/auth/api/v1/github/project-templates/{name}/projects``.
+This is the only registry route that accepts the ``admin:github-oidc-provision`` scope; ``admin:token`` also satisfies it, since token administrators can do everything a provisioner can.
+The body contains the following fields:
+
+``repository``
+    The GitHub repository as ``owner/name``, which must be public.
+
+``description``, ``requested_by`` (optional)
+    As for a project registered directly.
+    Templatebot sets ``requested_by`` to the Slack user who asked for the technote, as ``slack:<user ID>``.
+
+Gafaelfawr checks that the template is enabled, looks up the repository on GitHub as the project registration route does, and checks that its owner is in the template's ``owners`` list by name and by pinned ID and that its name matches ``repository_pattern`` if the template has one.
+It then creates the project exactly as the registration route would from a request carrying the template's fields and the given repository: the username is always derived as ``bot-gh-<owner>-<repo>``, the repository IDs are pinned, overlap with existing projects is checked, and ``created_by`` and the actor in the project history are the provisioner, not the person named in ``requested_by``.
+The project records the template's name in its ``template`` field.
+The response is the same 201 document the registration route returns.
+
+A provisioner cannot choose a username, scopes, constraints, or lifetime, and cannot read, modify, or delete projects or templates.
+The most it can do is extend a policy an administrator wrote to a repository an administrator allowed, and it still takes write access to that repository to obtain a token.
+
+The route is idempotent, since Templatebot may retry after a failure.
+If a project for the same repository already exists and records the same template, the route returns that project with status 200 and no ``Location`` header, without changing it.
+A project for the same repository created directly or from a different template conflicts as usual, with status 409 naming the conflicting project.
+
+The provisioning errors are:
+
+- 404 if the template does not exist.
+- 409 with type ``template_disabled`` if the template is disabled.
+- 422 with type ``repository_not_allowed`` if the repository owner is not allowed by the template or the repository name does not match its pattern.
+  The message names the owner or repository name from the request but does not disclose the template's owners or pattern.
+- 422 with type ``unknown_repository`` if the repository does not exist or is not public.
+- 502 if GitHub could not be contacted, in which case the request should be retried.
+
+Set up a provisioner
+--------------------
+
+To let a service provision projects, add ``admin:github-oidc-provision`` to ``config.knownScopes`` in the Gafaelfawr Helm values and create a service token for the service with that scope, normally as a ``GafaelfawrServiceToken`` resource in the service's Helm chart.
+Because the scope begins with ``admin:``, it may not be granted to a project or template, so no GitHub workflow can obtain a token that provisions projects.
+Like the registry, templates and the provisioning route exist per Phalanx environment, and a service token is valid only in the environment that issued it.
+
 
 .. _github-actions-workflow:
 
@@ -283,7 +400,8 @@ If GitHub's signing keys cannot be retrieved, so that the ID token cannot be ver
 Audit history
 =============
 
-Every change to the registry is recorded in the ``github_project_history`` table of the Gafaelfawr database, in the same style as the token change history: the action, the acting administrator, the time, the client IP address, and the project before and after the change.
+Every change to the registry is recorded in the ``github_project_history`` table of the Gafaelfawr database, in the same style as the token change history: the action, the acting administrator or provisioner, the time, the client IP address, and the project or template before and after the change.
+Entries for changes to a template and for projects provisioned from it both record the template's name, so the history of a template includes everything it has produced.
 Tokens revoked by disabling or deleting a project are recorded in the token change history with the administrator who made the change as the actor.
 
 Every token minted by the exchange is recorded in the token change history with the ``github`` token type, the project ID, the bot username as the actor, and the address of the GitHub Actions runner.

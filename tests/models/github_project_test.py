@@ -384,7 +384,7 @@ def test_filter_constraints() -> None:
                 return option
         raise AssertionError(f"No string schema in {schema}")
 
-    for name in ("repository", "username", "requested_by"):
+    for name in ("repository", "username", "template", "requested_by"):
         expected = string_schema(fields[name])
         actual = string_schema(filters[name])
         for constraint in ("minLength", "maxLength", "pattern"):
@@ -392,6 +392,10 @@ def test_filter_constraints() -> None:
                 f"{name} filter {constraint} differs from the model"
             )
 
-    # Template names are stored in an unbounded column, so the filter must
-    # not impose a length limit that would reject a stored name.
-    assert "maxLength" not in string_schema(filters["template"])
+    # The template field of a project must in turn match the name of a
+    # template, since it is a reference to one.
+    templates = schema["components"]["schemas"]["GitHubProjectTemplate"]
+    expected = string_schema(templates["properties"]["name"])
+    actual = string_schema(fields["template"])
+    for constraint in ("minLength", "maxLength", "pattern"):
+        assert actual.get(constraint) == expected.get(constraint)
