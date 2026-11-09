@@ -13,16 +13,39 @@ from pydantic import AnyUrl, BaseModel, ConfigDict, Field, UrlConstraints
 from safir.pydantic import UtcDatetime
 
 from ..constants import OAUTH_ACCESS_TOKEN_TYPE
+from ..events import GitHubTokenExchangeEvent
 from ..types import Scopes
 from .token import Token
 
 __all__ = [
+    "AUDIT_CLAIMS",
     "GitHubActionsClaims",
     "GitHubActionsJWKS",
     "GitHubActionsOIDCMetadata",
     "GitHubTokenExchangeReply",
     "GitHubTokenExchangeResult",
 ]
+
+AUDIT_CLAIMS: frozenset[str] = frozenset(
+    {
+        "repository",
+        "job_workflow_ref",
+        "ref",
+        "environment",
+        "event_name",
+        "actor",
+        "run_id",
+        "run_attempt",
+        "jti",
+    }
+)
+"""Claims of a GitHub Actions ID token recorded for auditing an exchange.
+
+These are logged with each exchange and recorded in its metrics event, so
+that a minted token can be traced to the exact workflow run that obtained it.
+Each must be a field of both `GitHubActionsClaims` and
+`~gafaelfawr.events.GitHubTokenExchangeEvent`.
+"""
 
 
 class GitHubActionsClaims(BaseModel):
@@ -272,6 +295,24 @@ class GitHubTokenExchangeResult(BaseModel):
         title="ID token claims",
         description="Claims of the verified GitHub Actions ID token",
     )
+
+    def to_event(self) -> GitHubTokenExchangeEvent:
+        """Build the metrics event recording the exchange.
+
+        The event ties the minted token to the workflow run that obtained
+        it, using the claims in `AUDIT_CLAIMS`.
+
+        Returns
+        -------
+        GitHubTokenExchangeEvent
+            Metrics event for the exchange.
+        """
+        return GitHubTokenExchangeEvent(
+            username=self.username,
+            github_project_id=self.github_project_id,
+            token=self.token.key,
+            **self.claims.model_dump(include=set(AUDIT_CLAIMS)),
+        )
 
     def to_reply(self) -> GitHubTokenExchangeReply:
         """Build the reply to send to the client.

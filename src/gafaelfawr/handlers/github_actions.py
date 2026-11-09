@@ -21,7 +21,6 @@ from ..constants import (
     OAUTH_TOKEN_EXCHANGE_GRANT_TYPE,
 )
 from ..dependencies.context import RequestContext, context_dependency
-from ..events import GitHubTokenExchangeEvent
 from ..exceptions import (
     FetchKeysError,
     GitHubWebError,
@@ -234,22 +233,7 @@ async def post_github_token(
 
     # Record the exchange as a metrics event, so that a token can be traced
     # to the exact workflow run that obtained it.
-    claims = result.claims
-    event = GitHubTokenExchangeEvent(
-        username=result.username,
-        github_project_id=result.github_project_id,
-        token=result.token.key,
-        repository=claims.repository,
-        job_workflow_ref=claims.job_workflow_ref,
-        ref=claims.ref,
-        environment=claims.environment,
-        event_name=claims.event_name,
-        actor=claims.actor,
-        run_id=claims.run_id,
-        run_attempt=claims.run_attempt,
-        jti=claims.jti,
-    )
-    await context.events.github_token_exchange.publish(event)
+    await context.events.github_token_exchange.publish(result.to_event())
 
     # Return the token to the caller. The headers are mandated by RFC 6749.
     response.headers["Cache-Control"] = "no-store"

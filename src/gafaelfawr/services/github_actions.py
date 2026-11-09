@@ -32,6 +32,7 @@ from ..exceptions import (
     UnknownKeyIdError,
 )
 from ..models.github_actions import (
+    AUDIT_CLAIMS,
     GitHubActionsClaims,
     GitHubActionsJWKS,
     GitHubActionsOIDCMetadata,
@@ -542,20 +543,7 @@ class GitHubTokenExchangeService:
     @staticmethod
     def _claims_for_logging(claims: GitHubActionsClaims) -> dict[str, Any]:
         """Select the claims worth recording in a log message."""
-        return claims.model_dump(
-            include={
-                "repository",
-                "job_workflow_ref",
-                "ref",
-                "environment",
-                "event_name",
-                "actor",
-                "run_id",
-                "run_attempt",
-                "jti",
-            },
-            exclude_none=True,
-        )
+        return claims.model_dump(include=set(AUDIT_CLAIMS), exclude_none=True)
 
     @staticmethod
     def _unverified_claim(encoded: str, claim: str) -> Any:
