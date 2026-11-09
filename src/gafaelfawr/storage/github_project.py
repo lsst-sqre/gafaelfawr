@@ -10,14 +10,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.github import GitHubRepository
 from ..models.github_project import (
+    GitHubOwner,
     GitHubProject,
     GitHubProjectCreate,
     GitHubProjectHistoryEntry,
+    GitHubProjectTemplate,
+    GitHubProjectTemplateCreate,
 )
 from ..schema import GitHubProject as SQLGitHubProject
 from ..schema import GitHubProjectHistory as SQLGitHubProjectHistory
+from ..schema import GitHubProjectTemplate as SQLGitHubProjectTemplate
 
-__all__ = ["GitHubProjectHistoryStore", "GitHubProjectStore"]
+__all__ = [
+    "GitHubProjectHistoryStore",
+    "GitHubProjectStore",
+    "GitHubProjectTemplateStore",
+]
 
 _REGISTRY_LOCK_KEY = "gafaelfawr.github_project"
 """Advisory lock key serializing writes to the GitHub project registry."""
@@ -183,12 +191,14 @@ class GitHubProjectStore:
         """Take the lock serializing writes to the registry.
 
         The registry has invariants that span rows, such as at most one
-        enabled project matching a given token and a derived username
-        belonging to a single repository, which the service checks by
-        reading the registry before writing to it. Holding this lock across
-        the check and the write makes those read-then-write sequences
-        atomic: a concurrent writer blocks here until this transaction
-        commits or rolls back, and then sees its rows.
+        enabled project matching a given token, a derived username
+        belonging to a single repository, and no project naming a deleted
+        template, which the service checks by reading the registry before
+        writing to it. Holding this lock across the check and the write
+        makes those read-then-write sequences atomic: a concurrent writer
+        blocks here until this transaction commits or rolls back, and then
+        sees its rows. The lock covers project templates as well as
+        projects, since provisioning reads a template and writes a project.
 
         Must be called from inside a transaction. The lock is scoped to
         that transaction and is released automatically when it ends, so
@@ -289,6 +299,201 @@ class GitHubProjectStore:
             "gid": project.gid,
             "groups": groups,
             "enabled": project.enabled,
+        }
+
+
+class GitHubProjectTemplateStore:
+    """Stores and retrieves GitHub project templates.
+
+    As with `GitHubProjectStore`, the rules of the registry are the
+    responsibility of the service. Writes must be made under the registry
+    lock taken by `GitHubProjectStore.lock`.
+
+    Parameters
+    ----------
+    session
+        The database session proxy.
+    """
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def add(
+        self,
+        create: GitHubProjectTemplateCreate,
+        *,
+        owners: list[GitHubOwner],
+        max_lifetime: timedelta,
+        created_by: str,
+    ) -> GitHubProjectTemplate:
+        """Store a new GitHub project template.
+
+        Parameters
+        ----------
+        create
+            Fields of the new template.
+        owners
+            Allowed owners with their pinned IDs, as looked up on GitHub.
+        max_lifetime
+            Maximum lifetime of tokens minted for provisioned projects,
+            either as given or as defaulted by the service.
+        created_by
+            Username of the person creating the template.
+
+        Returns
+        -------
+        GitHubProjectTemplate
+            The stored template.
+        """
+        now = datetime.now(tz=UTC).replace(microsecond=0)
+        new = SQLGitHubProjectTemplate(
+            **self._to_columns(create),
+            name=create.name,
+            owners=[o.model_dump(mode="json") for o in owners],
+            max_lifetime=int(max_lifetime.total_seconds()),
+            created=datetime_to_db(now),
+            created_by=created_by,
+            modified=datetime_to_db(now),
+            modified_by=created_by,
+        )
+        self._session.add(new)
+        await self._session.flush()
+        return GitHubProjectTemplate.model_validate(new, from_attributes=True)
+
+    async def delete(self, name: str) -> bool:
+        """Delete a GitHub project template.
+
+        The caller must first ensure that no project records the template,
+        since the database enforces that reference.
+
+        Parameters
+        ----------
+        name
+            Name of the template.
+
+        Returns
+        -------
+        bool
+            `True` if the template was found and deleted, `False` otherwise.
+        """
+        stmt = delete(SQLGitHubProjectTemplate).where(
+            SQLGitHubProjectTemplate.name == name
+        )
+
+        # See https://github.com/sqlalchemy/sqlalchemy/issues/9185
+        # and https://github.com/sqlalchemy/sqlalchemy/issues/12813
+        result = cast("CursorResult", await self._session.execute(stmt))
+        return result.rowcount > 0
+
+    async def get(self, name: str) -> GitHubProjectTemplate | None:
+        """Retrieve a GitHub project template.
+
+        Parameters
+        ----------
+        name
+            Name of the template.
+
+        Returns
+        -------
+        GitHubProjectTemplate or None
+            The template, or `None` if no template has that name.
+        """
+        template = await self._get(name)
+        if not template:
+            return None
+        return GitHubProjectTemplate.model_validate(
+            template, from_attributes=True
+        )
+
+    async def list(self) -> builtins.list[GitHubProjectTemplate]:
+        """List GitHub project templates.
+
+        Returns
+        -------
+        list of GitHubProjectTemplate
+            All templates, ordered by name.
+        """
+        stmt = select(SQLGitHubProjectTemplate).order_by(
+            SQLGitHubProjectTemplate.name
+        )
+        result = await self._session.scalars(stmt)
+        return [
+            GitHubProjectTemplate.model_validate(t, from_attributes=True)
+            for t in result.all()
+        ]
+
+    async def update(self, template: GitHubProjectTemplate) -> bool:
+        """Replace the stored fields of a GitHub project template.
+
+        Every field of the template except its name is written to the
+        database, including the modification metadata, which the caller is
+        responsible for updating.
+
+        Parameters
+        ----------
+        template
+            New contents of the template, identified by its name.
+
+        Returns
+        -------
+        bool
+            `True` if the template was found and updated, `False` otherwise.
+        """
+        existing = await self._get(template.name)
+        if not existing:
+            return False
+        columns = self._to_columns(template)
+        columns["owners"] = [
+            o.model_dump(mode="json") for o in template.owners
+        ]
+        columns["max_lifetime"] = int(template.max_lifetime.total_seconds())
+        columns["modified"] = datetime_to_db(template.modified)
+        columns["modified_by"] = template.modified_by
+        for column, value in columns.items():
+            setattr(existing, column, value)
+        return True
+
+    async def _get(self, name: str) -> SQLGitHubProjectTemplate | None:
+        """Retrieve the database row for a GitHub project template."""
+        stmt = select(SQLGitHubProjectTemplate).where(
+            SQLGitHubProjectTemplate.name == name
+        )
+        return await self._session.scalar(stmt)
+
+    @staticmethod
+    def _to_columns(
+        template: GitHubProjectTemplate | GitHubProjectTemplateCreate,
+    ) -> dict[str, Any]:
+        """Convert the settings of a template to database column values.
+
+        As for `GitHubProjectStore._to_columns`, this covers the columns
+        stored the same way on creation and update. The owners, the
+        maximum lifetime, and the change metadata are set by the caller.
+
+        Parameters
+        ----------
+        template
+            Template or request to create a template.
+
+        Returns
+        -------
+        dict of str to Any
+            Column values keyed by column name.
+        """
+        groups = None
+        if template.groups is not None:
+            groups = [g.model_dump(mode="json") for g in template.groups]
+        return {
+            "description": template.description,
+            "repository_pattern": template.repository_pattern,
+            "workflow": template.workflow,
+            "environment": template.environment,
+            "ref": template.ref,
+            "scopes": ",".join(sorted(template.scopes)),
+            "uid": template.uid,
+            "gid": template.gid,
+            "groups": groups,
+            "enabled": template.enabled,
         }
 
 

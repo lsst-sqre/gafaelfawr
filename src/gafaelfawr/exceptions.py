@@ -21,6 +21,7 @@ __all__ = [
     "DatabaseSchemaError",
     "DisallowedCORSRequestError",
     "DuplicateAdminError",
+    "DuplicateGitHubProjectTemplateError",
     "DuplicateGitHubUsernameError",
     "DuplicateTokenNameError",
     "ExternalUserInfoError",
@@ -30,6 +31,9 @@ __all__ = [
     "FirestoreNotInitializedError",
     "GitHubError",
     "GitHubProjectOverlapError",
+    "GitHubProjectTemplateDisabledError",
+    "GitHubProjectTemplateInUseError",
+    "GitHubRepositoryNotAllowedError",
     "GitHubWebError",
     "InputValidationError",
     "InsufficientScopeError",
@@ -74,6 +78,7 @@ __all__ = [
     "ReturnUriMismatchError",
     "UnauthorizedScopeError",
     "UnknownAlgorithmError",
+    "UnknownGitHubOwnerError",
     "UnknownGitHubRepositoryError",
     "UnknownKeyIdError",
     "UnsupportedGrantTypeError",
@@ -97,6 +102,16 @@ class DuplicateAdminError(InputValidationError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message, ErrorLocation.body, ["username"])
+
+
+class DuplicateGitHubProjectTemplateError(InputValidationError):
+    """A GitHub project template with the same name already exists."""
+
+    error = "duplicate_template"
+    status_code = status.HTTP_409_CONFLICT
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.body, ["name"])
 
 
 class DuplicateGitHubUsernameError(InputValidationError):
@@ -146,6 +161,49 @@ class GitHubProjectOverlapError(InputValidationError):
     def __init__(self, message: str, project_id: int) -> None:
         super().__init__(message, ErrorLocation.body, ["repository"])
         self.project_id = project_id
+
+
+class GitHubProjectTemplateDisabledError(InputValidationError):
+    """A GitHub project template used for provisioning is disabled."""
+
+    error = "template_disabled"
+    status_code = status.HTTP_409_CONFLICT
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.path, ["name"])
+
+
+class GitHubProjectTemplateInUseError(InputValidationError):
+    """A GitHub project template cannot be deleted while projects use it.
+
+    Parameters
+    ----------
+    message
+        Error message.
+    count
+        Number of projects provisioned from the template.
+    """
+
+    error = "template_in_use"
+    status_code = status.HTTP_409_CONFLICT
+
+    def __init__(self, message: str, count: int) -> None:
+        super().__init__(message, ErrorLocation.path, ["name"])
+        self.count = count
+
+
+class GitHubRepositoryNotAllowedError(InputValidationError):
+    """A repository may not be provisioned from a GitHub project template.
+
+    Raised when the owner of the repository is not one of the owners allowed
+    by the template, by name and pinned ID, or the repository name does not
+    match the template's repository pattern.
+    """
+
+    error = "repository_not_allowed"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.body, ["repository"])
 
 
 class InvalidClientIdError(InputValidationError):
@@ -252,6 +310,15 @@ class InvalidServiceError(InputValidationError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message, ErrorLocation.query, ["delegate_to"])
+
+
+class UnknownGitHubOwnerError(InputValidationError):
+    """An owner of a GitHub project template was not found on GitHub."""
+
+    error = "unknown_owner"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.body, ["owners"])
 
 
 class UnknownGitHubRepositoryError(InputValidationError):

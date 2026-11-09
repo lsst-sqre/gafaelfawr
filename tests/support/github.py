@@ -13,12 +13,15 @@ from gafaelfawr.config import GitHubConfig
 from gafaelfawr.constants import GITHUB_API_URL
 from gafaelfawr.dependencies.config import config_dependency
 from gafaelfawr.models.github import GitHubRepository, GitHubUserInfo
+from gafaelfawr.models.github_project import GitHubOwner
 from gafaelfawr.providers.github import GitHubProvider
 
 __all__ = [
     "MockGitHub",
+    "MockGitHubOwners",
     "MockGitHubRepositories",
     "mock_github",
+    "mock_github_owners",
     "mock_github_repositories",
 ]
 
@@ -288,5 +291,93 @@ def mock_github_repositories(
     mock = MockGitHubRepositories(repositories)
     respx_mock.get(url__startswith=f"{GITHUB_API_URL}/repos/").mock(
         side_effect=mock.get_repository
+    )
+    return mock
+
+
+class MockGitHubOwners:
+    """Pretends to be the GitHub users API for testing.
+
+    The methods of this object should be installed as respx mock side effects
+    using `mock_github_owners`. Owners can be added or removed between
+    requests, and the number of requests is counted so that tests can check
+    when lookups happen.
+
+    Parameters
+    ----------
+    owners
+        Organizations and users known to the mock.
+
+    Attributes
+    ----------
+    failure
+        If set, every lookup returns this response or raises this HTTPX
+        request exception type instead of looking at the known owners, to
+        simulate GitHub rate limiting or being down. Clear it to restore
+        normal behavior.
+    requests
+        Number of owner lookups received so far, including failures.
+    """
+
+    def __init__(self, owners: list[GitHubOwner]) -> None:
+        self.owners = {o.name.lower(): o for o in owners}
+        self.failure: Response | type[RequestError] | None = None
+        self.requests = 0
+
+    def get_owner(self, request: Request) -> Response:
+        self.requests += 1
+        assert request.headers["Accept"] == "application/vnd.github+json"
+        assert "Authorization" not in request.headers
+        prefix = f"{GITHUB_API_URL}/users/"
+        assert str(request.url).startswith(prefix)
+        if isinstance(self.failure, Response):
+            return self.failure
+        if self.failure:
+            raise self.failure("Mock Error", request=request)
+        login = str(request.url)[len(prefix) :]
+        owner = self.owners.get(login.lower())
+        if not owner:
+            return Response(
+                404,
+                json={
+                    "message": "Not Found",
+                    "documentation_url": "https://docs.github.com/rest",
+                    "status": "404",
+                },
+            )
+        return Response(
+            200,
+            json={
+                "login": owner.name,
+                "id": owner.id,
+                "node_id": "O_kgDOBogus",
+                "type": "Organization",
+                "site_admin": False,
+            },
+        )
+
+
+def mock_github_owners(
+    respx_mock: respx.Router, owners: list[GitHubOwner]
+) -> MockGitHubOwners:
+    """Set up the mocks for GitHub owner lookups.
+
+    Parameters
+    ----------
+    respx_mock
+        The mock router.
+    owners
+        Organizations and users known to the mock. Any other owner is
+        reported as not found.
+
+    Returns
+    -------
+    MockGitHubOwners
+        The mock, so that tests can change the owners or check the number
+        of requests.
+    """
+    mock = MockGitHubOwners(owners)
+    respx_mock.get(url__startswith=f"{GITHUB_API_URL}/users/").mock(
+        side_effect=mock.get_owner
     )
     return mock

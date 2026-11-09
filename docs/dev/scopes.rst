@@ -23,12 +23,14 @@ Reserved scopes
 ===============
 
 Gafaelfawr reserves scopes beginning with ``admin:`` and ``user:`` for internal use by the identity management system.
-Currently, three scopes in that reserved namespace are used:
+Currently, the following scopes in that reserved namespace are used:
 
+* ``admin:github-oidc-provision`` grants the ability to create GitHub projects from project templates if the GitHub Actions token exchange is enabled (see :ref:`github-actions-provisioning`), and nothing else.
+  It is intended for services such as Templatebot that register newly created repositories without being token administrators.
 * ``admin:oidc`` grants the ability to add and manage OpenID Connect clients if the OpenID Connect server is enabled (see :ref:`helm-oidc-server`).
 * ``admin:token`` grants token administrator powers.
   Users authenticated with a token with this scope can view, create, modify, and delete tokens for any user.
-  It also grants the ability to manage the registry of GitHub projects if the GitHub Actions token exchange is enabled (see :ref:`github-actions`).
+  It also grants the ability to manage the registry of GitHub projects and project templates if the GitHub Actions token exchange is enabled (see :ref:`github-actions`).
   Administrators are automatically granted this scope when they authenticate.
   The bootstrap token (configured with the ``bootstrap-token`` Kubernetes secret) is automatically granted ``admin:token`` scope.
 * ``admin:userinfo`` grants access to the :samp:`/auth/api/v1/users/{username}` route, which allows retrieval of user information from LDAP (and Firestore if configured) for arbitrary usernames without having a delegated token for that user.
