@@ -1,6 +1,5 @@
 """Exchange GitHub Actions ID tokens for Gafaelfawr tokens."""
 
-from datetime import UTC, datetime
 from typing import Any
 
 import jwt
@@ -139,10 +138,8 @@ class GitHubTokenExchangeService:
         # the project was registered, but the configuration may have been
         # lowered since, so apply the environment-wide ceiling again.
         lifetime = min(project.max_lifetime, self._config.max_lifetime)
-        now = datetime.now(tz=UTC).replace(microsecond=0)
-        expires = now + lifetime
-        token = await self._token_service.create_github_token(
-            project, scopes=scopes, expires=expires, ip_address=ip_address
+        token, expires = await self._token_service.create_github_token(
+            project, scopes=scopes, lifetime=lifetime, ip_address=ip_address
         )
 
         self._logger.info(
