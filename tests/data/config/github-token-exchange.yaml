@@ -8,6 +8,7 @@ groupMapping:
   "exec:test": ["test"]
   "read:all": ["foo", "admin", "org-a-team"]
 knownScopes:
+  "admin:github-oidc-provision": "Can provision GitHub projects from templates"
   "admin:token": "token administration"
   "admin:userinfo": "Can see user information for any user"
   "exec:admin": "admin description"

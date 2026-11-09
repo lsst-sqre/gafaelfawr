@@ -40,7 +40,12 @@ from ..models.github_project import (
     GitHubBotUsername,
     GitHubProject,
     GitHubProjectCreate,
+    GitHubProjectProvision,
     GitHubProjectRequester,
+    GitHubProjectTemplate,
+    GitHubProjectTemplateCreate,
+    GitHubProjectTemplateName,
+    GitHubProjectTemplateUpdate,
     GitHubProjectUpdate,
     GitHubRepositoryName,
 )
@@ -72,6 +77,7 @@ authenticate_admin_write = AuthenticateWrite(require_scope="admin:token")
 authenticate_admin_write_bootstrap = AuthenticateWrite(
     require_scope="admin:token", allow_bootstrap_token=True
 )
+authenticate_write_bootstrap = AuthenticateWrite(allow_bootstrap_token=True)
 authenticate_oidc_admin_read = AuthenticateRead(
     require_scope="admin:oidc", allow_bootstrap_token=True
 )
@@ -107,10 +113,45 @@ _GITHUB_PROJECT_ID = Path(
     ge=1,
 )
 
+_GITHUB_PROJECT_TEMPLATE_NAME = Path(
+    title="Template name",
+    description="Name of the GitHub project template",
+    examples=["technote"],
+)
+
 _github_project_responses: dict[int | str, dict[str, Any]] = {
     404: {
         "description": (
             "GitHub Actions token exchange not configured or project not found"
+        ),
+        "model": ErrorModel,
+    },
+}
+
+_github_project_template_responses: dict[int | str, dict[str, Any]] = {
+    404: {
+        "description": (
+            "GitHub Actions token exchange not configured or template not"
+            " found"
+        ),
+        "model": ErrorModel,
+    },
+}
+
+_github_project_template_write_responses: dict[int | str, dict[str, Any]] = {
+    422: {
+        "description": (
+            "An owner was not found on GitHub (`unknown_owner`), the scopes"
+            " are unknown or not allowed (`invalid_scopes`), or the maximum"
+            " lifetime exceeds the configured limit (`invalid_max_lifetime`)"
+        ),
+        "model": ErrorModel,
+    },
+    502: {
+        "description": (
+            "GitHub could not be contacted or returned an error while"
+            " looking up an owner (`github_unavailable`). Nothing was"
+            " changed, so retry the request later."
         ),
         "model": ErrorModel,
     },
@@ -143,10 +184,10 @@ _github_project_write_responses: dict[int | str, dict[str, Any]] = {
 async def _report_github_failure(
     context: RequestContext,
 ) -> AsyncIterator[None]:
-    """Convert a failed GitHub repository lookup into a 502 error.
+    """Convert a failed GitHub repository or owner lookup into a 502 error.
 
-    Repository lookups are unauthenticated and therefore subject to GitHub's
-    low anonymous rate limit, and GitHub may be down. Those failures are
+    The lookups are unauthenticated and therefore subject to GitHub's low
+    anonymous rate limit, and GitHub may be down. Those failures are
     upstream problems that the caller should retry, so report them to Slack
     and Sentry and return a Bad Gateway error with an
     `~safir.models.ErrorModel` body rather than letting them propagate as an
@@ -166,7 +207,7 @@ async def _report_github_failure(
     try:
         yield
     except (GitHubError, GitHubWebError) as e:
-        msg = "GitHub repository lookup failed, retry later"
+        msg = "GitHub lookup failed, retry later"
         context.logger.exception(msg, error=str(e))
         slack_client = context.factory.create_slack_client()
         await report_exception(e, slack_client=slack_client)
@@ -219,7 +260,7 @@ async def get_github_projects(
         ),
     ] = None,
     template: Annotated[
-        str | None,
+        GitHubProjectTemplateName | None,
         Query(
             title="Template",
             description=(
@@ -227,7 +268,6 @@ async def get_github_projects(
                 " template"
             ),
             examples=["technote"],
-            min_length=1,
         ),
     ] = None,
     requested_by: Annotated[
@@ -400,6 +440,259 @@ async def patch_github_project(
         return await project_service.update_project(
             project_id, update, auth_data, ip_address=context.ip_address
         )
+
+
+@router.get(
+    "/auth/api/v1/github/project-templates",
+    description=(
+        "List the GitHub project templates. A template fixes every field of"
+        " a GitHub project except the repository and restricts the"
+        " repositories that may be provisioned from it to a set of GitHub"
+        " owners and an optional pattern on the repository name, so that a"
+        " provisioner holding only the ``admin:github-oidc-provision``"
+        " scope can create projects of a shape an administrator defined."
+    ),
+    responses={
+        404: {
+            "description": "GitHub Actions token exchange not configured",
+            "model": ErrorModel,
+        },
+    },
+    summary="List GitHub project templates",
+    tags=["admin"],
+)
+async def get_github_project_templates(
+    *,
+    auth_data: Annotated[TokenData, Depends(authenticate_admin_read)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+) -> list[GitHubProjectTemplate]:
+    project_service = context.factory.create_github_project_service()
+    return await project_service.list_templates(auth_data)
+
+
+@router.post(
+    "/auth/api/v1/github/project-templates",
+    description=(
+        "Create a GitHub project template. Each owner must be a GitHub"
+        " organization or user; its numeric GitHub ID is looked up and"
+        " pinned alongside its name, so that the template keeps trusting"
+        " the original owner if the name is later reused. The name of a"
+        " template cannot be changed after it is created."
+    ),
+    responses={
+        201: {
+            "headers": {
+                "Location": {
+                    "description": "URL of the new template",
+                    "schema": {"type": "string"},
+                }
+            }
+        },
+        404: {
+            "description": "GitHub Actions token exchange not configured",
+            "model": ErrorModel,
+        },
+        409: {
+            "description": "A template with that name already exists",
+            "model": ErrorModel,
+        },
+        **_github_project_template_write_responses,
+    },
+    status_code=201,
+    summary="Create a GitHub project template",
+    tags=["admin"],
+)
+async def post_github_project_templates(
+    *,
+    create: GitHubProjectTemplateCreate,
+    auth_data: Annotated[
+        TokenData, Depends(authenticate_admin_write_bootstrap)
+    ],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+    response: Response,
+) -> GitHubProjectTemplate:
+    project_service = context.factory.create_github_project_service()
+    async with _report_github_failure(context):
+        template = await project_service.create_template(
+            create, auth_data, ip_address=context.ip_address
+        )
+    url = context.request.url_for(
+        "get_github_project_template", name=template.name
+    )
+    response.headers["Location"] = str(url)
+    return template
+
+
+@router.get(
+    "/auth/api/v1/github/project-templates/{name}",
+    description="Get details about a GitHub project template",
+    responses=_github_project_template_responses,
+    summary="Get a GitHub project template",
+    tags=["admin"],
+)
+async def get_github_project_template(
+    *,
+    name: Annotated[GitHubProjectTemplateName, _GITHUB_PROJECT_TEMPLATE_NAME],
+    auth_data: Annotated[TokenData, Depends(authenticate_admin_read)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+) -> GitHubProjectTemplate:
+    project_service = context.factory.create_github_project_service()
+    return await project_service.get_template(name, auth_data)
+
+
+@router.delete(
+    "/auth/api/v1/github/project-templates/{name}",
+    description=(
+        "Delete a GitHub project template. A template from which any"
+        " project was provisioned cannot be deleted, so that the template"
+        " a project records always exists; disable it instead. Projects"
+        " provisioned from the template are not affected by its deletion."
+    ),
+    responses={
+        **_github_project_template_responses,
+        409: {
+            "description": (
+                "Projects were provisioned from the template. The error"
+                " message gives their number."
+            ),
+            "model": ErrorModel,
+        },
+    },
+    status_code=204,
+    summary="Delete a GitHub project template",
+    tags=["admin"],
+)
+async def delete_github_project_template(
+    *,
+    name: Annotated[GitHubProjectTemplateName, _GITHUB_PROJECT_TEMPLATE_NAME],
+    auth_data: Annotated[
+        TokenData, Depends(authenticate_admin_write_bootstrap)
+    ],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+) -> None:
+    project_service = context.factory.create_github_project_service()
+    await project_service.delete_template(
+        name, auth_data, ip_address=context.ip_address
+    )
+
+
+@router.patch(
+    "/auth/api/v1/github/project-templates/{name}",
+    description=(
+        "Modify a GitHub project template. Only the fields present in the"
+        " request are changed, and setting an optional field to null clears"
+        " it. Changing the owners looks up the IDs of owners that were not"
+        " already in the list and keeps the pinned IDs of those that"
+        " remain. Changes affect only projects provisioned afterwards;"
+        " projects already provisioned from the template are not changed."
+    ),
+    responses={
+        **_github_project_template_responses,
+        **_github_project_template_write_responses,
+    },
+    summary="Update a GitHub project template",
+    tags=["admin"],
+)
+async def patch_github_project_template(
+    *,
+    name: Annotated[GitHubProjectTemplateName, _GITHUB_PROJECT_TEMPLATE_NAME],
+    update: GitHubProjectTemplateUpdate,
+    auth_data: Annotated[
+        TokenData, Depends(authenticate_admin_write_bootstrap)
+    ],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+) -> GitHubProjectTemplate:
+    project_service = context.factory.create_github_project_service()
+    async with _report_github_failure(context):
+        return await project_service.update_template(
+            name, update, auth_data, ip_address=context.ip_address
+        )
+
+
+@router.post(
+    "/auth/api/v1/github/project-templates/{name}/projects",
+    description=(
+        "Provision a GitHub project from a template. The template must be"
+        " enabled, the owner of the repository must be one of the owners"
+        " allowed by the template (by name and by pinned ID), and the"
+        " repository name must match the template's repository pattern if"
+        " it has one. The project is then created as the project creation"
+        " route would create it from the template's fields and the given"
+        " repository, with the username derived from the repository, and"
+        " records the template. Unlike the other routes under"
+        " ``/auth/api/v1/github``, this one may be used with the"
+        " ``admin:github-oidc-provision`` scope as well as ``admin:token``."
+        " It is idempotent: if a project for the same repository that"
+        " records the same template already exists, it is returned with"
+        " status 200 instead of creating another. A project for the same"
+        " repository created directly or from another template conflicts"
+        " as usual."
+    ),
+    responses={
+        200: {
+            "description": (
+                "A project for this repository was already provisioned from"
+                " this template, and is returned unchanged"
+            ),
+            "model": GitHubProject,
+        },
+        201: {
+            "headers": {
+                "Location": {
+                    "description": "URL of the new project",
+                    "schema": {"type": "string"},
+                }
+            }
+        },
+        409: {
+            "description": (
+                "The template is disabled (`template_disabled`), the"
+                " constraints of the new project overlap an existing project"
+                " (`github_project_overlap`), or the derived username is"
+                " already used by a project for another repository"
+                " (`duplicate_username`)"
+            ),
+            "model": ErrorModel,
+        },
+        **_github_project_template_responses,
+        422: {
+            "description": (
+                "The repository was not found on GitHub or is not public"
+                " (`unknown_repository`), its owner is not allowed by the"
+                " template or its name does not match the template's"
+                " repository pattern (`repository_not_allowed`), or the"
+                " username derived from the repository is not a valid"
+                " username (`invalid_username`)"
+            ),
+            "model": ErrorModel,
+        },
+        502: _github_project_write_responses[502],
+    },
+    status_code=201,
+    summary="Provision a GitHub project from a template",
+    tags=["admin"],
+)
+async def post_github_project_template_projects(
+    *,
+    name: Annotated[GitHubProjectTemplateName, _GITHUB_PROJECT_TEMPLATE_NAME],
+    provision: GitHubProjectProvision,
+    auth_data: Annotated[TokenData, Depends(authenticate_write_bootstrap)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+    response: Response,
+) -> GitHubProject:
+    project_service = context.factory.create_github_project_service()
+    async with _report_github_failure(context):
+        project, created = await project_service.provision_project(
+            name, provision, auth_data, ip_address=context.ip_address
+        )
+    if created:
+        url = context.request.url_for(
+            "get_github_project", project_id=project.id
+        )
+        response.headers["Location"] = str(url)
+    else:
+        response.status_code = status.HTTP_200_OK
+    return project
 
 
 @router.get(

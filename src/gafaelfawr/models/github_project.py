@@ -2,7 +2,10 @@
 
 A GitHub project binds a set of constraints on the claims of a GitHub Actions
 ID token to a bot username and a token policy. The registry of projects is
-the trust configuration of the GitHub Actions token exchange.
+the trust configuration of the GitHub Actions token exchange. A project
+template fixes every field of a project except the repository, so that a
+provisioner holding a narrower scope than a token administrator can create
+projects of an administrator-defined shape.
 """
 
 import re
@@ -18,18 +21,31 @@ from pydantic import (
 )
 from safir.pydantic import UtcDatetime
 
-from ..constants import GITHUB_BOT_USERNAME_REGEX, GITHUB_REPOSITORY_REGEX
+from ..constants import (
+    GITHUB_BOT_USERNAME_REGEX,
+    GITHUB_OWNER_REGEX,
+    GITHUB_PROJECT_TEMPLATE_NAME_REGEX,
+    GITHUB_REPOSITORY_REGEX,
+)
 from ..types import IpAddress, Scopes
 from .enums import GitHubProjectChange
+from .github import GitHubRepository
 from .github_actions import GitHubActionsClaims
 from .userinfo import Group
 
 __all__ = [
     "GitHubBotUsername",
+    "GitHubOwner",
+    "GitHubOwnerName",
     "GitHubProject",
     "GitHubProjectCreate",
     "GitHubProjectHistoryEntry",
+    "GitHubProjectProvision",
     "GitHubProjectRequester",
+    "GitHubProjectTemplate",
+    "GitHubProjectTemplateCreate",
+    "GitHubProjectTemplateName",
+    "GitHubProjectTemplateUpdate",
     "GitHubProjectUpdate",
     "GitHubRepositoryName",
 ]
@@ -50,10 +66,24 @@ GitHubBotUsername = Annotated[
 ]
 """Bot username for which a GitHub project mints tokens."""
 
+GitHubOwnerName = Annotated[
+    str,
+    StringConstraints(min_length=1, max_length=39, pattern=GITHUB_OWNER_REGEX),
+]
+"""Login of a GitHub owner (organization or user)."""
+
 GitHubProjectRequester = Annotated[
     str, StringConstraints(min_length=1, max_length=256)
 ]
 """Opaque identifier of the person who requested a GitHub project."""
+
+GitHubProjectTemplateName = Annotated[
+    str,
+    StringConstraints(
+        min_length=1, max_length=64, pattern=GITHUB_PROJECT_TEMPLATE_NAME_REGEX
+    ),
+]
+"""Name of a GitHub project template."""
 
 GitHubRepositoryName = Annotated[
     str,
@@ -210,6 +240,107 @@ _ENABLED = Field(
     ),
 )
 
+_TEMPLATE_NAME = Field(
+    title="Name",
+    description=(
+        "Identifier of the template, used in URLs and by provisioners."
+        " Cannot be changed once the template is created."
+    ),
+    examples=["technote"],
+)
+
+_TEMPLATE_DESCRIPTION = Field(
+    title="Description",
+    description="Free text about this template for administrators",
+    examples=["Documentation builds for technotes created by Templatebot"],
+)
+
+_OWNERS = Field(
+    title="Owners",
+    description=(
+        "GitHub owners (organizations or users) whose repositories may be"
+        " provisioned from this template. Each is looked up on GitHub when"
+        " the template is created or the list is changed, and its numeric"
+        " ID is pinned alongside its name."
+    ),
+    examples=[["lsst-sqre", "lsst-dm"]],
+    min_length=1,
+)
+
+_REPOSITORY_PATTERN = Field(
+    title="Repository pattern",
+    description=(
+        "Regular expression that the name of a repository, without its"
+        " owner, must match in full (case-insensitively) to be provisioned"
+        " from this template. Any name is allowed if unset."
+    ),
+    examples=["^[a-z]+-[0-9]{3,}$"],
+    min_length=1,
+)
+
+_TEMPLATE_WORKFLOW = Field(
+    title="Workflow",
+    description=(
+        "Workflow constraint copied into every project provisioned from"
+        " this template, in the same forms as for a project. The"
+        " ``.github/workflows/<file>`` form is relative to the provisioned"
+        " repository."
+    ),
+    examples=[
+        "lsst-sqre/rubin-sphinx-technote-workflows/.github/workflows/ci.yaml"
+    ],
+    min_length=1,
+)
+
+_TEMPLATE_ENVIRONMENT = Field(
+    title="Environment",
+    description=(
+        "Environment constraint copied into every project provisioned from"
+        " this template"
+    ),
+    examples=["production"],
+    min_length=1,
+)
+
+_TEMPLATE_REF = Field(
+    title="Git ref",
+    description=(
+        "Ref constraint copied into every project provisioned from this"
+        " template, either an exact ref or a prefix ending in ``/``"
+    ),
+    examples=["refs/heads/main", "refs/tags/"],
+    min_length=6,
+    pattern="^refs/",
+)
+
+_TEMPLATE_SCOPES = Field(
+    title="Scopes",
+    description=(
+        "Maximum scopes of tokens minted for projects provisioned from this"
+        " template. Each must be a known scope and may not be an ``admin:``"
+        " scope."
+    ),
+    examples=[["write:docverse", "exec:linkcheck"]],
+)
+
+_TEMPLATE_MAX_LIFETIME = Field(
+    title="Maximum lifetime",
+    description=(
+        "Maximum lifetime of tokens minted for projects provisioned from"
+        " this template, as a number of seconds or an ISO 8601 duration."
+        " Capped by the Gafaelfawr configuration."
+    ),
+    examples=["PT1H", 3600],
+)
+
+_TEMPLATE_ENABLED = Field(
+    title="Enabled",
+    description=(
+        "Disabled templates cannot be used to provision projects. Projects"
+        " already provisioned from a disabled template are unaffected."
+    ),
+)
+
 
 _WORKFLOWS_DIR = ".github/workflows/"
 """Directory, relative to the repository root, that holds workflows."""
@@ -272,6 +403,33 @@ def _split_workflow(workflow: str) -> tuple[str | None, str]:
     owner, _, rest = workflow.partition("/")
     repo, _, path = rest.partition("/")
     return f"{owner}/{repo}", path
+
+
+def _validate_repository_pattern(v: str | None) -> str | None:
+    """Require a repository pattern to be a valid regular expression."""
+    if v is None:
+        return v
+    try:
+        re.compile(v)
+    except re.error as e:
+        msg = f"repository_pattern is not a valid regular expression: {e}"
+        raise ValueError(msg) from e
+    return v
+
+
+def _validate_owners(v: list[str]) -> list[str]:
+    """Require the owners of a template to be distinct.
+
+    GitHub logins are case-insensitive, so two spellings of the same login
+    are duplicates.
+    """
+    seen = set()
+    for owner in v:
+        if owner.lower() in seen:
+            msg = f"Duplicate owner {owner}"
+            raise ValueError(msg)
+        seen.add(owner.lower())
+    return v
 
 
 class GitHubProjectCreate(BaseModel):
@@ -397,15 +555,17 @@ class GitHubProject(BaseModel):
         examples=[42],
     )
 
-    template: str | None = Field(
-        None,
-        title="Template",
-        description=(
-            "Name of the project template this project was provisioned from,"
-            " or null if it was created directly"
+    template: Annotated[
+        GitHubProjectTemplateName | None,
+        Field(
+            title="Template",
+            description=(
+                "Name of the project template this project was provisioned"
+                " from, or null if it was created directly"
+            ),
+            examples=["technote"],
         ),
-        examples=["technote"],
-    )
+    ] = None
 
     description: Annotated[str | None, _DESCRIPTION] = None
 
@@ -628,6 +788,313 @@ def _workflow_path(repository: str, workflow: str | None) -> str | None:
     if workflow_repository is None:
         workflow_repository = repository
     return f"{workflow_repository.lower()}/{path}"
+
+
+class GitHubOwner(BaseModel):
+    """A GitHub owner (organization or user) with its pinned numeric ID.
+
+    Owners are stored on project templates by name and ID so that the
+    template keeps trusting the original owner if the name is later
+    reused, as the pinned repository IDs do for projects.
+    """
+
+    name: str = Field(
+        ...,
+        title="Owner name",
+        description="Login of the owner, as GitHub reports it",
+        examples=["lsst-sqre"],
+    )
+
+    id: int = Field(
+        ...,
+        title="Owner ID",
+        description="Numeric GitHub ID of the owner",
+        examples=[654321],
+    )
+
+
+class GitHubProjectTemplateCreate(BaseModel):
+    """Fields needed to create a new GitHub project template."""
+
+    name: Annotated[GitHubProjectTemplateName, _TEMPLATE_NAME]
+
+    description: Annotated[str | None, _TEMPLATE_DESCRIPTION] = None
+
+    owners: Annotated[list[GitHubOwnerName], _OWNERS]
+
+    repository_pattern: Annotated[str | None, _REPOSITORY_PATTERN] = None
+
+    workflow: Annotated[str | None, _TEMPLATE_WORKFLOW] = None
+
+    environment: Annotated[str | None, _TEMPLATE_ENVIRONMENT] = None
+
+    ref: Annotated[str | None, _TEMPLATE_REF] = None
+
+    scopes: Annotated[Scopes, _TEMPLATE_SCOPES]
+
+    max_lifetime: Annotated[
+        timedelta | None,
+        _TEMPLATE_MAX_LIFETIME,
+        Field(
+            description=(
+                "Maximum lifetime of tokens minted for projects provisioned"
+                " from this template, as a number of seconds or an ISO 8601"
+                " duration. Capped by the Gafaelfawr configuration. If"
+                " omitted, defaults to one hour or the configured maximum,"
+                " whichever is shorter."
+            )
+        ),
+    ] = None
+
+    uid: Annotated[int | None, _UID] = None
+
+    gid: Annotated[int | None, _GID] = None
+
+    groups: Annotated[list[Group] | None, _GROUPS] = None
+
+    enabled: Annotated[bool, _TEMPLATE_ENABLED] = True
+
+    _validate_owners = field_validator("owners")(_validate_owners)
+    _validate_repository_pattern = field_validator("repository_pattern")(
+        _validate_repository_pattern
+    )
+    _validate_workflow = field_validator("workflow")(_validate_workflow)
+
+
+class GitHubProjectTemplateUpdate(BaseModel):
+    """Changes to a GitHub project template.
+
+    Fields that are not set are left unchanged. Setting an optional field to
+    null clears it. The name of a template cannot be changed. Changing the
+    owners looks up the IDs of owners that were not already in the list.
+    Changes to a template affect only projects provisioned afterwards.
+    """
+
+    description: Annotated[str | None, _TEMPLATE_DESCRIPTION] = None
+
+    owners: Annotated[list[GitHubOwnerName] | None, _OWNERS] = None
+
+    repository_pattern: Annotated[str | None, _REPOSITORY_PATTERN] = None
+
+    workflow: Annotated[str | None, _TEMPLATE_WORKFLOW] = None
+
+    environment: Annotated[str | None, _TEMPLATE_ENVIRONMENT] = None
+
+    ref: Annotated[str | None, _TEMPLATE_REF] = None
+
+    scopes: Annotated[Scopes | None, _TEMPLATE_SCOPES] = None
+
+    max_lifetime: Annotated[timedelta | None, _TEMPLATE_MAX_LIFETIME] = None
+
+    uid: Annotated[int | None, _UID] = None
+
+    gid: Annotated[int | None, _GID] = None
+
+    groups: Annotated[list[Group] | None, _GROUPS] = None
+
+    enabled: Annotated[bool | None, _TEMPLATE_ENABLED] = None
+
+    _validate_repository_pattern = field_validator("repository_pattern")(
+        _validate_repository_pattern
+    )
+    _validate_workflow = field_validator("workflow")(_validate_workflow)
+
+    @field_validator("owners")
+    @classmethod
+    def _validate_optional_owners(
+        cls, v: list[str] | None
+    ) -> list[str] | None:
+        return None if v is None else _validate_owners(v)
+
+    @model_validator(mode="after")
+    def _reject_null_required_fields(self) -> Self:
+        for name in ("owners", "scopes", "max_lifetime", "enabled"):
+            if name in self.model_fields_set and getattr(self, name) is None:
+                raise ValueError(f"{name} may not be null")
+        return self
+
+
+class GitHubProjectProvision(BaseModel):
+    """Request to provision a GitHub project from a template.
+
+    Only the repository and the descriptive fields can be chosen. Every
+    other field of the project comes from the template, and the username is
+    always derived from the repository.
+    """
+
+    repository: Annotated[GitHubRepositoryName, _REPOSITORY]
+
+    description: Annotated[str | None, _DESCRIPTION] = None
+
+    requested_by: Annotated[GitHubProjectRequester | None, _REQUESTED_BY] = (
+        None
+    )
+
+
+class GitHubProjectTemplate(BaseModel):
+    """A template from which GitHub projects can be provisioned.
+
+    A template fixes every field of a project except the repository, its
+    description, and its requester, and restricts the repositories that may
+    be provisioned from it to a set of GitHub owners and an optional pattern
+    on the repository name. The fields of the template are copied into each
+    provisioned project, so later changes to the template do not affect
+    projects already provisioned from it.
+    """
+
+    name: Annotated[GitHubProjectTemplateName, _TEMPLATE_NAME]
+
+    description: Annotated[str | None, _TEMPLATE_DESCRIPTION] = None
+
+    owners: Annotated[
+        list[GitHubOwner],
+        _OWNERS,
+        Field(
+            description=(
+                "GitHub owners (organizations or users) whose repositories"
+                " may be provisioned from this template, with the numeric"
+                " ID of each pinned alongside its name"
+            ),
+            examples=[[{"name": "lsst-sqre", "id": 654321}]],
+        ),
+    ]
+
+    repository_pattern: Annotated[str | None, _REPOSITORY_PATTERN] = None
+
+    workflow: Annotated[str | None, _TEMPLATE_WORKFLOW] = None
+
+    environment: Annotated[str | None, _TEMPLATE_ENVIRONMENT] = None
+
+    ref: Annotated[str | None, _TEMPLATE_REF] = None
+
+    scopes: Annotated[Scopes, _TEMPLATE_SCOPES]
+
+    max_lifetime: Annotated[timedelta, _TEMPLATE_MAX_LIFETIME]
+
+    uid: Annotated[int | None, _UID] = None
+
+    gid: Annotated[int | None, _GID] = None
+
+    groups: Annotated[list[Group] | None, _GROUPS] = None
+
+    enabled: Annotated[bool, _TEMPLATE_ENABLED]
+
+    created: UtcDatetime = Field(
+        ...,
+        title="Created",
+        description="When the template was created",
+    )
+
+    created_by: str = Field(
+        ...,
+        title="Created by",
+        description="Username of the person who created the template",
+        examples=["someadmin"],
+    )
+
+    modified: UtcDatetime = Field(
+        ...,
+        title="Modified",
+        description="When the template was last modified",
+    )
+
+    modified_by: str = Field(
+        ...,
+        title="Modified by",
+        description="Username of the person who last modified the template",
+        examples=["someadmin"],
+    )
+
+    _validate_repository_pattern = field_validator("repository_pattern")(
+        _validate_repository_pattern
+    )
+    _validate_workflow = field_validator("workflow")(_validate_workflow)
+
+    def allows_owner(self, repository: GitHubRepository) -> bool:
+        """Whether a repository belongs to one of the allowed owners.
+
+        The owner part of the repository name must equal the name of an
+        allowed owner case-insensitively, and the numeric ID of the
+        repository owner must equal the ID pinned for that owner, so that
+        an owner name re-registered after deletion is not trusted.
+
+        Parameters
+        ----------
+        repository
+            Repository metadata from GitHub.
+
+        Returns
+        -------
+        bool
+            `True` if the repository may be provisioned from this template
+            as far as its owner is concerned.
+        """
+        owner_name, _, _ = repository.full_name.partition("/")
+        return any(
+            o.name.lower() == owner_name.lower()
+            and o.id == repository.owner_id
+            for o in self.owners
+        )
+
+    def matches_name(self, repository: GitHubRepository) -> bool:
+        """Whether a repository name satisfies the repository pattern.
+
+        The name of the repository, without its owner, must match the
+        whole pattern, compared case-insensitively since GitHub repository
+        names are case-insensitive. Any name matches if the template has
+        no pattern.
+
+        Parameters
+        ----------
+        repository
+            Repository metadata from GitHub.
+
+        Returns
+        -------
+        bool
+            `True` if the repository name is allowed by this template.
+        """
+        if self.repository_pattern is None:
+            return True
+        _, _, name = repository.full_name.partition("/")
+        return bool(
+            re.fullmatch(self.repository_pattern, name, flags=re.IGNORECASE)
+        )
+
+    def to_project_create(
+        self, provision: GitHubProjectProvision
+    ) -> GitHubProjectCreate:
+        """Build the request to create a project from this template.
+
+        The constraints and token policy come from the template and the
+        repository, description, and requester from the provisioning
+        request. The username is left unset so that it is derived from the
+        repository, and the project is enabled.
+
+        Parameters
+        ----------
+        provision
+            Provisioning request.
+
+        Returns
+        -------
+        GitHubProjectCreate
+            Equivalent request to the project creation API.
+        """
+        return GitHubProjectCreate(
+            description=provision.description,
+            requested_by=provision.requested_by,
+            repository=provision.repository,
+            workflow=self.workflow,
+            environment=self.environment,
+            ref=self.ref,
+            scopes=self.scopes,
+            max_lifetime=self.max_lifetime,
+            uid=self.uid,
+            gid=self.gid,
+            groups=self.groups,
+            enabled=True,
+        )
 
 
 class GitHubProjectHistoryEntry(BaseModel):

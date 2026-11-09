@@ -11,11 +11,16 @@ from ..constants import (
     GITHUB_BOT_USERNAME_PREFIX,
     GITHUB_BOT_USERNAME_REGEX,
     GITHUB_PROJECT_DEFAULT_LIFETIME,
+    GITHUB_PROVISION_SCOPE,
     MINIMUM_LIFETIME,
 )
 from ..exceptions import (
+    DuplicateGitHubProjectTemplateError,
     DuplicateGitHubUsernameError,
     GitHubProjectOverlapError,
+    GitHubProjectTemplateDisabledError,
+    GitHubProjectTemplateInUseError,
+    GitHubRepositoryNotAllowedError,
     InvalidGitHubUsernameError,
     InvalidMaxLifetimeError,
     InvalidScopesError,
@@ -23,10 +28,16 @@ from ..exceptions import (
     PermissionDeniedError,
 )
 from ..models.enums import GitHubProjectChange
+from ..models.github import GitHubRepository
 from ..models.github_project import (
+    GitHubOwner,
     GitHubProject,
     GitHubProjectCreate,
     GitHubProjectHistoryEntry,
+    GitHubProjectProvision,
+    GitHubProjectTemplate,
+    GitHubProjectTemplateCreate,
+    GitHubProjectTemplateUpdate,
     GitHubProjectUpdate,
 )
 from ..models.token import TokenData
@@ -34,6 +45,7 @@ from ..storage.github import GitHubStorage
 from ..storage.github_project import (
     GitHubProjectHistoryStore,
     GitHubProjectStore,
+    GitHubProjectTemplateStore,
 )
 from .token import TokenService
 
@@ -48,7 +60,10 @@ class GitHubProjectService:
     whom, with which scopes, and for how long. This service enforces the
     rules of the registry, such as deriving bot usernames, pinning the
     GitHub IDs of repositories, and refusing projects whose constraints
-    overlap, and records every change in the project history.
+    overlap, and records every change in the project history. It also
+    manages project templates, from which a provisioner holding a narrower
+    scope than a token administrator may create projects of a shape an
+    administrator defined.
 
     Parameters
     ----------
@@ -58,10 +73,13 @@ class GitHubProjectService:
         Scopes known to this Gafaelfawr instance.
     project_store
         Backing store for GitHub projects.
+    template_store
+        Backing store for GitHub project templates.
     history_store
-        Backing store for the history of changes to GitHub projects.
+        Backing store for the history of changes to GitHub projects and
+        project templates.
     github_storage
-        Client for looking up repository metadata from GitHub.
+        Client for looking up repository and owner metadata from GitHub.
     token_service
         Token manipulation service, used to revoke the tokens of a project.
     session
@@ -76,6 +94,7 @@ class GitHubProjectService:
         config: GitHubTokenExchangeConfig,
         known_scopes: set[str],
         project_store: GitHubProjectStore,
+        template_store: GitHubProjectTemplateStore,
         history_store: GitHubProjectHistoryStore,
         github_storage: GitHubStorage,
         token_service: TokenService,
@@ -85,6 +104,7 @@ class GitHubProjectService:
         self._config = config
         self._known_scopes = known_scopes
         self._project_store = project_store
+        self._template_store = template_store
         self._history_store = history_store
         self._github = github_storage
         self._token_service = token_service
@@ -145,43 +165,19 @@ class GitHubProjectService:
         """
         self._check_authorization(auth_data)
         self._validate_scopes(create.scopes)
-        max_lifetime = create.max_lifetime
-        if max_lifetime is None:
-            max_lifetime = min(
-                GITHUB_PROJECT_DEFAULT_LIFETIME, self._config.max_lifetime
-            )
+        max_lifetime = self._default_max_lifetime(create.max_lifetime)
         self._validate_max_lifetime(max_lifetime)
         repository = await self._github.get_repository(create.repository)
-        actor = auth_data.username
 
         async with self._session.begin():
             await self._project_store.lock()
-            username = await self._resolve_username(
-                create.username, repository.full_name
-            )
-            candidate = create.model_copy(
-                update={
-                    "username": username,
-                    "repository": repository.full_name,
-                    "max_lifetime": max_lifetime,
-                }
-            )
-            await self._check_overlap(candidate)
-            project = await self._project_store.add(
+            project = await self._add_project(
                 create,
-                username=username,
                 repository=repository,
                 max_lifetime=max_lifetime,
-                created_by=actor,
-            )
-            entry = GitHubProjectHistoryEntry(
-                project_id=project.id,
-                action=GitHubProjectChange.create,
-                actor=actor,
+                auth_data=auth_data,
                 ip_address=ip_address,
-                new_values=project.model_dump(mode="json"),
             )
-            await self._history_store.add(entry)
 
         self._logger.info(
             "Created GitHub project",
@@ -499,6 +495,515 @@ class GitHubProjectService:
         )
         return new
 
+    async def create_template(
+        self,
+        create: GitHubProjectTemplateCreate,
+        auth_data: TokenData,
+        *,
+        ip_address: str | None,
+    ) -> GitHubProjectTemplate:
+        """Create a new GitHub project template.
+
+        Each owner is looked up on GitHub to pin its numeric ID. If no
+        maximum lifetime was given, the default lifetime is used, capped by
+        the configured maximum lifetime of the token exchange.
+
+        Parameters
+        ----------
+        create
+            Fields of the new template.
+        auth_data
+            The data for the authenticated user making the request.
+        ip_address
+            The IP address from which the request came, or `None` for
+            internal requests by Gafaelfawr.
+
+        Returns
+        -------
+        GitHubProjectTemplate
+            The newly-created template.
+
+        Raises
+        ------
+        DuplicateGitHubProjectTemplateError
+            Raised if a template with the same name already exists.
+        GitHubError
+            Raised if GitHub returned invalid owner data.
+        GitHubWebError
+            Raised if an HTTP error occurred talking to GitHub.
+        InvalidMaxLifetimeError
+            Raised if the maximum lifetime is out of range.
+        InvalidScopesError
+            Raised if the scopes are unknown or not permitted.
+        PermissionDeniedError
+            Raised if the authenticated user is not a token administrator.
+        UnknownGitHubOwnerError
+            Raised if an owner does not exist on GitHub.
+        """
+        self._check_authorization(auth_data)
+        self._validate_scopes(create.scopes)
+        max_lifetime = self._default_max_lifetime(create.max_lifetime)
+        self._validate_max_lifetime(max_lifetime)
+        owners = await self._resolve_owners(create.owners, [])
+        actor = auth_data.username
+
+        async with self._session.begin():
+            await self._project_store.lock()
+            if await self._template_store.get(create.name):
+                msg = f"GitHub project template {create.name} already exists"
+                raise DuplicateGitHubProjectTemplateError(msg)
+            template = await self._template_store.add(
+                create,
+                owners=owners,
+                max_lifetime=max_lifetime,
+                created_by=actor,
+            )
+            entry = GitHubProjectHistoryEntry(
+                template=template.name,
+                action=GitHubProjectChange.create,
+                actor=actor,
+                ip_address=ip_address,
+                new_values=template.model_dump(mode="json"),
+            )
+            await self._history_store.add(entry)
+
+        self._logger.info(
+            "Created GitHub project template",
+            github_project_template=template.name,
+            owners=[o.name for o in template.owners],
+        )
+        return template
+
+    async def delete_template(
+        self, name: str, auth_data: TokenData, *, ip_address: str | None
+    ) -> None:
+        """Delete a GitHub project template.
+
+        A template that any project records as its template cannot be
+        deleted, so that the template a project names always exists. Such
+        a template is retired by disabling it instead.
+
+        Parameters
+        ----------
+        name
+            Name of the template.
+        auth_data
+            The data for the authenticated user making the request.
+        ip_address
+            The IP address from which the request came, or `None` for
+            internal requests by Gafaelfawr.
+
+        Raises
+        ------
+        GitHubProjectTemplateInUseError
+            Raised if any project was provisioned from the template.
+        NotFoundError
+            Raised if no template has that name.
+        PermissionDeniedError
+            Raised if the authenticated user is not a token administrator.
+        """
+        self._check_authorization(auth_data)
+        actor = auth_data.username
+        async with self._session.begin():
+            # The lock keeps a concurrent provisioner from adding a project
+            # for this template between the check and the delete.
+            await self._project_store.lock()
+            template = await self._template_store.get(name)
+            if not template:
+                msg = f"GitHub project template {name} not found"
+                raise NotFoundError(msg)
+            projects = await self._project_store.list(template=name)
+            if projects:
+                count = len(projects)
+                noun = "project" if count == 1 else "projects"
+                msg = (
+                    f"GitHub project template {name} is used by {count}"
+                    f" {noun} and cannot be deleted, disable it instead"
+                )
+                raise GitHubProjectTemplateInUseError(msg, count)
+            await self._template_store.delete(name)
+            entry = GitHubProjectHistoryEntry(
+                template=name,
+                action=GitHubProjectChange.delete,
+                actor=actor,
+                ip_address=ip_address,
+                old_values=template.model_dump(mode="json"),
+            )
+            await self._history_store.add(entry)
+        self._logger.info(
+            "Deleted GitHub project template", github_project_template=name
+        )
+
+    async def get_template(
+        self, name: str, auth_data: TokenData
+    ) -> GitHubProjectTemplate:
+        """Retrieve a GitHub project template.
+
+        Parameters
+        ----------
+        name
+            Name of the template.
+        auth_data
+            The data for the authenticated user making the request.
+
+        Returns
+        -------
+        GitHubProjectTemplate
+            The template.
+
+        Raises
+        ------
+        NotFoundError
+            Raised if no template has that name.
+        PermissionDeniedError
+            Raised if the authenticated user is not a token administrator.
+        """
+        self._check_authorization(auth_data)
+        async with self._session.begin():
+            template = await self._template_store.get(name)
+        if not template:
+            raise NotFoundError(f"GitHub project template {name} not found")
+        return template
+
+    async def list_templates(
+        self, auth_data: TokenData
+    ) -> list[GitHubProjectTemplate]:
+        """List GitHub project templates.
+
+        Parameters
+        ----------
+        auth_data
+            The data for the authenticated user making the request.
+
+        Returns
+        -------
+        list of GitHubProjectTemplate
+            All templates, ordered by name.
+
+        Raises
+        ------
+        PermissionDeniedError
+            Raised if the authenticated user is not a token administrator.
+        """
+        self._check_authorization(auth_data)
+        async with self._session.begin():
+            return await self._template_store.list()
+
+    async def provision_project(
+        self,
+        name: str,
+        provision: GitHubProjectProvision,
+        auth_data: TokenData,
+        *,
+        ip_address: str | None,
+    ) -> tuple[GitHubProject, bool]:
+        """Create a GitHub project from a template.
+
+        The repository is looked up on GitHub and must belong to one of the
+        owners allowed by the template, by name and by pinned ID, and its
+        name must match the template's repository pattern if it has one.
+        The project is then created as `create_project` would create it
+        from a request carrying the template's fields and the given
+        repository, except that the username is always derived from the
+        repository and the project records the template.
+
+        Provisioning is idempotent: if a project for the same repository
+        that records the same template already exists, it is returned
+        instead of creating another, since provisioners may retry after a
+        failure. A project for the same repository created directly or from
+        another template conflicts as usual.
+
+        Parameters
+        ----------
+        name
+            Name of the template.
+        provision
+            Repository and descriptive fields of the new project.
+        auth_data
+            The data for the authenticated user making the request. Either
+            ``admin:token`` or the provisioning scope is required.
+        ip_address
+            The IP address from which the request came, or `None` for
+            internal requests by Gafaelfawr.
+
+        Returns
+        -------
+        tuple
+            The project and `True` if it was created by this call, or the
+            existing project and `False` if it already existed.
+
+        Raises
+        ------
+        DuplicateGitHubUsernameError
+            Raised if the derived username is already used by a project for
+            a different repository.
+        GitHubError
+            Raised if GitHub returned invalid repository data.
+        GitHubProjectOverlapError
+            Raised if the constraints of the new project overlap those of
+            an existing enabled project for the same repository.
+        GitHubProjectTemplateDisabledError
+            Raised if the template is disabled.
+        GitHubRepositoryNotAllowedError
+            Raised if the repository owner is not allowed by the template or
+            the repository name does not match its pattern.
+        GitHubWebError
+            Raised if an HTTP error occurred talking to GitHub.
+        InvalidGitHubUsernameError
+            Raised if the derived username is not a valid username.
+        NotFoundError
+            Raised if no template has that name.
+        PermissionDeniedError
+            Raised if the authenticated user has neither ``admin:token`` nor
+            the provisioning scope.
+        UnknownGitHubRepositoryError
+            Raised if the repository does not exist or is not public.
+        """
+        self._check_provisioning_authorization(auth_data)
+
+        # Read the template before the network call so that a request for a
+        # missing or disabled template fails without talking to GitHub. The
+        # template is read again under the lock, since it may change while
+        # the repository is being looked up.
+        template = await self._read_enabled_template(name)
+        repository = await self._github.get_repository(provision.repository)
+        self._check_repository_allowed(template, repository)
+
+        async with self._session.begin():
+            await self._project_store.lock()
+            template = await self._read_enabled_template(name, locked=True)
+            self._check_repository_allowed(template, repository)
+            existing = await self._project_store.list(
+                repository=repository.full_name
+            )
+            for project in existing:
+                if project.template == name:
+                    self._logger.info(
+                        "GitHub project already provisioned",
+                        github_project_id=project.id,
+                        github_project_template=name,
+                        repository=project.repository,
+                        username=project.username,
+                    )
+                    return project, False
+            project = await self._add_project(
+                template.to_project_create(provision),
+                repository=repository,
+                max_lifetime=template.max_lifetime,
+                auth_data=auth_data,
+                ip_address=ip_address,
+                template=name,
+            )
+
+        self._logger.info(
+            "Provisioned GitHub project",
+            github_project_id=project.id,
+            github_project_template=name,
+            repository=project.repository,
+            username=project.username,
+        )
+        return project, True
+
+    async def update_template(
+        self,
+        name: str,
+        update: GitHubProjectTemplateUpdate,
+        auth_data: TokenData,
+        *,
+        ip_address: str | None,
+    ) -> GitHubProjectTemplate:
+        """Modify a GitHub project template.
+
+        Only the fields set in the update are changed. Changing the owners
+        looks up the IDs of owners not already in the list and keeps the
+        pinned IDs of those that remain. Changes affect only projects
+        provisioned afterwards; projects already provisioned from the
+        template are not touched. An update that changes nothing is not
+        recorded in the project history and leaves the modification time
+        and actor alone.
+
+        Parameters
+        ----------
+        name
+            Name of the template.
+        update
+            Changes to apply.
+        auth_data
+            The data for the authenticated user making the request.
+        ip_address
+            The IP address from which the request came, or `None` for
+            internal requests by Gafaelfawr.
+
+        Returns
+        -------
+        GitHubProjectTemplate
+            The modified template.
+
+        Raises
+        ------
+        GitHubError
+            Raised if GitHub returned invalid owner data.
+        GitHubWebError
+            Raised if an HTTP error occurred talking to GitHub.
+        InvalidMaxLifetimeError
+            Raised if the maximum lifetime is out of range.
+        InvalidScopesError
+            Raised if the scopes are unknown or not permitted.
+        NotFoundError
+            Raised if no template has that name.
+        PermissionDeniedError
+            Raised if the authenticated user is not a token administrator.
+        UnknownGitHubOwnerError
+            Raised if a new owner does not exist on GitHub.
+        """
+        self._check_authorization(auth_data)
+        changes = {f: getattr(update, f) for f in update.model_fields_set}
+        if update.scopes is not None:
+            self._validate_scopes(update.scopes)
+        if update.max_lifetime is not None:
+            self._validate_max_lifetime(update.max_lifetime)
+        actor = auth_data.username
+
+        # Changing the owners may mean looking new ones up on GitHub, which
+        # is a network call and therefore must not happen inside a
+        # transaction. Owners already in the stored list keep their pinned
+        # IDs, so that an owner deleted and re-registered under the same
+        # name is not silently trusted again by an unrelated edit.
+        stored = None
+        if update.owners is not None:
+            stored = await self._read_template(name)
+            changes["owners"] = await self._resolve_owners(
+                update.owners, stored.owners
+            )
+
+        if not changes:
+            stored = stored or await self._read_template(name)
+            self._logger.info(
+                "GitHub project template unchanged",
+                github_project_template=name,
+            )
+            return stored
+
+        now = datetime.now(tz=UTC).replace(microsecond=0)
+        async with self._session.begin():
+            await self._project_store.lock()
+            old = await self._template_store.get(name)
+            if not old:
+                msg = f"GitHub project template {name} not found"
+                raise NotFoundError(msg)
+            new = old.model_copy(
+                update={**changes, "modified": now, "modified_by": actor}
+            )
+            audit = {"modified", "modified_by"}
+            if new.model_dump(exclude=audit) == old.model_dump(exclude=audit):
+                self._logger.info(
+                    "GitHub project template unchanged",
+                    github_project_template=name,
+                    changes=sorted(changes.keys()),
+                )
+                return old
+            await self._template_store.update(new)
+            entry = GitHubProjectHistoryEntry(
+                template=name,
+                action=GitHubProjectChange.modify,
+                actor=actor,
+                ip_address=ip_address,
+                old_values=old.model_dump(mode="json"),
+                new_values=new.model_dump(mode="json"),
+            )
+            await self._history_store.add(entry)
+
+        self._logger.info(
+            "Modified GitHub project template",
+            github_project_template=name,
+            changes=sorted(changes.keys()),
+        )
+        return new
+
+    async def _add_project(
+        self,
+        create: GitHubProjectCreate,
+        *,
+        repository: GitHubRepository,
+        max_lifetime: timedelta,
+        auth_data: TokenData,
+        ip_address: str | None,
+        template: str | None = None,
+    ) -> GitHubProject:
+        """Store a new project and record its creation.
+
+        This is the part of creating a project that happens inside the
+        registry transaction, shared between direct creation and
+        provisioning from a template. The caller is responsible for
+        validating the scopes and lifetime and for looking up the
+        repository, which must not happen under the lock.
+
+        Must be called from inside a transaction that holds the registry
+        lock (see `GitHubProjectStore.lock`).
+
+        Parameters
+        ----------
+        create
+            Fields of the new project.
+        repository
+            Repository metadata from GitHub.
+        max_lifetime
+            Maximum lifetime of tokens minted for the project, already
+            defaulted and validated.
+        auth_data
+            The data for the authenticated user making the request.
+        ip_address
+            The IP address from which the request came, or `None` for
+            internal requests by Gafaelfawr.
+        template
+            Name of the template the project is provisioned from, if any.
+
+        Returns
+        -------
+        GitHubProject
+            The newly-created project.
+
+        Raises
+        ------
+        DuplicateGitHubUsernameError
+            Raised if the derived username is already used by a project for
+            a different repository.
+        GitHubProjectOverlapError
+            Raised if the project is enabled and its constraints overlap
+            those of an existing enabled project for the same repository.
+        InvalidGitHubUsernameError
+            Raised if the derived username is not a valid username.
+        """
+        username = await self._resolve_username(
+            create.username, repository.full_name
+        )
+        candidate = create.model_copy(
+            update={
+                "username": username,
+                "repository": repository.full_name,
+                "max_lifetime": max_lifetime,
+            }
+        )
+        await self._check_overlap(candidate)
+        project = await self._project_store.add(
+            create,
+            username=username,
+            repository=repository,
+            max_lifetime=max_lifetime,
+            created_by=auth_data.username,
+            template=template,
+        )
+        entry = GitHubProjectHistoryEntry(
+            project_id=project.id,
+            template=template,
+            action=GitHubProjectChange.create,
+            actor=auth_data.username,
+            ip_address=ip_address,
+            new_values=project.model_dump(mode="json"),
+        )
+        await self._history_store.add(entry)
+        return project
+
     def _check_authorization(self, auth_data: TokenData) -> None:
         """Check authorization for manipulating GitHub projects.
 
@@ -517,6 +1022,74 @@ class GitHubProjectService:
             msg = "Missing required admin:token scope"
             self._logger.warning("Permission denied", error=msg)
             raise PermissionDeniedError(msg)
+
+    def _check_provisioning_authorization(self, auth_data: TokenData) -> None:
+        """Check authorization for provisioning a project from a template.
+
+        Token administrators can do everything a provisioner can, so either
+        ``admin:token`` or the provisioning scope satisfies this check.
+
+        Parameters
+        ----------
+        auth_data
+            Authenticated user performing the action.
+
+        Raises
+        ------
+        PermissionDeniedError
+            Raised if the authenticated user has neither scope.
+        """
+        allowed = {"admin:token", GITHUB_PROVISION_SCOPE}
+        if not (auth_data.scopes & allowed):
+            msg = (
+                f"Missing required admin:token or {GITHUB_PROVISION_SCOPE}"
+                " scope"
+            )
+            self._logger.warning("Permission denied", error=msg)
+            raise PermissionDeniedError(msg)
+
+    def _check_repository_allowed(
+        self, template: GitHubProjectTemplate, repository: GitHubRepository
+    ) -> None:
+        """Check that a template allows provisioning a repository.
+
+        The error messages tell the provisioner which check failed but do
+        not disclose the owners or pattern of the template, which a
+        provisioner is not entitled to read.
+
+        Parameters
+        ----------
+        template
+            Template to provision from.
+        repository
+            Repository metadata from GitHub.
+
+        Raises
+        ------
+        GitHubRepositoryNotAllowedError
+            Raised if the repository owner is not allowed by the template or
+            the repository name does not match its pattern.
+        """
+        owner, _, name = repository.full_name.partition("/")
+        if not template.allows_owner(repository):
+            self._logger.warning(
+                "Repository owner not allowed by template",
+                github_project_template=template.name,
+                repository=repository.full_name,
+                repository_owner_id=repository.owner_id,
+            )
+            msg = (
+                f"Owner {owner} of repository {repository.full_name} is not"
+                f" allowed by GitHub project template {template.name}"
+            )
+            raise GitHubRepositoryNotAllowedError(msg)
+        if not template.matches_name(repository):
+            msg = (
+                f"Name {name} of repository {repository.full_name} does not"
+                " match the repository pattern of GitHub project template"
+                f" {template.name}"
+            )
+            raise GitHubRepositoryNotAllowedError(msg)
 
     async def _check_overlap(
         self,
@@ -570,6 +1143,26 @@ class GitHubProjectService:
                 )
                 raise GitHubProjectOverlapError(msg, other.id)
 
+    def _default_max_lifetime(
+        self, max_lifetime: timedelta | None
+    ) -> timedelta:
+        """Default the maximum lifetime of a project or template.
+
+        Parameters
+        ----------
+        max_lifetime
+            Maximum lifetime from the request, if any.
+
+        Returns
+        -------
+        datetime.timedelta
+            The given lifetime, or the default lifetime capped by the
+            configured maximum if none was given.
+        """
+        if max_lifetime is not None:
+            return max_lifetime
+        return min(GITHUB_PROJECT_DEFAULT_LIFETIME, self._config.max_lifetime)
+
     async def _read_project(self, project_id: int) -> GitHubProject:
         """Read a project in a transaction of its own.
 
@@ -598,6 +1191,114 @@ class GitHubProjectService:
         if not project:
             raise NotFoundError(f"GitHub project {project_id} not found")
         return project
+
+    async def _read_enabled_template(
+        self, name: str, *, locked: bool = False
+    ) -> GitHubProjectTemplate:
+        """Read a template that must exist and be enabled.
+
+        Parameters
+        ----------
+        name
+            Name of the template.
+        locked
+            Whether the caller is already inside a transaction holding the
+            registry lock. Otherwise, the template is read in a transaction
+            of its own.
+
+        Returns
+        -------
+        GitHubProjectTemplate
+            The stored template.
+
+        Raises
+        ------
+        GitHubProjectTemplateDisabledError
+            Raised if the template is disabled.
+        NotFoundError
+            Raised if no template has that name.
+        """
+        if locked:
+            template = await self._template_store.get(name)
+        else:
+            async with self._session.begin():
+                template = await self._template_store.get(name)
+        if not template:
+            raise NotFoundError(f"GitHub project template {name} not found")
+        if not template.enabled:
+            msg = f"GitHub project template {name} is disabled"
+            raise GitHubProjectTemplateDisabledError(msg)
+        return template
+
+    async def _read_template(self, name: str) -> GitHubProjectTemplate:
+        """Read a template in a transaction of its own.
+
+        This is for reads outside of the transaction that writes to the
+        registry, such as before a network call. The template may change
+        between this read and that transaction, which must therefore read
+        it again under the registry lock.
+
+        Parameters
+        ----------
+        name
+            Name of the template.
+
+        Returns
+        -------
+        GitHubProjectTemplate
+            The stored template.
+
+        Raises
+        ------
+        NotFoundError
+            Raised if no template has that name.
+        """
+        async with self._session.begin():
+            template = await self._template_store.get(name)
+        if not template:
+            raise NotFoundError(f"GitHub project template {name} not found")
+        return template
+
+    async def _resolve_owners(
+        self, names: list[str], existing: list[GitHubOwner]
+    ) -> list[GitHubOwner]:
+        """Pin the GitHub IDs of the owners of a template.
+
+        Owners already pinned keep their stored name and ID, so that an
+        owner name deleted and re-registered on GitHub is not re-pinned to
+        the new owner by an edit that happens to re-send it. Every other
+        owner is looked up on GitHub, which is a network call and must not
+        happen inside a transaction.
+
+        Parameters
+        ----------
+        names
+            Owner logins from the request, in the order given.
+        existing
+            Owners already pinned on the template, if any.
+
+        Returns
+        -------
+        list of GitHubOwner
+            Owners with their pinned IDs, in the order of ``names``.
+
+        Raises
+        ------
+        GitHubError
+            Raised if GitHub returned invalid owner data.
+        GitHubWebError
+            Raised if an HTTP error occurred talking to GitHub.
+        UnknownGitHubOwnerError
+            Raised if an owner does not exist on GitHub.
+        """
+        pinned = {o.name.lower(): o for o in existing}
+        owners = []
+        for name in names:
+            owner = pinned.get(name.lower())
+            if not owner:
+                owner = await self._github.get_owner(name)
+            owners.append(owner)
+        return owners
 
     async def _resolve_username(
         self,

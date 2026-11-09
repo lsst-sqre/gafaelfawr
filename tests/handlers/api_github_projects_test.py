@@ -550,7 +550,7 @@ async def test_github_failure(
     expected_error = {
         "detail": [
             {
-                "msg": "GitHub repository lookup failed, retry later",
+                "msg": "GitHub lookup failed, retry later",
                 "type": "github_unavailable",
             }
         ]
