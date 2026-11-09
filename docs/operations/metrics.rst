@@ -29,9 +29,11 @@ auth_user
 
 github_token_exchange
     A GitHub Actions workflow exchanged a GitHub ID token for a Gafaelfawr token (see :doc:`/user-guide/github-actions`).
-    The bot username is present as the ``username`` tag and the ID of the matching GitHub project as the ``github_project_id`` tag.
-    The key of the minted token is present as the ``token`` field.
-    The ``repository``, ``job_workflow_ref``, ``ref``, ``environment``, ``event_name``, ``actor``, ``run_id``, ``run_attempt``, and ``jti`` claims of the ID token are present as fields of the same names, so that the token can be traced to the workflow run that obtained it.
+    The bot username is present as the ``username`` tag.
+    The ID of the matching GitHub project is present as the ``github_project_id`` field (an integer).
+    The key of the minted token is present as the ``token`` tag.
+    The ``repository``, ``job_workflow_ref``, ``ref``, ``environment``, ``event_name``, ``actor``, ``run_id``, ``run_attempt``, and ``jti`` claims of the ID token are present as tags of the same names, so that the token can be traced to the workflow run that obtained it.
+    The ``environment``, ``event_name``, ``actor``, ``run_id``, and ``run_attempt`` tags are only present if the ID token has that claim.
 
 login_attempt
     Gafaelfawr sent a user to the identity provider to authenticate, not including duplicate redirects when the user already has an authentication in progress.
