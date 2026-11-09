@@ -1868,19 +1868,21 @@ async def test_create_github_token(factory: Factory) -> None:
         modified=now,
         modified_by="some-admin",
     )
-    expires = now + timedelta(minutes=15)
-    token = await token_service.create_github_token(
+    token, expires = await token_service.create_github_token(
         project,
         scopes={"read:all"},
-        expires=expires,
+        lifetime=timedelta(minutes=15),
         ip_address="192.0.2.1",
     )
 
     # The token carries the project's identity and the requested scopes
-    # rather than the project's full scope list.
+    # rather than the project's full scope list. The expiration is
+    # calculated from the recorded creation time, so the stored lifetime is
+    # exactly the requested lifetime.
     data = await token_service.get_data(token)
     assert data
     assert_is_now(data.created)
+    assert expires == data.created + timedelta(minutes=15)
     assert data == TokenData(
         token=token,
         username="bot-gh-lsst-sqre-ook",

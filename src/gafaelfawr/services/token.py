@@ -247,9 +247,9 @@ class TokenService:
         project: GitHubProject,
         *,
         scopes: set[str],
-        expires: datetime,
+        lifetime: timedelta,
         ip_address: str,
-    ) -> Token:
+    ) -> tuple[Token, datetime]:
         """Add a new token for a GitHub Actions workflow.
 
         This is the only way a token of type ``github`` is created. It is
@@ -257,7 +257,7 @@ class TokenService:
         GitHub Actions ID token and matched it to an enabled GitHub project,
         so there is no authenticating user to check: the ID token is the
         credential and the project registry is the policy. The scopes and
-        expiration were determined by the exchange from that policy, so they
+        lifetime were determined by the exchange from that policy, so they
         are not validated again here.
 
         Parameters
@@ -269,16 +269,19 @@ class TokenService:
             is disabled or deleted.
         scopes
             Scopes of the new token.
-        expires
-            Expiration of the new token.
+        lifetime
+            Lifetime of the new token. The expiration is calculated from the
+            creation time recorded for the token, so that the stored
+            lifetime is exactly this.
         ip_address
             The IP address from which the request came, which is that of
             the GitHub Actions runner.
 
         Returns
         -------
-        Token
-            A new token of type ``github``.
+        tuple
+            The new token of type ``github`` and its expiration, so that the
+            caller can report the remaining lifetime without recomputing it.
 
         Raises
         ------
@@ -288,6 +291,7 @@ class TokenService:
         """
         token = Token()
         created = datetime.now(tz=UTC).replace(microsecond=0)
+        expires = created + lifetime
         data = TokenData(
             token=token,
             username=project.username,
@@ -338,7 +342,7 @@ class TokenService:
             token_scopes=sorted(data.scopes),
             token_userinfo=data.to_userinfo_dict(),
         )
-        return token
+        return token, expires
 
     async def create_oidc_token(
         self, auth_data: TokenData, *, ip_address: str
