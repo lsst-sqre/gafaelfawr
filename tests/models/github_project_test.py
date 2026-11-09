@@ -243,6 +243,20 @@ def test_matches() -> None:
             )
         )
     )
+    assert reusable.matches(
+        make_claims(
+            job_workflow_ref=(
+                "LSST-SQRE/Shared/.github/workflows/docs.yaml@refs/heads/main"
+            )
+        )
+    )
+    assert not reusable.matches(
+        make_claims(
+            job_workflow_ref=(
+                "lsst-sqre/shared/.github/workflows/Docs.yaml@refs/heads/main"
+            )
+        )
+    )
 
     # Environments must match exactly and must be present if constrained.
     production = make_project(environment="production")
