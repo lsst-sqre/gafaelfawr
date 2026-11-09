@@ -126,8 +126,9 @@ async def post_github_token(
             description=(
                 "Space-separated scopes for the minted token, which must be"
                 " a subset of the scopes of the matching GitHub project. If"
-                " omitted or empty, the token receives every scope of the"
-                " project."
+                " omitted, the token receives every scope of the project. An"
+                " empty value is treated as omitted, but a value containing"
+                " only whitespace is rejected."
             ),
             examples=["write:docverse", "exec:linkcheck write:docverse"],
         ),
