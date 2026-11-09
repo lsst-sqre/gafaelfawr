@@ -31,6 +31,7 @@ from ..exceptions import (
     PermissionDeniedError,
 )
 from ..models.enums import TokenChange, TokenType
+from ..models.github_project import GitHubProject
 from ..models.history import (
     TokenChangeHistoryCursor,
     TokenChangeHistoryEntry,
@@ -240,6 +241,108 @@ class TokenService:
         )
 
         return token
+
+    async def create_github_token(
+        self,
+        project: GitHubProject,
+        *,
+        scopes: set[str],
+        lifetime: timedelta,
+        ip_address: str,
+    ) -> tuple[Token, datetime]:
+        """Add a new token for a GitHub Actions workflow.
+
+        This is the only way a token of type ``github`` is created. It is
+        called by the GitHub Actions token exchange after it has verified a
+        GitHub Actions ID token and matched it to an enabled GitHub project,
+        so there is no authenticating user to check: the ID token is the
+        credential and the project registry is the policy. The scopes and
+        lifetime were determined by the exchange from that policy, so they
+        are not validated again here.
+
+        Parameters
+        ----------
+        project
+            The GitHub project that authorized the token. The token is
+            issued to its bot username with its identity attributes, and
+            records its ID so that the token can be revoked if the project
+            is disabled or deleted.
+        scopes
+            Scopes of the new token.
+        lifetime
+            Lifetime of the new token. The expiration is calculated from the
+            creation time recorded for the token, so that the stored
+            lifetime is exactly this.
+        ip_address
+            The IP address from which the request came, which is that of
+            the GitHub Actions runner.
+
+        Returns
+        -------
+        tuple
+            The new token of type ``github`` and its expiration, so that the
+            caller can report the remaining lifetime without recomputing it.
+
+        Raises
+        ------
+        InvalidTokenError
+            Raised if the token could not be stored, probably due to a
+            desynchronization between Redis and the SQL database.
+        """
+        token = Token()
+        created = datetime.now(tz=UTC).replace(microsecond=0)
+        expires = created + lifetime
+        data = TokenData(
+            token=token,
+            username=project.username,
+            token_type=TokenType.github,
+            scopes=scopes,
+            created=created,
+            expires=expires,
+            uid=project.uid,
+            gid=project.gid,
+            groups=project.groups,
+        )
+        history_entry = TokenChangeHistoryEntry(
+            token=token.key,
+            username=data.username,
+            token_type=TokenType.github,
+            scopes=data.scopes,
+            expires=data.expires,
+            actor=data.username,
+            action=TokenChange.create,
+            ip_address=ip_address,
+            event_time=data.created,
+            github_project_id=project.id,
+        )
+
+        # Store the new token in Redis and the database.
+        await self._token_redis_store.store_data(data)
+        try:
+            async with self._session.begin():
+                await self._token_db_store.add(
+                    data, github_project_id=project.id
+                )
+                await self._token_change_store.add(history_entry)
+        except IntegrityError as e:
+            msg = "Integrity error creating GitHub token"
+            self._logger.exception(msg, error=str(e))
+            await self._token_redis_store.delete(data.token.key)
+            raise InvalidTokenError(msg) from e
+        except Exception:
+            await self._token_redis_store.delete(data.token.key)
+            raise
+
+        # Log the token creation and return it.
+        self._logger.info(
+            "Created new GitHub token",
+            github_project_id=project.id,
+            token_key=token.key,
+            token_expires=format_datetime_for_logging(expires),
+            token_scopes=sorted(data.scopes),
+            token_userinfo=data.to_userinfo_dict(),
+        )
+        return token, expires
 
     async def create_oidc_token(
         self, auth_data: TokenData, *, ip_address: str

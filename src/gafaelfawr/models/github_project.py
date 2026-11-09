@@ -21,6 +21,7 @@ from safir.pydantic import UtcDatetime
 from ..constants import GITHUB_BOT_USERNAME_REGEX, GITHUB_REPOSITORY_REGEX
 from ..types import IpAddress, Scopes
 from .enums import GitHubProjectChange
+from .github_actions import GitHubActionsClaims
 from .userinfo import Group
 
 __all__ = [
@@ -466,6 +467,49 @@ class GitHubProject(BaseModel):
 
     _validate_workflow = field_validator("workflow")(_validate_workflow)
 
+    def matches(self, claims: GitHubActionsClaims) -> bool:
+        """Whether a GitHub Actions ID token satisfies this project.
+
+        A token matches when the project is enabled and every constraint
+        the project sets is satisfied: the ``repository`` claim equals the
+        project repository (case-insensitively) and the ``repository_id``
+        and ``repository_owner_id`` claims equal the pinned IDs; if a
+        workflow is set, the path part of ``job_workflow_ref`` equals it;
+        if an environment is set, the ``environment`` claim equals it; and
+        if a ref is set, the ``ref`` claim equals it or, when the ref ends
+        in ``/``, starts with it. Unset constraints match anything.
+
+        Parameters
+        ----------
+        claims
+            Claims of the verified token.
+
+        Returns
+        -------
+        bool
+            `True` if the token satisfies every constraint of the project.
+        """
+        if not self.enabled or not self._matches_repository(claims):
+            return False
+        if self.workflow and self.workflow_path != _job_workflow_path(claims):
+            return False
+        if self.environment and self.environment != claims.environment:
+            return False
+        return not self.ref or _ref_matches(self.ref, claims.ref)
+
+    def _matches_repository(self, claims: GitHubActionsClaims) -> bool:
+        """Whether a token comes from the pinned repository.
+
+        The repository name is compared case-insensitively, and the numeric
+        IDs of the repository and its owner must equal the pinned values, so
+        that a renamed or re-created repository does not inherit trust.
+        """
+        return (
+            self.repository.lower() == claims.repository.lower()
+            and self.repository_id == claims.repository_id
+            and self.repository_owner_id == claims.repository_owner_id
+        )
+
     def overlaps(self, other: GitHubProjectCreate | Self) -> bool:
         """Whether a GitHub Actions ID token could match both projects.
 
@@ -510,6 +554,43 @@ class GitHubProject(BaseModel):
         case-insensitively, but the path part is not.
         """
         return _workflow_path(self.repository, self.workflow)
+
+
+def _job_workflow_path(claims: GitHubActionsClaims) -> str:
+    """Extract the workflow path from the ``job_workflow_ref`` claim.
+
+    The claim is always ``<owner>/<repo>/.github/workflows/<file>@<ref>``,
+    naming the repository that holds the workflow even when it is the one
+    running the job, so unlike a workflow constraint it is never relative
+    to the ``repository`` claim. The ref is dropped and the owner and
+    repository parts are lowercased, producing the same form as
+    `GitHubProject.workflow_path` so that the two can be compared.
+
+    Parameters
+    ----------
+    claims
+        Claims of the verified token.
+
+    Returns
+    -------
+    str
+        Workflow path with the repository lowercased.
+    """
+    path, _, _ = claims.job_workflow_ref.partition("@")
+    owner, _, rest = path.partition("/")
+    repo, _, file_path = rest.partition("/")
+    return f"{owner.lower()}/{repo.lower()}/{file_path}"
+
+
+def _ref_matches(constraint: str, ref: str) -> bool:
+    """Whether a ref satisfies a ref constraint.
+
+    A constraint ending in ``/`` is a prefix and matches any ref that starts
+    with it; any other constraint must equal the ref.
+    """
+    if constraint.endswith("/"):
+        return ref.startswith(constraint)
+    return ref == constraint
 
 
 def _refs_overlap(a: str, b: str) -> bool:

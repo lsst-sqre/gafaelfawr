@@ -20,6 +20,7 @@ from gafaelfawr.exceptions import (
 )
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.enums import TokenChange, TokenType
+from gafaelfawr.models.github_project import GitHubProject
 from gafaelfawr.models.history import (
     TokenChangeHistoryEntry,
     TokenChangeHistoryRecord,
@@ -1838,6 +1839,104 @@ async def test_state_metrics(config: Config, factory: Factory) -> None:
     events.active_user_tokens.published.assert_published_all([{"count": 1}])
 
     await event_manager.aclose()
+
+
+@pytest.mark.asyncio
+async def test_create_github_token(factory: Factory) -> None:
+    """Mint a token for a GitHub project.
+
+    The project need not exist in the registry, since tokens reference
+    projects by ID without a foreign key; the exchange is responsible for
+    matching a token to an enabled project before minting.
+    """
+    token_service = factory.create_token_service()
+    now = datetime.now(tz=UTC).replace(microsecond=0)
+    project = GitHubProject(
+        id=42,
+        username="bot-gh-lsst-sqre-ook",
+        repository="lsst-sqre/ook",
+        repository_id=123456,
+        repository_owner_id=654321,
+        scopes={"read:all", "exec:test"},
+        max_lifetime=timedelta(hours=1),
+        uid=2000,
+        gid=3000,
+        groups=[Group(name="bots", id=4000)],
+        enabled=True,
+        created=now,
+        created_by="some-admin",
+        modified=now,
+        modified_by="some-admin",
+    )
+    token, expires = await token_service.create_github_token(
+        project,
+        scopes={"read:all"},
+        lifetime=timedelta(minutes=15),
+        ip_address="192.0.2.1",
+    )
+
+    # The token carries the project's identity and the requested scopes
+    # rather than the project's full scope list. The expiration is
+    # calculated from the recorded creation time, so the stored lifetime is
+    # exactly the requested lifetime.
+    data = await token_service.get_data(token)
+    assert data
+    assert_is_now(data.created)
+    assert expires == data.created + timedelta(minutes=15)
+    assert data == TokenData(
+        token=token,
+        username="bot-gh-lsst-sqre-ook",
+        token_type=TokenType.github,
+        scopes={"read:all"},
+        created=data.created,
+        expires=expires,
+        uid=2000,
+        gid=3000,
+        groups=[Group(name="bots", id=4000)],
+    )
+    info = await token_service.get_token_info_unchecked(token.key)
+    assert info
+    assert info == TokenInfo(
+        token=token.key,
+        username="bot-gh-lsst-sqre-ook",
+        token_type=TokenType.github,
+        scopes={"read:all"},
+        created=data.created,
+        expires=expires,
+        github_project_id=42,
+    )
+
+    # The creation is recorded with the bot user as the actor and the
+    # project ID, so that the token can be found and revoked by project.
+    admin = await create_session_token(
+        factory, username="some-admin", scopes={"admin:token"}
+    )
+    history = await token_service.get_change_history(
+        admin, token_type=TokenType.github
+    )
+    assert len(history.entries) == 1
+    assert history.entries[0].model_dump(exclude={"id"}) == {
+        "token": token.key,
+        "username": "bot-gh-lsst-sqre-ook",
+        "token_type": TokenType.github,
+        "token_name": None,
+        "parent": None,
+        "scopes": {"read:all"},
+        "service": None,
+        "expires": int(expires.timestamp()),
+        "actor": "bot-gh-lsst-sqre-ook",
+        "action": TokenChange.create,
+        "old_token_name": None,
+        "old_scopes": None,
+        "old_expires": None,
+        "ip_address": "192.0.2.1",
+        "event_time": int(data.created.timestamp()),
+        "github_project_id": 42,
+    }
+    async with factory.session.begin():
+        store = TokenDatabaseStore(factory.session)
+        tokens = await store.list_for_github_project(42)
+    assert [t.token for t in tokens] == [token.key]
 
 
 @pytest.mark.asyncio

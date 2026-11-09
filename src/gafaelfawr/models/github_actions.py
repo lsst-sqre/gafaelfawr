@@ -1,18 +1,27 @@
-"""Models for GitHub Actions ID tokens.
+"""Models for the GitHub Actions token exchange.
 
 These models describe the claims carried by the OpenID Connect ID tokens that
 GitHub issues to GitHub Actions jobs, which the GitHub Actions token exchange
-verifies and matches against the project registry.
+verifies and matches against the project registry, and the reply of the
+exchange.
 """
 
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from pydantic import AnyUrl, BaseModel, ConfigDict, Field, UrlConstraints
+from safir.pydantic import UtcDatetime
+
+from ..constants import OAUTH_ACCESS_TOKEN_TYPE
+from ..types import Scopes
+from .token import Token
 
 __all__ = [
     "GitHubActionsClaims",
     "GitHubActionsJWKS",
     "GitHubActionsOIDCMetadata",
+    "GitHubTokenExchangeReply",
+    "GitHubTokenExchangeResult",
 ]
 
 
@@ -181,3 +190,101 @@ class GitHubActionsJWKS(BaseModel):
         title="Signing keys",
         description="Keys in JWK format",
     )
+
+
+class GitHubTokenExchangeReply(BaseModel):
+    """A reply to a successful GitHub Actions token exchange.
+
+    The fields are those of a successful token response in RFC 6749 and RFC
+    8693. The reply deliberately carries nothing Gafaelfawr-specific, such as
+    the bot username or the matched project: a workflow does not need them,
+    and the audit trail records both.
+    """
+
+    access_token: str = Field(
+        ...,
+        title="Gafaelfawr token",
+        description="The minted Gafaelfawr token, of type ``github``",
+        examples=["gt-vHj2M0OdtGVmwq3vz0u4iw.vk_fmBhUSsFndqRgvSi9ow"],
+    )
+
+    issued_token_type: str = Field(
+        OAUTH_ACCESS_TOKEN_TYPE,
+        title="Issued token type",
+        description=f"Will always be ``{OAUTH_ACCESS_TOKEN_TYPE}``",
+        examples=[OAUTH_ACCESS_TOKEN_TYPE],
+    )
+
+    token_type: str = Field(
+        "Bearer",
+        title="Type of token",
+        description="Will always be ``Bearer``",
+        examples=["Bearer"],
+    )
+
+    expires_in: int = Field(
+        ...,
+        title="Expiration in seconds",
+        description="Remaining lifetime of the token in seconds",
+        examples=[3600],
+    )
+
+    scope: str = Field(
+        ...,
+        title="Scopes of token",
+        description="Space-separated scopes of the minted token",
+        examples=["exec:linkcheck write:docverse"],
+    )
+
+
+class GitHubTokenExchangeResult(BaseModel):
+    """Outcome of a successful GitHub Actions token exchange.
+
+    This is what the exchange service returns to the route handler, which
+    builds the reply to the client from it and records the exchange in the
+    metrics events. It carries the identity the exchange resolved and the
+    claims it resolved it from, so that an exchange can be traced to the
+    exact workflow run that performed it.
+    """
+
+    token: Token = Field(..., title="Minted token")
+
+    username: str = Field(
+        ...,
+        title="Bot username",
+        description="Bot username of the matching GitHub project",
+        examples=["bot-gh-lsst-sqre-ook"],
+    )
+
+    github_project_id: int = Field(
+        ...,
+        title="GitHub project ID",
+        description="ID of the GitHub project that authorized the token",
+        examples=[42],
+    )
+
+    scopes: Scopes = Field(..., title="Scopes of the minted token")
+
+    expires: UtcDatetime = Field(..., title="Expiration of the minted token")
+
+    claims: GitHubActionsClaims = Field(
+        ...,
+        title="ID token claims",
+        description="Claims of the verified GitHub Actions ID token",
+    )
+
+    def to_reply(self) -> GitHubTokenExchangeReply:
+        """Build the reply to send to the client.
+
+        Returns
+        -------
+        GitHubTokenExchangeReply
+            Reply following RFC 6749 and RFC 8693, with the remaining
+            lifetime of the token calculated as of now.
+        """
+        remaining = self.expires - datetime.now(tz=UTC)
+        return GitHubTokenExchangeReply(
+            access_token=str(self.token),
+            expires_in=max(int(remaining.total_seconds()), 0),
+            scope=" ".join(sorted(self.scopes)),
+        )
