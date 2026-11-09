@@ -2,13 +2,15 @@
 
 from datetime import timedelta
 from typing import Any
-from unittest.mock import ANY
+from unittest.mock import ANY, patch
 
 import pytest
 import respx
-from httpx import AsyncClient
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
 from safir.metrics import MockEventPublisher
 from safir.testing.slack import MockSlackWebhook
+from sqlalchemy.exc import IntegrityError
 
 from gafaelfawr.config import Config
 from gafaelfawr.constants import (
@@ -26,7 +28,9 @@ from gafaelfawr.models.github_project import GitHubProject, GitHubProjectCreate
 from gafaelfawr.models.token import Token
 from gafaelfawr.models.userinfo import Group
 from gafaelfawr.storage.github_project import GitHubProjectStore
+from gafaelfawr.storage.token import TokenDatabaseStore
 
+from ..support.constants import TEST_HOSTNAME
 from ..support.github import mock_github_repositories
 from ..support.github_actions import (
     GITHUB_ACTIONS_CONFIG_URL,
@@ -686,6 +690,46 @@ async def test_keys_unavailable(
     assert r.json() == expected
     assert len(mock_slack.messages) == 2
 
+    published_exchanges().published.assert_published_all([])
+
+
+@pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
+@pytest.mark.asyncio
+async def test_storage_error(
+    app: FastAPI,
+    factory: Factory,
+    respx_mock: respx.Router,
+    mock_slack: MockSlackWebhook,
+) -> None:
+    """A failure to store the minted token is a server error.
+
+    It must not be reported to the workflow as an invalid token, even
+    though the token service raises `InvalidTokenError` for it, and it must
+    reach Slack.
+    """
+    mock_github_repositories(respx_mock, [OOK])
+    mock_github_actions_oidc(respx_mock)
+    await register_project(factory, OOK)
+    id_token = create_github_actions_jwt()
+
+    error = IntegrityError("INSERT", {}, Exception("duplicate key"))
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
+    base_url = f"https://{TEST_HOSTNAME}"
+    with patch.object(TokenDatabaseStore, "add", side_effect=error):
+        async with AsyncClient(transport=transport, base_url=base_url) as c:
+            r = await c.post(URL, data=exchange_request(id_token))
+    assert r.status_code == 500
+    assert len(mock_slack.messages) == 1
+
+    # Nothing was minted, so nothing was recorded.
+    admin = await create_session_token(
+        factory, username="some-admin", scopes={"admin:token"}
+    )
+    token_service = factory.create_token_service()
+    history = await token_service.get_change_history(
+        admin, token_type=TokenType.github
+    )
+    assert history.entries == []
     published_exchanges().published.assert_published_all([])
 
 
