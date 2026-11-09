@@ -733,6 +733,40 @@ async def test_storage_error(
     published_exchanges().published.assert_published_all([])
 
 
+@pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
+@pytest.mark.asyncio
+async def test_event_publish_error(
+    client: AsyncClient,
+    factory: Factory,
+    respx_mock: respx.Router,
+    mock_slack: MockSlackWebhook,
+) -> None:
+    """A failure to publish the metrics event does not fail the exchange.
+
+    The token has already been minted by then, so failing the exchange
+    would make a retrying workflow mint a second live token.
+    """
+    mock_github_repositories(respx_mock, [OOK])
+    mock_github_actions_oidc(respx_mock)
+    await register_project(factory, OOK)
+    id_token = create_github_actions_jwt()
+
+    publisher = published_exchanges()
+    error = RuntimeError("Kafka is down")
+    with patch.object(publisher, "publish", side_effect=error):
+        r = await client.post(URL, data=exchange_request(id_token))
+    assert r.status_code == 200
+    assert r.json()["scope"] == "read:all"
+    assert len(mock_slack.messages) == 1
+
+    # The minted token is usable.
+    token = Token.from_str(r.json()["access_token"])
+    headers = {"Authorization": f"Bearer {token}"}
+    r = await client.get("/auth/api/v1/token-info", headers=headers)
+    assert r.status_code == 200
+    assert r.json()["token_type"] == "github"
+
+
 @pytest.mark.asyncio
 async def test_not_configured(client: AsyncClient, config: Config) -> None:
     assert not config.github_token_exchange

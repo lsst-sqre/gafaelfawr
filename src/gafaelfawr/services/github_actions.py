@@ -8,6 +8,7 @@ from structlog.stdlib import BoundLogger
 
 from ..config import GitHubTokenExchangeConfig
 from ..constants import GITHUB_ACTIONS_ISSUER
+from ..events import GitHubTokenExchangeEvent
 from ..exceptions import (
     InvalidSubjectTokenError,
     InvalidTokenClaimsError,
@@ -24,7 +25,29 @@ from ..providers.github_actions import GitHubActionsTokenVerifier
 from ..storage.github_project import GitHubProjectStore
 from .token import TokenService
 
-__all__ = ["GitHubTokenExchangeService"]
+__all__ = ["AUDIT_CLAIMS", "GitHubTokenExchangeService"]
+
+AUDIT_CLAIMS: frozenset[str] = frozenset(
+    {
+        "repository",
+        "job_workflow_ref",
+        "ref",
+        "environment",
+        "event_name",
+        "actor",
+        "run_id",
+        "run_attempt",
+        "jti",
+    }
+)
+"""Claims of a GitHub Actions ID token recorded for auditing an exchange.
+
+These are logged with each exchange and recorded in its metrics event, so
+that a minted token can be traced to the exact workflow run that obtained it.
+Each must be a field of both
+`~gafaelfawr.models.github_actions.GitHubActionsClaims` and
+`~gafaelfawr.events.GitHubTokenExchangeEvent`.
+"""
 
 
 class GitHubTokenExchangeService:
@@ -159,6 +182,33 @@ class GitHubTokenExchangeService:
             claims=claims,
         )
 
+    @staticmethod
+    def build_event(
+        result: GitHubTokenExchangeResult,
+    ) -> GitHubTokenExchangeEvent:
+        """Build the metrics event recording a successful exchange.
+
+        The event ties the minted token to the workflow run that obtained
+        it, using the claims in `AUDIT_CLAIMS`. Publishing it is left to the
+        caller.
+
+        Parameters
+        ----------
+        result
+            Result of the exchange.
+
+        Returns
+        -------
+        GitHubTokenExchangeEvent
+            Metrics event for the exchange.
+        """
+        return GitHubTokenExchangeEvent(
+            username=result.username,
+            github_project_id=result.github_project_id,
+            token=result.token.key,
+            **result.claims.model_dump(include=set(AUDIT_CLAIMS)),
+        )
+
     async def _match(self, claims: GitHubActionsClaims) -> GitHubProject:
         """Find the enabled GitHub project that a token satisfies.
 
@@ -274,20 +324,7 @@ class GitHubTokenExchangeService:
     @staticmethod
     def _claims_for_logging(claims: GitHubActionsClaims) -> dict[str, Any]:
         """Select the claims worth recording in a log message."""
-        return claims.model_dump(
-            include={
-                "repository",
-                "job_workflow_ref",
-                "ref",
-                "environment",
-                "event_name",
-                "actor",
-                "run_id",
-                "run_attempt",
-                "jti",
-            },
-            exclude_none=True,
-        )
+        return claims.model_dump(include=set(AUDIT_CLAIMS), exclude_none=True)
 
     @staticmethod
     def _unverified_claim(encoded: str, claim: str) -> Any:
