@@ -240,6 +240,7 @@ The request is form-encoded with the following parameters:
     A space-separated list of scopes for the minted token.
     It must be a subset of the scopes of the matching project; a request for a scope outside that set is rejected rather than silently narrowed, so that a misconfigured workflow fails visibly.
     If omitted, the token receives every scope of the project.
+    An empty ``scope`` is treated as omitted, but one containing only whitespace is rejected.
 
 The other :rfc:`8693` parameters (``resource``, ``audience``, ``requested_token_type``, ``actor_token``, and ``actor_token_type``) are not supported and are rejected if present.
 There is no parameter for the lifetime; the token always receives the project's maximum lifetime, capped by the maximum configured for the environment.
@@ -261,7 +262,7 @@ A successful response has status 200, carries ``Cache-Control: no-store``, and h
 Errors have status 400 and an OAuth 2.0 error document with ``error`` and ``error_description`` fields:
 
 ``invalid_request``
-    The request is malformed: a required parameter is missing, ``subject_token_type`` is not supported, ``scope`` contains no scopes, or an unsupported parameter is present.
+    The request is malformed: a required parameter is missing, ``subject_token_type`` is not supported, ``scope`` contains only whitespace, or an unsupported parameter is present.
 
 ``unsupported_grant_type``
     ``grant_type`` is not token exchange.
