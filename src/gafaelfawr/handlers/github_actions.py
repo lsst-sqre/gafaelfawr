@@ -26,6 +26,7 @@ from ..exceptions import (
     FetchKeysError,
     GitHubWebError,
     InvalidRequestError,
+    InvalidTokenError,
     OAuthError,
     UnsupportedGrantTypeError,
 )
@@ -180,6 +181,13 @@ async def post_github_token(
         result = await exchange.exchange_token(
             token, scopes=scopes, ip_address=context.ip_address
         )
+    except InvalidTokenError:
+        # The exchange raises this only if the minted token could not be
+        # stored. That is a server fault rather than a problem with the
+        # request, so let it propagate as an uncaught exception, which
+        # reports it to Slack and Sentry and returns a 500 error, rather
+        # than mapping it to a 400 error below.
+        raise
     except OAuthError as e:
         context.logger.warning(e.message, error=str(e))
         content = {
