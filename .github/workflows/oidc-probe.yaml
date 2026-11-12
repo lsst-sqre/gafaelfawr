@@ -1,0 +1,149 @@
+# Demo only (DM-56862): exercise the negative paths of the Gafaelfawr GitHub
+# Actions token exchange on roundtable-dev. This workflow is registered as
+# its own GitHub project there. Nothing here asserts; each probe prints the
+# status and body of the reply so that the results can be read from the log.
+name: OIDC probe
+
+"on":
+  pull_request: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Probe the token exchange
+        shell: bash
+        env:
+          BASE_URL: "https://roundtable-dev.lsst.cloud"
+        run: |
+          GRANT="urn:ietf:params:oauth:grant-type:token-exchange"
+          IDTYPE="urn:ietf:params:oauth:token-type:id_token"
+          MINTED=""
+
+          id_token() {
+            curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              --get --data-urlencode "audience=$1" \
+              "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -r .value
+          }
+
+          # probe <name> <curl data arguments...>
+          probe() {
+            local name="$1"; shift
+            local out status body token
+            out=$(curl -sS -w '\n%{http_code}' -X POST \
+              "$BASE_URL/auth/api/v1/github/token" "$@")
+            status="${out##*$'\n'}"
+            body="${out%$'\n'*}"
+            token=$(jq -r '.access_token // empty' <<<"$body" 2>/dev/null || true)
+            MINTED=""
+            if [ -n "$token" ]; then
+              echo "::add-mask::$token"
+              MINTED="$token"
+              body=$(jq -c '.access_token = "<redacted>"' <<<"$body")
+            fi
+            echo "### $name"
+            echo "HTTP $status"
+            echo "$body"
+            echo
+          }
+
+          # get <name> <token> <url>
+          get() {
+            echo "### $1"
+            curl -sS -w '\nHTTP %{http_code}\n' -H "Authorization: bearer $2" "$3" \
+              | cut -c1-600
+            echo
+          }
+
+          good=$(id_token "$BASE_URL")
+          echo "::add-mask::$good"
+          echo "### Claims of the GitHub ID token"
+          cut -d. -f2 <<<"$good" | tr '_-' '/+' | base64 -d 2>/dev/null \
+            | jq '{iss, aud, sub, repository, repository_id, repository_owner_id,
+                   job_workflow_ref, workflow_ref, ref, environment, event_name}' \
+            || true
+          echo
+
+          std=(--data-urlencode "grant_type=$GRANT"
+               --data-urlencode "subject_token_type=$IDTYPE")
+
+          probe "baseline: correct audience, no scope" "${std[@]}" \
+            --data-urlencode "subject_token=$good"
+          baseline="$MINTED"
+
+          probe "replay: the same ID token a second time" "${std[@]}" \
+            --data-urlencode "subject_token=$good"
+
+          wrong=$(id_token "https://roundtable.lsst.cloud")
+          echo "::add-mask::$wrong"
+          probe "wrong audience: ID token for https://roundtable.lsst.cloud" \
+            "${std[@]}" --data-urlencode "subject_token=$wrong"
+
+          tampered="${good%????}AAAA"
+          echo "::add-mask::$tampered"
+          probe "tampered signature" "${std[@]}" \
+            --data-urlencode "subject_token=$tampered"
+
+          probe "scope the project does not grant: exec:docverse" "${std[@]}" \
+            --data-urlencode "subject_token=$good" \
+            --data-urlencode "scope=exec:docverse"
+
+          probe "granted plus ungranted scope: exec:linkcheck exec:docverse" \
+            "${std[@]}" --data-urlencode "subject_token=$good" \
+            --data-urlencode "scope=exec:linkcheck exec:docverse"
+
+          probe "admin scope: admin:token" "${std[@]}" \
+            --data-urlencode "subject_token=$good" \
+            --data-urlencode "scope=admin:token"
+
+          probe "unknown scope: bogus:scope" "${std[@]}" \
+            --data-urlencode "subject_token=$good" \
+            --data-urlencode "scope=bogus:scope"
+
+          probe "whitespace-only scope" "${std[@]}" \
+            --data-urlencode "subject_token=$good" \
+            --data-urlencode "scope=  "
+
+          probe "unsupported parameter: audience" "${std[@]}" \
+            --data-urlencode "subject_token=$good" \
+            --data-urlencode "audience=https://example.com"
+
+          probe "unsupported parameter: requested_token_type" "${std[@]}" \
+            --data-urlencode "subject_token=$good" \
+            --data-urlencode "requested_token_type=urn:ietf:params:oauth:token-type:jwt"
+
+          probe "wrong grant_type: client_credentials" \
+            --data-urlencode "grant_type=client_credentials" \
+            --data-urlencode "subject_token_type=$IDTYPE" \
+            --data-urlencode "subject_token=$good"
+
+          probe "wrong subject_token_type: access_token" \
+            --data-urlencode "grant_type=$GRANT" \
+            --data-urlencode "subject_token_type=urn:ietf:params:oauth:token-type:access_token" \
+            --data-urlencode "subject_token=$good"
+
+          probe "missing subject_token" "${std[@]}"
+
+          if [ -n "$baseline" ]; then
+            get "minted token: token-info" "$baseline" \
+              "$BASE_URL/auth/api/v1/token-info"
+            get "minted token: user-info" "$baseline" \
+              "$BASE_URL/auth/api/v1/user-info"
+            get "minted token: Docverse without exec:docverse" "$baseline" \
+              "$BASE_URL/docverse/api/orgs"
+            get "minted token: admin API (list GitHub projects)" "$baseline" \
+              "$BASE_URL/auth/api/v1/github/projects"
+            echo "### minted token: create a user token for itself"
+            curl -sS -w '\nHTTP %{http_code}\n' -X POST \
+              -H "Authorization: bearer $baseline" \
+              -H "Content-Type: application/json" \
+              --data '{"token_name": "escalation", "scopes": ["exec:linkcheck"]}' \
+              "$BASE_URL/auth/api/v1/users/bot-gh-lsst-sqre-gafaelfawr/tokens" \
+              | cut -c1-600
+          else
+            echo "No token was minted by the baseline probe."
+          fi
