@@ -1,0 +1,35 @@
+# Demo only (DM-56862): a workflow that no GitHub project on roundtable-dev
+# is registered for. The token exchange must refuse it.
+name: OIDC unregistered workflow
+
+"on":
+  pull_request: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Attempt the token exchange
+        shell: bash
+        env:
+          BASE_URL: "https://roundtable-dev.lsst.cloud"
+        run: |
+          id_token=$(curl -sSf \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            --get --data-urlencode "audience=$BASE_URL" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -r .value)
+          echo "::add-mask::$id_token"
+          for scope in "" "exec:linkcheck"; do
+            echo "### unregistered workflow, scope='$scope'"
+            curl -sS -w '\nHTTP %{http_code}\n' -X POST \
+              "$BASE_URL/auth/api/v1/github/token" \
+              --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:token-exchange" \
+              --data-urlencode "subject_token_type=urn:ietf:params:oauth:token-type:id_token" \
+              --data-urlencode "subject_token=$id_token" \
+              --data-urlencode "scope=$scope" | sed -E 's/"access_token":"[^"]*"/"access_token":"<redacted>"/'
+            echo
+          done
