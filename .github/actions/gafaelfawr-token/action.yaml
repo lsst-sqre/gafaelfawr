@@ -1,0 +1,62 @@
+name: Get a Gafaelfawr token
+description: >-
+  Exchange the GitHub Actions ID token of this job for a Gafaelfawr token
+  using the token exchange described in SQR-120. The calling job must have
+  the id-token: write permission, and the repository must be registered as
+  a GitHub project in the target Phalanx environment.
+
+inputs:
+  base-url:
+    description: >-
+      Base URL of the Phalanx environment, without a trailing slash. Also
+      used as the audience of the ID token.
+    required: true
+  scope:
+    description: >-
+      Space-separated scopes to request. If empty, the token receives every
+      scope of the matching project.
+    required: false
+    default: ""
+
+outputs:
+  token:
+    description: The Gafaelfawr token.
+    value: ${{ steps.exchange.outputs.token }}
+
+runs:
+  using: composite
+  steps:
+    - name: Exchange GitHub ID token for a Gafaelfawr token
+      id: exchange
+      shell: bash
+      env:
+        BASE_URL: ${{ inputs.base-url }}
+        SCOPE: ${{ inputs.scope }}
+      run: |
+        if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
+          echo "::error::No ID token available; the job needs id-token: write"
+          exit 1
+        fi
+        id_token=$(curl -sSf \
+          -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+          --get --data-urlencode "audience=$BASE_URL" \
+          "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -r .value)
+        echo "::add-mask::$id_token"
+
+        # Do not use curl -f so that the OAuth error document of a rejected
+        # exchange is shown in the job log.
+        reply=$(curl -sS -X POST "$BASE_URL/auth/api/v1/github/token" \
+          --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:token-exchange" \
+          --data-urlencode "subject_token_type=urn:ietf:params:oauth:token-type:id_token" \
+          --data-urlencode "subject_token=$id_token" \
+          --data-urlencode "scope=$SCOPE")
+        token=$(jq -r '.access_token // empty' <<<"$reply")
+        if [ -z "$token" ]; then
+          echo "::error::Gafaelfawr token exchange failed"
+          jq . <<<"$reply" || echo "$reply"
+          exit 1
+        fi
+        echo "::add-mask::$token"
+        echo "Token exchange succeeded:"
+        jq 'del(.access_token)' <<<"$reply"
+        echo "token=$token" >> "$GITHUB_OUTPUT"
