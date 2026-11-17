@@ -203,16 +203,22 @@ async def test_key_rotation(
     assert mock.config_requests == 1
     assert mock.jwks_requests == 2
 
-    # Rotate the key at GitHub. The old key is still in the cache, so the
-    # new token triggers a refresh and the old token still works until the
-    # cache is next refreshed.
+    # Rotate the key at GitHub. The old key is still in the cache, so a
+    # token signed with it still works, without a request to GitHub, even
+    # though a refresh would be allowed.
     keypair = RSAKeyPair.generate()
     mock.keypairs = {"new-kid": keypair}
     age_cache(jwks_cache)
+    old_token = create_github_actions_jwt(kid="old-kid")
+    assert await verifier.verify_token(old_token)
+    assert mock.jwks_requests == 2
+
+    # A token signed with the new key triggers a refresh, after which the
+    # old key is gone and the old token is rejected.
     token = create_github_actions_jwt(kid="new-kid", keypair=keypair)
     assert await verifier.verify_token(token)
     assert mock.jwks_requests == 3
-    token = create_github_actions_jwt(kid="old-kid")
+    token = old_token
     with pytest.raises(UnknownKeyIdError):
         await verifier.verify_token(token)
     assert mock.jwks_requests == 3
