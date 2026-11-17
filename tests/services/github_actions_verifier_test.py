@@ -13,6 +13,7 @@ from jwt.exceptions import (
     InvalidSignatureError,
     MissingRequiredClaimError,
 )
+from safir.testing.data import Data
 
 from gafaelfawr.cache import JWKSCache
 from gafaelfawr.config import Config
@@ -45,7 +46,7 @@ def age_cache(jwks_cache: JWKSCache) -> None:
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_verify_token(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config, factory: Factory, respx_mock: respx.Router, data: Data
 ) -> None:
     assert config.github_token_exchange
     verifier = factory.create_github_actions_token_verifier()
@@ -53,36 +54,19 @@ async def test_verify_token(
 
     token = create_github_actions_jwt(environment="production")
     claims = await verifier.verify_token(token)
-    assert claims.sub == "repo:lsst-sqre/ook:environment:production"
-    assert claims.repository == "lsst-sqre/ook"
-    assert claims.repository_id == 123456
-    assert claims.repository_owner == "lsst-sqre"
-    assert claims.repository_owner_id == 654321
-    assert claims.job_workflow_ref == (
-        "lsst-sqre/ook/.github/workflows/ci.yaml@refs/heads/main"
-    )
-    assert claims.workflow_ref == claims.job_workflow_ref
-    assert claims.ref == "refs/heads/main"
-    assert claims.environment == "production"
-    assert claims.event_name == "push"
-    assert claims.actor == "someuser"
-    assert claims.run_id == "9876543210"
-    assert claims.run_attempt == "1"
-    assert claims.jti
-    assert claims.workflow_sha
+    data.assert_pydantic_matches(claims, "github-actions/claims-environment")
     assert mock.config_requests == 1
     assert mock.jwks_requests == 1
 
     # A job that doesn't use an environment has no environment claim.
     token = create_github_actions_jwt()
     claims = await verifier.verify_token(token)
-    assert claims.sub == "repo:lsst-sqre/ook:ref:refs/heads/main"
-    assert claims.environment is None
+    data.assert_pydantic_matches(claims, "github-actions/claims")
 
     # Missing audit claims are tolerated, but not missing registry claims.
     token = create_github_actions_jwt(omit={"event_name", "actor", "run_id"})
     claims = await verifier.verify_token(token)
-    assert claims.event_name is None
+    data.assert_pydantic_matches(claims, "github-actions/claims-no-audit")
     token = create_github_actions_jwt(omit={"repository_id", "ref"})
     with pytest.raises(InvalidTokenClaimsError) as excinfo:
         await verifier.verify_token(token)
