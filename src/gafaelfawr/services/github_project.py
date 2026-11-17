@@ -405,6 +405,7 @@ class GitHubProjectService:
         # avoid looking up a repository the project already has. Every other
         # update goes straight to the single transaction below.
         stored = None
+        repository = None
         if update.repository:
             stored = await self._read_project(project_id)
             if update.repository != stored.repository:
@@ -469,7 +470,14 @@ class GitHubProjectService:
                 return old
 
             await self._check_overlap(new, exclude_id=project_id)
-            await self._project_store.update(new)
+            await self._project_store.update(
+                project_id,
+                update,
+                username=changes.get("username"),
+                repository=repository,
+                modified=now,
+                modified_by=actor,
+            )
             entry = GitHubProjectHistoryEntry(
                 project_id=project_id,
                 template=new.template,

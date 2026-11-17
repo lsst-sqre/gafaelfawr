@@ -13,7 +13,9 @@ from ..models.github_project import (
     GitHubProject,
     GitHubProjectCreate,
     GitHubProjectHistoryEntry,
+    GitHubProjectUpdate,
 )
+from ..models.userinfo import Group
 from ..schema import GitHubProject as SQLGitHubProject
 from ..schema import GitHubProjectHistory as SQLGitHubProjectHistory
 
@@ -78,13 +80,22 @@ class GitHubProjectStore:
         """
         now = datetime.now(tz=UTC).replace(microsecond=0)
         new = SQLGitHubProject(
-            **self._to_columns(create),
             template=template,
+            description=create.description,
+            requested_by=create.requested_by,
             username=username,
             repository=repository.full_name,
             repository_id=repository.id,
             repository_owner_id=repository.owner_id,
+            workflow=create.workflow,
+            environment=create.environment,
+            ref=create.ref,
+            scopes=",".join(sorted(create.scopes)),
             max_lifetime=int(max_lifetime.total_seconds()),
+            uid=create.uid,
+            gid=create.gid,
+            groups=self._groups_to_db(create.groups),
+            enabled=create.enabled,
             created=datetime_to_db(now),
             created_by=created_by,
             modified=datetime_to_db(now),
@@ -212,36 +223,81 @@ class GitHubProjectStore:
         stmt = text("SELECT pg_advisory_xact_lock(hashtext(:key))")
         await self._session.execute(stmt, {"key": _REGISTRY_LOCK_KEY})
 
-    async def update(self, project: GitHubProject) -> bool:
-        """Replace the stored fields of a GitHub project.
+    async def update(  # noqa: C901, PLR0912
+        self,
+        project_id: int,
+        update: GitHubProjectUpdate,
+        *,
+        username: str | None,
+        repository: GitHubRepository | None,
+        modified: datetime,
+        modified_by: str,
+    ) -> bool:
+        """Modify a GitHub project.
 
-        Every field of the project except its ID and template is written to
-        the database, including the modification metadata, which the caller
-        is responsible for updating.
+        Only the fields set in the update are changed. The username and
+        repository are taken from the separate arguments rather than from the
+        update, since the service resolves them. Each field is assigned
+        explicitly, so a new field of the project must be added here as well
+        as to `add`.
 
         Parameters
         ----------
-        project
-            New contents of the project, identified by its ID.
+        project_id
+            ID of the project.
+        update
+            Changes to apply.
+        username
+            New bot username of the project, either as given or as derived
+            from the repository, or `None` to leave it unchanged.
+        repository
+            Repository metadata from GitHub if the repository is changing,
+            used for the canonical name of the repository and its pinned
+            IDs, or `None` to leave the repository unchanged.
+        modified
+            Time of the change.
+        modified_by
+            Username of the person making the change.
 
         Returns
         -------
         bool
             `True` if the project was found and updated, `False` otherwise.
         """
-        existing = await self._get(project.id)
-        if not existing:
+        project = await self._get(project_id)
+        if not project:
             return False
-        columns = self._to_columns(project)
-        columns["username"] = project.username
-        columns["repository"] = project.repository
-        columns["repository_id"] = project.repository_id
-        columns["repository_owner_id"] = project.repository_owner_id
-        columns["max_lifetime"] = int(project.max_lifetime.total_seconds())
-        columns["modified"] = datetime_to_db(project.modified)
-        columns["modified_by"] = project.modified_by
-        for column, value in columns.items():
-            setattr(existing, column, value)
+        fields = update.model_fields_set
+        if "description" in fields:
+            project.description = update.description
+        if "requested_by" in fields:
+            project.requested_by = update.requested_by
+        if username is not None:
+            project.username = username
+        if repository is not None:
+            project.repository = repository.full_name
+            project.repository_id = repository.id
+            project.repository_owner_id = repository.owner_id
+        if "workflow" in fields:
+            project.workflow = update.workflow
+        if "environment" in fields:
+            project.environment = update.environment
+        if "ref" in fields:
+            project.ref = update.ref
+        if update.scopes is not None:
+            project.scopes = ",".join(sorted(update.scopes))
+        if update.max_lifetime is not None:
+            project.max_lifetime = int(update.max_lifetime.total_seconds())
+        if "uid" in fields:
+            project.uid = update.uid
+        if "gid" in fields:
+            project.gid = update.gid
+        if "groups" in fields:
+            project.groups = self._groups_to_db(update.groups)
+        if update.enabled is not None:
+            project.enabled = update.enabled
+        project.modified = datetime_to_db(modified)
+        project.modified_by = modified_by
         return True
 
     async def _get(self, project_id: int) -> SQLGitHubProject | None:
@@ -252,44 +308,13 @@ class GitHubProjectStore:
         return await self._session.scalar(stmt)
 
     @staticmethod
-    def _to_columns(
-        project: GitHubProject | GitHubProjectCreate,
-    ) -> dict[str, Any]:
-        """Convert the settings of a project to database column values.
-
-        This covers the columns that are stored the same way whether a
-        project is being created or updated, so that a new column need only
-        be added here. The columns that are derived differently in the two
-        cases, such as the repository identifiers, the maximum lifetime,
-        which may be left for the service to default when creating a
-        project, and the change metadata, are set by the caller.
-
-        Parameters
-        ----------
-        project
-            Project or request to create a project.
-
-        Returns
-        -------
-        dict of str to Any
-            Column values keyed by column name, suitable for passing to the
-            constructor of the ORM class or assigning to an existing row.
-        """
-        groups = None
-        if project.groups is not None:
-            groups = [g.model_dump(mode="json") for g in project.groups]
-        return {
-            "description": project.description,
-            "requested_by": project.requested_by,
-            "workflow": project.workflow,
-            "environment": project.environment,
-            "ref": project.ref,
-            "scopes": ",".join(sorted(project.scopes)),
-            "uid": project.uid,
-            "gid": project.gid,
-            "groups": groups,
-            "enabled": project.enabled,
-        }
+    def _groups_to_db(
+        groups: builtins.list[Group] | None,
+    ) -> builtins.list[Any] | None:
+        """Convert the groups of a project to their stored JSON form."""
+        if groups is None:
+            return None
+        return [g.model_dump(mode="json") for g in groups]
 
 
 class GitHubProjectHistoryStore:

@@ -455,6 +455,10 @@ async def test_update_project(
     assert updated.modified >= project.modified
     assert_is_now(updated.modified)
     assert updated.modified_by == "other-admin"
+
+    # The service builds the modified project itself and the storage layer
+    # applies the changes separately, so check here and after each update
+    # below that what was stored matches what the service returned.
     assert await service.get_project(project.id, admin) == updated
     assert mock.requests == 1
     async with factory.session.begin():
@@ -480,6 +484,7 @@ async def test_update_project(
     assert moved.repository_id == OOK.id
     assert moved.repository_owner_id == OOK.owner_id
     assert moved.username == "bot-gh-lsst-sqre-sqr-062"
+    assert await service.get_project(project.id, admin) == moved
     assert mock.requests == 2
 
     # Setting the username to null derives it from the new repository, and
@@ -490,12 +495,14 @@ async def test_update_project(
         project.id, update, admin, ip_address=None
     )
     assert renamed.username == "bot-gh-lsst-sqre-ook"
+    assert await service.get_project(project.id, admin) == renamed
     assert mock.requests == 2
     update = GitHubProjectUpdate(username="bot-gh-ook-docs")
     renamed = await service.update_project(
         project.id, update, admin, ip_address=None
     )
     assert renamed.username == "bot-gh-ook-docs"
+    assert await service.get_project(project.id, admin) == renamed
 
     # Disabling the project revokes its tokens, recorded with the acting
     # administrator, and other changes do not.
@@ -516,6 +523,7 @@ async def test_update_project(
         project.id, update, other_admin, ip_address="127.0.0.1"
     )
     assert not disabled.enabled
+    assert await service.get_project(project.id, admin) == disabled
     assert await token_service.get_data(token.token) is None
     assert await token_service.get_data(child.token) is None
     assert (
@@ -546,6 +554,7 @@ async def test_update_project(
         project.id, update, admin, ip_address=None
     )
     assert enabled.enabled
+    assert await service.get_project(project.id, admin) == enabled
 
     # Empty updates are allowed but change nothing, including the
     # modification metadata.
