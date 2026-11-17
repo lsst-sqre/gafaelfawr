@@ -50,10 +50,10 @@ from .models.token import TokenData
 from .models.userinfo import Group
 from .providers.base import Provider
 from .providers.github import GitHubProvider
-from .providers.github_actions import GitHubActionsTokenVerifier
 from .providers.oidc import OIDCProvider, OIDCTokenVerifier
 from .schema import Token as SQLToken
 from .services.firestore import FirestoreService
+from .services.github_actions import GitHubActionsTokenVerifier
 from .services.health import HealthCheckService
 from .services.kubernetes import (
     KubernetesIngressService,

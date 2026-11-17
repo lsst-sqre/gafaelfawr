@@ -4,11 +4,6 @@ GitHub runs an OpenID Connect identity provider for GitHub Actions that issues
 short-lived ID tokens to workflow jobs. The GitHub Actions token exchange
 accepts one of those ID tokens as its credential. This module verifies such a
 token and extracts the claims used by the project registry.
-
-This is not an authentication provider in the sense of
-`~gafaelfawr.providers.base.Provider`, since no user logs in, but it plays the
-same role as `~gafaelfawr.providers.oidc.OIDCTokenVerifier` does for the
-OpenID Connect authentication provider.
 """
 
 from datetime import UTC, datetime

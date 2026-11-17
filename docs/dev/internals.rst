@@ -98,13 +98,13 @@ Python internal API
 .. automodapi:: gafaelfawr.providers.github
    :include-all-objects:
 
-.. automodapi:: gafaelfawr.providers.github_actions
-   :include-all-objects:
-
 .. automodapi:: gafaelfawr.providers.oidc
    :include-all-objects:
 
 .. automodapi:: gafaelfawr.services.firestore
+   :include-all-objects:
+
+.. automodapi:: gafaelfawr.services.github_actions
    :include-all-objects:
 
 .. automodapi:: gafaelfawr.services.health

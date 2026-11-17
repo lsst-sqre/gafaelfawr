@@ -8,7 +8,7 @@ only intended for use via their service layer
 (`~gafaelfawr.services.token_cache.TokenCacheService`,
 `~gafaelfawr.services.ldap.LDAPService`,
 `~gafaelfawr.services.firestore.FirestoreService`, and
-`~gafaelfawr.providers.github_actions.GitHubActionsTokenVerifier`).
+`~gafaelfawr.services.github_actions.GitHubActionsTokenVerifier`).
 """
 
 import asyncio
@@ -184,7 +184,7 @@ class JWKSCache(BaseCache):
     OpenID Connect metadata, for a fixed lifetime so that each token
     verification does not require retrieving and parsing the keys again. All
     of the retrieval logic is handled by the verifier that uses it, currently
-    `~gafaelfawr.providers.github_actions.GitHubActionsTokenVerifier`.
+    `~gafaelfawr.services.github_actions.GitHubActionsTokenVerifier`.
 
     The caller should first call `get` without a lock and use the result if
     it contains the needed key. Otherwise, the caller should take the lock,
