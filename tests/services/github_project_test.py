@@ -258,6 +258,12 @@ async def test_create_project_errors(
     with pytest.raises(InvalidScopesError, match="admin:userinfo"):
         await service.create_project(bad, admin, ip_address=None)
 
+    # A user: scope would let the token create user tokens, whose lifetime
+    # is independent of the lifetime of the project.
+    bad = create.model_copy(update={"scopes": {"user:token", "read:all"}})
+    with pytest.raises(InvalidScopesError, match="user:token"):
+        await service.create_project(bad, admin, ip_address=None)
+
     # Lifetime must be within the configured bounds (default 6h cap).
     bad = create.model_copy(update={"max_lifetime": timedelta(minutes=4)})
     with pytest.raises(InvalidMaxLifetimeError, match="at least 300s"):

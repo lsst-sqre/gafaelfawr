@@ -695,8 +695,12 @@ class GitHubProjectService:
     def _validate_scopes(self, scopes: set[str]) -> None:
         """Check that the scopes of a project are permitted.
 
-        Every scope must be a known scope, and ``admin:`` scopes are
-        reserved and may not be granted to a GitHub project.
+        Every scope must be a known scope. The ``admin:`` scopes are
+        reserved and may not be granted to a GitHub project. Neither may the
+        ``user:`` scopes, since a token with ``user:token`` could create user
+        tokens for its bot user, and the lifetime of a user token is
+        independent of the token that created it, which would bypass the
+        maximum lifetime of the project.
 
         Parameters
         ----------
@@ -712,7 +716,7 @@ class GitHubProjectService:
         if unknown:
             msg = f"Unknown scopes: {', '.join(sorted(unknown))}"
             raise InvalidScopesError(msg)
-        reserved = {s for s in scopes if s.startswith("admin:")}
+        reserved = {s for s in scopes if s.startswith(("admin:", "user:"))}
         if reserved:
             msg = f"Reserved scopes not allowed: {', '.join(sorted(reserved))}"
             raise InvalidScopesError(msg)
