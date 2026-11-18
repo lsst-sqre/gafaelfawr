@@ -202,7 +202,7 @@ async def get_github_projects(
             title="Repository",
             description=(
                 "Limit the results to projects for this GitHub repository,"
-                " given as ``owner/name`` and compared case-insensitively"
+                " given as owner/name and compared case-insensitively"
             ),
             examples=["lsst-sqre/sqr-062"],
         ),
@@ -236,7 +236,7 @@ async def get_github_projects(
             title="Requested by",
             description=(
                 "Limit the results to projects created on behalf of this"
-                " identifier, as ``<source>:<identifier>``"
+                " identifier, as <source>:<identifier>"
             ),
             examples=["slack:U024BE7LH"],
         ),
@@ -261,7 +261,7 @@ async def get_github_projects(
         " GitHub repository; its numeric GitHub IDs are looked up and pinned"
         " so that the project keeps trusting the original repository if the"
         " name is later reused. If no username is given, one is derived from"
-        " the repository as ``bot-gh-<owner>-<repo>``. The project is"
+        " the repository as bot-gh-<owner>-<repo>. The project is"
         " refused if it is enabled and its constraints overlap those of an"
         " existing enabled project for the same repository, since at most"
         " one project may match a token. The response is the stored project,"
@@ -366,7 +366,7 @@ async def delete_github_project(
         " the username unless it is also changed. Setting the username to"
         " null derives it from the repository again. Changes to the"
         " constraints are checked for overlap with other enabled projects"
-        " as on creation. Setting ``enabled`` to false revokes every"
+        " as on creation. Setting enabled to false revokes every"
         " outstanding token minted for the project; other changes do not"
         " affect tokens already minted."
     ),

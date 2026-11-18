@@ -14,13 +14,14 @@ from gafaelfawr.constants import COOKIE_NAME, GITHUB_API_URL
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.enums import GitHubProjectChange, TokenChange
 from gafaelfawr.models.github import GitHubRepository
+from gafaelfawr.models.github_project import GitHubProject
 from gafaelfawr.models.state import State
 from gafaelfawr.storage.github_project import GitHubProjectHistoryStore
 
 from ..support.constants import TEST_HOSTNAME
 from ..support.cookies import clear_session_cookie, set_session_cookie
 from ..support.github import mock_github_repositories
-from ..support.tokens import add_github_token, create_session_token
+from ..support.tokens import create_github_token, create_session_token
 
 SQR_062 = GitHubRepository(
     full_name="lsst-sqre/sqr-062", id=123456, owner_id=654321
@@ -178,11 +179,9 @@ async def test_lifecycle(
     assert mock.requests == 2
 
     # Disabling the project revokes its outstanding tokens.
-    token_data = await add_github_token(
-        factory,
-        username="bot-gh-lsst-sqre-ook",
-        github_project_id=project_id,
-        scopes={"read:all"},
+    project = GitHubProject.model_validate(r.json())
+    token_data = await create_github_token(
+        factory, project, scopes={"read:all"}
     )
     token_service = factory.create_token_service()
     assert await token_service.get_data(token_data.token) == token_data

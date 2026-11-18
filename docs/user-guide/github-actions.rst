@@ -45,6 +45,7 @@ The body of the registration request contains the following fields:
     The maximum scopes a token minted for this project may carry, as a list of strings.
     Each must be a scope known to this Gafaelfawr installation.
     ``admin:`` scopes are reserved and may not be granted.
+    Neither may ``user:`` scopes such as ``user:token``, since a token that could create user tokens would not be bound by the project's maximum lifetime.
     The list may be empty for a project whose tokens are used only for identity.
 
 ``username`` (optional)
