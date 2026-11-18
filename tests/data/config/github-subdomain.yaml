@@ -3,6 +3,7 @@
 
 afterLogoutUrl: "https://example.com/landing"
 allowSubdomains: true
+database: {}
 groupMapping:
   "exec:admin": ["admin"]
   "read:all":

@@ -2,6 +2,7 @@
 
 logLevel: "INVALID"
 afterLogoutUrl: "https://example.com/landing"
+database: {}
 groupMapping:
   "exec:admin": ["admin"]
   "exec:test": ["test"]

@@ -17,6 +17,9 @@ Python internal API
 .. automodapi:: gafaelfawr.constants
    :include-all-objects:
 
+.. automodapi:: gafaelfawr.database
+   :include-all-objects:
+
 .. automodapi:: gafaelfawr.dependencies.auth
    :include-all-objects:
 
