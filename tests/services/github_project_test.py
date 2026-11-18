@@ -37,11 +37,7 @@ from gafaelfawr.storage.github_project import (
 )
 
 from ..support.github import mock_github_repositories
-from ..support.tokens import (
-    add_github_project,
-    add_github_token,
-    create_session_token,
-)
+from ..support.tokens import create_github_token, create_session_token
 from ..support.util import assert_is_now
 
 SQR_062 = GitHubRepository(
@@ -506,15 +502,12 @@ async def test_update_project(
 
     # Disabling the project revokes its tokens, recorded with the acting
     # administrator, and other changes do not.
-    token = await add_github_token(
-        factory, username=renamed.username, github_project_id=project.id
+    token = await create_github_token(factory, renamed)
+    child_token = await token_service.get_internal_token(
+        token, "some-service", set(), ip_address="127.0.0.1"
     )
-    child = await add_github_token(
-        factory,
-        username=renamed.username,
-        github_project_id=project.id,
-        parent=token.token.key,
-    )
+    child = await token_service.get_data(child_token)
+    assert child
     update = GitHubProjectUpdate(scopes={"read:all"})
     await service.update_project(project.id, update, admin, ip_address=None)
     assert await token_service.get_data(token.token) == token
@@ -832,7 +825,7 @@ async def test_delete_project(
 ) -> None:
     service = factory.create_github_project_service()
     token_service = factory.create_token_service()
-    mock_github_repositories(respx_mock, [SQR_062])
+    mock_github_repositories(respx_mock, [SQR_062, OOK])
     admin = await create_admin(factory)
     user = await create_session_token(factory, scopes={"user:token"})
     history_store = GitHubProjectHistoryStore(factory.session)
@@ -842,16 +835,13 @@ async def test_delete_project(
         admin,
         ip_address=None,
     )
-    tokens = [
-        await add_github_token(
-            factory, username=project.username, github_project_id=project.id
-        )
-        for _ in range(3)
-    ]
-    other_id = await add_github_project(factory, repository="lsst-sqre/other")
-    other = await add_github_token(
-        factory, username="bot-gh-lsst-sqre-other", github_project_id=other_id
+    tokens = [await create_github_token(factory, project) for _ in range(3)]
+    other_project = await service.create_project(
+        GitHubProjectCreate(repository="lsst-sqre/ook", scopes=set()),
+        admin,
+        ip_address=None,
     )
+    other = await create_github_token(factory, other_project)
 
     with pytest.raises(PermissionDeniedError):
         await service.delete_project(project.id, user, ip_address=None)
@@ -864,7 +854,7 @@ async def test_delete_project(
     await service.delete_project(project.id, admin, ip_address="127.0.0.1")
     with pytest.raises(NotFoundError):
         await service.get_project(project.id, admin)
-    assert [p.id for p in await service.list_projects(admin)] == [other_id]
+    assert await service.list_projects(admin) == [other_project]
     for token in tokens:
         assert await token_service.get_data(token.token) is None
     assert await token_service.get_data(other.token) == other
@@ -890,36 +880,43 @@ async def test_delete_project(
     assert all(e.actor == "some-admin" for e in revoked)
 
 
+@pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
-async def test_delete_project_row_with_tokens(factory: Factory) -> None:
+async def test_delete_project_row_with_tokens(
+    config: Config, factory: Factory, respx_mock: respx.Router
+) -> None:
     """Check that the database refuses to orphan the tokens of a project.
 
     The service revokes the tokens of a project in the transaction that
     deletes it. The foreign key from the token table is what guarantees
     that no other path can delete a project and leave valid tokens behind.
     """
+    service = factory.create_github_project_service()
     token_service = factory.create_token_service()
-    project_store = GitHubProjectStore(factory.session)
-    project_id = await add_github_project(factory)
-    token = await add_github_token(
-        factory,
-        username="bot-gh-lsst-sqre-some-repo",
-        github_project_id=project_id,
+    mock_github_repositories(respx_mock, [SQR_062])
+    admin = await create_admin(factory)
+    project = await service.create_project(
+        GitHubProjectCreate(repository="lsst-sqre/sqr-062", scopes=set()),
+        admin,
+        ip_address=None,
     )
+    token = await create_github_token(factory, project)
 
-    # The constraint is deferred, so the delete itself succeeds and the
-    # violation is reported when the transaction commits.
+    # Delete the project row beneath the service layer, which is the only
+    # way to delete a project without revoking its tokens. The constraint
+    # is deferred, so the delete itself succeeds and the violation is
+    # reported when the transaction commits.
+    project_store = GitHubProjectStore(factory.session)
     with pytest.raises(IntegrityError):
         async with factory.session.begin():
-            assert await project_store.delete(project_id)
+            assert await project_store.delete(project.id)
 
     # The failed commit rolled back the delete and left the token alone.
-    async with factory.session.begin():
-        assert await project_store.get(project_id)
+    assert await service.get_project(project.id, admin) == project
     assert await token_service.get_data(token.token) == token
     info = await token_service.get_token_info_unchecked(token.token.key)
     assert info
-    assert info.github_project_id == project_id
+    assert info.github_project_id == project.id
 
 
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
