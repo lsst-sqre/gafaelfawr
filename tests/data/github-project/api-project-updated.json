@@ -1,0 +1,30 @@
+{
+  "created": "<ANY>",
+  "created_by": "some-admin",
+  "description": "Updated description",
+  "enabled": true,
+  "environment": "production",
+  "gid": 100000,
+  "groups": [
+    {
+      "id": 100000,
+      "name": "bot-gh-lsst-sqre-sqr-062"
+    }
+  ],
+  "id": "<ANY>",
+  "max_lifetime": "PT1H",
+  "modified": "<ANY>",
+  "modified_by": "other-admin",
+  "ref": "refs/tags/",
+  "repository": "lsst-sqre/sqr-062",
+  "repository_id": 123456,
+  "repository_owner_id": 654321,
+  "requested_by": null,
+  "scopes": [
+    "read:all"
+  ],
+  "template": null,
+  "uid": 100000,
+  "username": "bot-gh-lsst-sqre-sqr-062",
+  "workflow": ".github/workflows/docs.yaml"
+}

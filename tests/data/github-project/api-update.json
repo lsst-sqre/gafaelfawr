@@ -1,0 +1,18 @@
+{
+  "description": "Updated description",
+  "environment": "production",
+  "gid": 100000,
+  "groups": [
+    {
+      "id": 100000,
+      "name": "bot-gh-lsst-sqre-sqr-062"
+    }
+  ],
+  "max_lifetime": 3600,
+  "ref": "refs/tags/",
+  "requested_by": null,
+  "scopes": [
+    "read:all"
+  ],
+  "uid": 100000
+}

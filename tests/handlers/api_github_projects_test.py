@@ -7,10 +7,11 @@ from unittest.mock import ANY
 import pytest
 import respx
 from httpx import AsyncClient, ConnectError, Response
+from safir.testing.data import Data
 from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config
-from gafaelfawr.constants import COOKIE_NAME, GITHUB_API_URL
+from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.enums import GitHubProjectChange, TokenChange
 from gafaelfawr.models.github import GitHubRepository
@@ -43,6 +44,7 @@ async def test_lifecycle(
     factory: Factory,
     respx_mock: respx.Router,
     mock_slack: MockSlackWebhook,
+    data: Data,
 ) -> None:
     mock = mock_github_repositories(respx_mock, [SQR_062, OOK])
     admin_data = await create_session_token(
@@ -59,17 +61,7 @@ async def test_lifecycle(
     # the form GitHub reports.
     start = datetime.now(tz=UTC).replace(microsecond=0)
     r = await client.post(
-        URL,
-        json={
-            "description": "Documentation builds for SQR-062",
-            "requested_by": "slack:U024BE7LH",
-            "repository": "LSST-SQRE/SQR-062",
-            "workflow": ".github/workflows/docs.yaml",
-            "ref": "refs/heads/main",
-            "scopes": ["read:all", "exec:test"],
-            "max_lifetime": "PT15M",
-        },
-        headers=headers,
+        URL, json=data.read_json("github-project/api-create"), headers=headers
     )
     now = datetime.now(tz=UTC)
     assert r.status_code == 201
@@ -78,30 +70,12 @@ async def test_lifecycle(
     assert project_id
     expected_url = f"{URL_PREFIX}/{project_id}"
     assert r.headers["Location"] == expected_url
-    expected = {
-        "id": project_id,
-        "template": None,
-        "description": "Documentation builds for SQR-062",
-        "requested_by": "slack:U024BE7LH",
-        "username": "bot-gh-lsst-sqre-sqr-062",
-        "repository": "lsst-sqre/sqr-062",
-        "repository_id": SQR_062.id,
-        "repository_owner_id": SQR_062.owner_id,
-        "workflow": ".github/workflows/docs.yaml",
-        "environment": None,
-        "ref": "refs/heads/main",
-        "scopes": ["exec:test", "read:all"],
-        "max_lifetime": "PT15M",
-        "uid": None,
-        "gid": None,
-        "groups": None,
-        "enabled": True,
-        "created": ANY,
-        "created_by": "some-admin",
-        "modified": project["created"],
-        "modified_by": "some-admin",
-    }
-    assert project == expected
+
+    # IDs and timestamps are wildcards in the expected output, so check
+    # them separately.
+    data.assert_json_matches(project, "github-project/api-project")
+    assert project["modified"] == project["created"]
+    expected = project
     created = datetime.fromisoformat(project["created"])
     assert start <= created <= now
     assert mock.requests == 1
@@ -119,37 +93,16 @@ async def test_lifecycle(
     start = datetime.now(tz=UTC).replace(microsecond=0)
     r = await client.patch(
         expected_url,
-        json={
-            "description": "Updated description",
-            "requested_by": None,
-            "environment": "production",
-            "ref": "refs/tags/",
-            "scopes": ["read:all"],
-            "max_lifetime": 3600,
-            "uid": 100000,
-            "gid": 100000,
-            "groups": [{"name": "bot-gh-lsst-sqre-sqr-062", "id": 100000}],
-        },
+        json=data.read_json("github-project/api-update"),
         headers=other_headers,
     )
     now = datetime.now(tz=UTC)
     assert r.status_code == 200
     project = r.json()
-    new_expected = {
-        **expected,
-        "description": "Updated description",
-        "requested_by": None,
-        "environment": "production",
-        "ref": "refs/tags/",
-        "scopes": ["read:all"],
-        "max_lifetime": "PT1H",
-        "uid": 100000,
-        "gid": 100000,
-        "groups": [{"name": "bot-gh-lsst-sqre-sqr-062", "id": 100000}],
-        "modified": ANY,
-        "modified_by": "other-admin",
-    }
-    assert project == new_expected
+    data.assert_json_matches(project, "github-project/api-project-updated")
+    assert project["id"] == project_id
+    assert project["created"] == expected["created"]
+    new_expected = project
     modified = datetime.fromisoformat(project["modified"])
     assert start <= modified <= now
     assert modified >= created
@@ -541,6 +494,7 @@ async def test_github_failure(
     factory: Factory,
     respx_mock: respx.Router,
     mock_slack: MockSlackWebhook,
+    data: Data,
 ) -> None:
     mock = mock_github_repositories(respx_mock, [SQR_062, OOK])
     admin_data = await create_session_token(factory, scopes={"admin:token"})
@@ -573,59 +527,9 @@ async def test_github_failure(
     r = await client.get(URL, headers=headers)
     assert r.status_code == 200
     assert r.json() == []
-    assert mock_slack.messages == [
-        {
-            "blocks": [
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": (
-                            "Error in Gafaelfawr: Status 403 from GET"
-                            f" {GITHUB_API_URL}/repos/lsst-sqre/sqr-062"
-                        ),
-                        "verbatim": True,
-                    },
-                },
-                {
-                    "type": "section",
-                    "fields": [
-                        {
-                            "type": "mrkdwn",
-                            "text": "*Exception type*\nGitHubWebError",
-                            "verbatim": True,
-                        },
-                        {"type": "mrkdwn", "text": ANY, "verbatim": True},
-                    ],
-                },
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": (
-                            "*URL*\nGET"
-                            f" {GITHUB_API_URL}/repos/lsst-sqre/sqr-062"
-                        ),
-                        "verbatim": True,
-                    },
-                },
-            ],
-            "attachments": [
-                {
-                    "blocks": [
-                        {
-                            "type": "section",
-                            "text": {
-                                "type": "mrkdwn",
-                                "text": ANY,
-                                "verbatim": True,
-                            },
-                        },
-                    ]
-                }
-            ],
-        },
-    ]
+    data.assert_json_matches(
+        mock_slack.messages, "github-project/api-github-failure-slack"
+    )
     attachment = mock_slack.messages[0]["attachments"][0]["blocks"][0]
     assert rate_limit["message"] in attachment["text"]["text"]
     mock_slack.messages.clear()

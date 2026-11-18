@@ -1,0 +1,51 @@
+[
+  {
+    "attachments": [
+      {
+        "blocks": [
+          {
+            "text": {
+              "text": "<ANY>",
+              "type": "mrkdwn",
+              "verbatim": true
+            },
+            "type": "section"
+          }
+        ]
+      }
+    ],
+    "blocks": [
+      {
+        "text": {
+          "text": "Error in Gafaelfawr: Status 403 from GET https://api.github.com/repos/lsst-sqre/sqr-062",
+          "type": "mrkdwn",
+          "verbatim": true
+        },
+        "type": "section"
+      },
+      {
+        "fields": [
+          {
+            "text": "*Exception type*\nGitHubWebError",
+            "type": "mrkdwn",
+            "verbatim": true
+          },
+          {
+            "text": "<ANY>",
+            "type": "mrkdwn",
+            "verbatim": true
+          }
+        ],
+        "type": "section"
+      },
+      {
+        "text": {
+          "text": "*URL*\nGET https://api.github.com/repos/lsst-sqre/sqr-062",
+          "type": "mrkdwn",
+          "verbatim": true
+        },
+        "type": "section"
+      }
+    ]
+  }
+]
