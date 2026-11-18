@@ -1,0 +1,12 @@
+{
+  "created": "<ANY>",
+  "expires": "<ANY>",
+  "github_project_id": "<ANY>",
+  "scopes": [
+    "exec:test",
+    "read:all"
+  ],
+  "token": "<ANY>",
+  "token_type": "github",
+  "username": "bot-gh-lsst-sqre-ook"
+}

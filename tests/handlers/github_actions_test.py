@@ -2,13 +2,14 @@
 
 from datetime import timedelta
 from typing import Any
-from unittest.mock import ANY, patch
+from unittest.mock import patch
 
 import pytest
 import respx
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from safir.metrics import MockEventPublisher
+from safir.testing.data import Data
 from safir.testing.slack import MockSlackWebhook
 from sqlalchemy.exc import IntegrityError
 
@@ -22,7 +23,7 @@ from gafaelfawr.constants import (
 from gafaelfawr.dependencies.context import context_dependency
 from gafaelfawr.factory import Factory
 from gafaelfawr.keypair import RSAKeyPair
-from gafaelfawr.models.enums import TokenChange, TokenType
+from gafaelfawr.models.enums import TokenType
 from gafaelfawr.models.github import GitHubRepository
 from gafaelfawr.models.github_project import (
     GitHubProject,
@@ -30,7 +31,6 @@ from gafaelfawr.models.github_project import (
     GitHubProjectUpdate,
 )
 from gafaelfawr.models.token import Token
-from gafaelfawr.models.userinfo import Group
 from gafaelfawr.storage.github_project import GitHubProjectStore
 from gafaelfawr.storage.token import TokenDatabaseStore
 
@@ -94,20 +94,18 @@ def published_exchanges() -> MockEventPublisher:
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_exchange(
-    client: AsyncClient, factory: Factory, respx_mock: respx.Router
+    client: AsyncClient,
+    factory: Factory,
+    respx_mock: respx.Router,
+    data: Data,
 ) -> None:
     mock_github_repositories(respx_mock, [OOK])
     mock = mock_github_actions_oidc(respx_mock)
+    create = data.read_pydantic(
+        GitHubProjectCreate, "github-actions/exchange-project"
+    )
     project = await register_project(
-        factory,
-        OOK,
-        workflow=".github/workflows/ci.yaml",
-        ref="refs/heads/main",
-        scopes={"read:all", "exec:test"},
-        max_lifetime=timedelta(minutes=15),
-        uid=2000,
-        gid=3000,
-        groups=[Group(name="bots", id=4000)],
+        factory, OOK, **create.model_dump(exclude={"repository"})
     )
 
     # Exchange a token without requesting scopes, which grants every scope
@@ -118,13 +116,10 @@ async def test_exchange(
     assert r.headers["Cache-Control"] == "no-store"
     assert r.headers["Pragma"] == "no-cache"
     reply = r.json()
-    assert reply == {
-        "access_token": ANY,
-        "issued_token_type": OAUTH_ACCESS_TOKEN_TYPE,
-        "token_type": "Bearer",
-        "expires_in": ANY,
-        "scope": "exec:test read:all",
-    }
+
+    # Tokens, IDs, and times are wildcards in the expected output here and
+    # below, so check them separately.
+    data.assert_json_matches(reply, "github-actions/exchange-reply")
     assert 15 * 60 - 5 <= reply["expires_in"] <= 15 * 60
     token = Token.from_str(reply["access_token"])
     assert mock.jwks_requests == 1
@@ -135,24 +130,13 @@ async def test_exchange(
     r = await client.get("/auth/api/v1/token-info", headers=headers)
     assert r.status_code == 200
     info = r.json()
-    assert info == {
-        "token": token.key,
-        "username": "bot-gh-lsst-sqre-ook",
-        "token_type": "github",
-        "scopes": ["exec:test", "read:all"],
-        "created": ANY,
-        "expires": ANY,
-        "github_project_id": project.id,
-    }
+    data.assert_json_matches(info, "github-actions/exchange-token-info")
+    assert info["token"] == token.key
+    assert info["github_project_id"] == project.id
     assert info["expires"] - info["created"] == 15 * 60
     r = await client.get("/auth/api/v1/user-info", headers=headers)
     assert r.status_code == 200
-    assert r.json() == {
-        "username": "bot-gh-lsst-sqre-ook",
-        "uid": 2000,
-        "gid": 3000,
-        "groups": [{"name": "bots", "id": 4000}],
-    }
+    data.assert_json_matches(r.json(), "github-actions/exchange-user-info")
 
     # The creation is recorded in the token change history with the bot
     # user as the actor, the runner's address, and the project.
@@ -164,24 +148,10 @@ async def test_exchange(
         admin, token_type=TokenType.github
     )
     assert len(history.entries) == 1
-    assert history.entries[0].model_dump(mode="json") == {
-        "token": token.key,
-        "username": "bot-gh-lsst-sqre-ook",
-        "token_type": "github",
-        "token_name": None,
-        "parent": None,
-        "scopes": ["exec:test", "read:all"],
-        "service": None,
-        "expires": ANY,
-        "actor": "bot-gh-lsst-sqre-ook",
-        "action": TokenChange.create.value,
-        "old_token_name": None,
-        "old_scopes": None,
-        "old_expires": None,
-        "ip_address": "127.0.0.1",
-        "event_time": ANY,
-        "github_project_id": project.id,
-    }
+    entry = history.entries[0]
+    data.assert_pydantic_matches(entry, "github-actions/exchange-history")
+    assert entry.token == token.key
+    assert entry.github_project_id == project.id
 
     # The exchange is recorded as a metrics event tying the token to the
     # workflow run.

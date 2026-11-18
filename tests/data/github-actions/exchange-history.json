@@ -1,0 +1,21 @@
+{
+  "action": "create",
+  "actor": "bot-gh-lsst-sqre-ook",
+  "event_time": "<ANY>",
+  "expires": "<ANY>",
+  "github_project_id": "<ANY>",
+  "ip_address": "127.0.0.1",
+  "old_expires": null,
+  "old_scopes": null,
+  "old_token_name": null,
+  "parent": null,
+  "scopes": [
+    "exec:test",
+    "read:all"
+  ],
+  "service": null,
+  "token": "<ANY>",
+  "token_name": null,
+  "token_type": "github",
+  "username": "bot-gh-lsst-sqre-ook"
+}

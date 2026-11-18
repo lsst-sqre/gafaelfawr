@@ -1,0 +1,11 @@
+{
+  "gid": 3000,
+  "groups": [
+    {
+      "id": 4000,
+      "name": "bots"
+    }
+  ],
+  "uid": 2000,
+  "username": "bot-gh-lsst-sqre-ook"
+}

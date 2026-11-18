@@ -1,0 +1,7 @@
+{
+  "access_token": "<ANY>",
+  "expires_in": "<ANY>",
+  "issued_token_type": "urn:ietf:params:oauth:token-type:access_token",
+  "scope": "exec:test read:all",
+  "token_type": "Bearer"
+}
