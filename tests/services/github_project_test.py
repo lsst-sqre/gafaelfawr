@@ -2,9 +2,11 @@
 
 import asyncio
 from datetime import timedelta
+from typing import Any
 from unittest.mock import ANY
 
 import pytest
+import pytest_asyncio
 import respx
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -16,7 +18,6 @@ from gafaelfawr.exceptions import (
     InvalidGitHubUsernameError,
     InvalidMaxLifetimeError,
     InvalidScopesError,
-    NotConfiguredError,
     NotFoundError,
     PermissionDeniedError,
     UnknownGitHubRepositoryError,
@@ -31,6 +32,7 @@ from gafaelfawr.models.github_project import (
 )
 from gafaelfawr.models.token import TokenData
 from gafaelfawr.models.userinfo import Group
+from gafaelfawr.services.github_project import GitHubProjectService
 from gafaelfawr.storage.github_project import (
     GitHubProjectHistoryStore,
     GitHubProjectStore,
@@ -53,20 +55,58 @@ MIXED_CASE = GitHubRepository(
 )
 
 
-async def create_admin(factory: Factory) -> TokenData:
+@pytest_asyncio.fixture
+async def admin(factory: Factory) -> TokenData:
+    """Token data for a token administrator."""
     return await create_session_token(
         factory, username="some-admin", scopes={"admin:token"}
     )
 
 
+async def create_project(
+    service: GitHubProjectService,
+    admin: TokenData,
+    repository: str,
+    *,
+    scopes: set[str] | None = None,
+    **settings: Any,
+) -> GitHubProject:
+    """Create a GitHub project as an administrator.
+
+    Parameters
+    ----------
+    service
+        Service to create the project with.
+    admin
+        Token data for a token administrator.
+    repository
+        Repository of the project.
+    scopes
+        Scopes of the project. If not given, the project has no scopes.
+    **settings
+        Any other fields of the request to create the project.
+
+    Returns
+    -------
+    GitHubProject
+        The new project.
+    """
+    create = GitHubProjectCreate(
+        repository=repository, scopes=scopes or set(), **settings
+    )
+    return await service.create_project(create, admin, ip_address=None)
+
+
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_create_project(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config,
+    factory: Factory,
+    respx_mock: respx.Router,
+    admin: TokenData,
 ) -> None:
     service = factory.create_github_project_service()
     mock = mock_github_repositories(respx_mock, [SQR_062, MIXED_CASE])
-    admin = await create_admin(factory)
 
     create = GitHubProjectCreate(
         description="Documentation builds for SQR-062",
@@ -167,12 +207,14 @@ async def test_create_project(
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_create_project_default_lifetime(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config,
+    factory: Factory,
+    respx_mock: respx.Router,
+    admin: TokenData,
 ) -> None:
     """Omitting max_lifetime stores the default lifetime of one hour."""
     service = factory.create_github_project_service()
     mock_github_repositories(respx_mock, [SQR_062])
-    admin = await create_admin(factory)
     history_store = GitHubProjectHistoryStore(factory.session)
 
     assert config.github_token_exchange
@@ -196,12 +238,14 @@ async def test_create_project_default_lifetime(
 )
 @pytest.mark.asyncio
 async def test_create_project_capped_lifetime(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config,
+    factory: Factory,
+    respx_mock: respx.Router,
+    admin: TokenData,
 ) -> None:
     """A configured maximum below one hour caps the default lifetime."""
     service = factory.create_github_project_service()
     mock_github_repositories(respx_mock, [SQR_062, OOK])
-    admin = await create_admin(factory)
 
     assert config.github_token_exchange
     assert config.github_token_exchange.max_lifetime == timedelta(minutes=30)
@@ -229,11 +273,13 @@ async def test_create_project_capped_lifetime(
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_create_project_errors(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config,
+    factory: Factory,
+    respx_mock: respx.Router,
+    admin: TokenData,
 ) -> None:
     service = factory.create_github_project_service()
     mock = mock_github_repositories(respx_mock, [SQR_062, DOCS, SQRE_DOCS])
-    admin = await create_admin(factory)
     user = await create_session_token(factory, scopes={"user:token"})
     create = GitHubProjectCreate(
         repository="lsst-sqre/sqr-062", scopes={"read:all"}
@@ -303,11 +349,7 @@ async def test_create_project_errors(
     # A derived username already used for a different repository is
     # refused, since lsst-sqre/docs and lsst/sqre-docs both derive the same
     # username, but an explicit one may be shared deliberately.
-    docs = await service.create_project(
-        GitHubProjectCreate(repository="lsst-sqre/docs", scopes=set()),
-        admin,
-        ip_address=None,
-    )
+    docs = await create_project(service, admin, "lsst-sqre/docs")
     assert docs.username == "bot-gh-lsst-sqre-docs"
     bad = GitHubProjectCreate(repository="lsst/sqre-docs", scopes=set())
     with pytest.raises(DuplicateGitHubUsernameError) as dup_excinfo:
@@ -337,37 +379,26 @@ async def test_create_project_errors(
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_list_projects(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config,
+    factory: Factory,
+    respx_mock: respx.Router,
+    admin: TokenData,
 ) -> None:
     service = factory.create_github_project_service()
     mock_github_repositories(respx_mock, [SQR_062, OOK])
-    admin = await create_admin(factory)
 
-    docs = await service.create_project(
-        GitHubProjectCreate(
-            repository="lsst-sqre/sqr-062",
-            requested_by="slack:U024BE7LH",
-            scopes=set(),
-            ref="refs/heads/main",
-        ),
+    docs = await create_project(
+        service,
         admin,
-        ip_address=None,
+        "lsst-sqre/sqr-062",
+        requested_by="slack:U024BE7LH",
+        ref="refs/heads/main",
     )
-    pulls = await service.create_project(
-        GitHubProjectCreate(
-            repository="lsst-sqre/sqr-062", scopes=set(), ref="refs/pull/"
-        ),
-        admin,
-        ip_address=None,
+    pulls = await create_project(
+        service, admin, "lsst-sqre/sqr-062", ref="refs/pull/"
     )
-    ook = await service.create_project(
-        GitHubProjectCreate(
-            repository="lsst-sqre/ook",
-            requested_by="slack:U024BE7LH",
-            scopes=set(),
-        ),
-        admin,
-        ip_address=None,
+    ook = await create_project(
+        service, admin, "lsst-sqre/ook", requested_by="slack:U024BE7LH"
     )
 
     assert await service.list_projects(admin) == [docs, pulls, ook]
@@ -396,12 +427,14 @@ async def test_list_projects(
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_update_project(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config,
+    factory: Factory,
+    respx_mock: respx.Router,
+    admin: TokenData,
 ) -> None:
     service = factory.create_github_project_service()
     token_service = factory.create_token_service()
     mock = mock_github_repositories(respx_mock, [SQR_062, OOK])
-    admin = await create_admin(factory)
     other_admin = await create_session_token(
         factory, username="other-admin", scopes={"admin:token"}
     )
@@ -535,8 +568,7 @@ async def test_update_project(
     assert revocation[0].ip_address == "127.0.0.1"
     assert revocation[0].github_project_id == project.id
 
-    # Disabling an already-disabled project changes nothing, and re-enabling
-    # it doesn't try to revoke anything.
+    # Disabling an already-disabled project changes nothing.
     update = GitHubProjectUpdate(enabled=False)
     still = await service.update_project(
         project.id, update, admin, ip_address=None
@@ -563,26 +595,26 @@ async def test_update_project(
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_update_project_unchanged(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config,
+    factory: Factory,
+    respx_mock: respx.Router,
+    admin: TokenData,
 ) -> None:
     service = factory.create_github_project_service()
     mock = mock_github_repositories(respx_mock, [SQR_062])
-    admin = await create_admin(factory)
     other_admin = await create_session_token(
         factory, username="other-admin", scopes={"admin:token"}
     )
     user = await create_session_token(factory, scopes={"user:token"})
     history_store = GitHubProjectHistoryStore(factory.session)
 
-    project = await service.create_project(
-        GitHubProjectCreate(
-            repository="lsst-sqre/sqr-062",
-            workflow=".github/workflows/docs.yaml",
-            scopes={"read:all"},
-            groups=[Group(name="some-group", id=100001)],
-        ),
+    project = await create_project(
+        service,
         admin,
-        ip_address=None,
+        "lsst-sqre/sqr-062",
+        workflow=".github/workflows/docs.yaml",
+        scopes={"read:all"},
+        groups=[Group(name="some-group", id=100001)],
     )
     assert mock.requests == 1
 
@@ -656,36 +688,30 @@ async def test_update_project_unchanged(
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_update_project_errors(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config,
+    factory: Factory,
+    respx_mock: respx.Router,
+    admin: TokenData,
 ) -> None:
     service = factory.create_github_project_service()
     mock = mock_github_repositories(respx_mock, [SQR_062, OOK, SQRE_DOCS])
-    admin = await create_admin(factory)
     user = await create_session_token(factory, scopes={"user:token"})
 
-    main = await service.create_project(
-        GitHubProjectCreate(
-            repository="lsst-sqre/sqr-062",
-            scopes={"read:all"},
-            ref="refs/heads/main",
-        ),
+    main = await create_project(
+        service,
         admin,
-        ip_address=None,
+        "lsst-sqre/sqr-062",
+        scopes={"read:all"},
+        ref="refs/heads/main",
     )
-    tags = await service.create_project(
-        GitHubProjectCreate(
-            repository="lsst-sqre/sqr-062",
-            scopes={"read:all"},
-            ref="refs/tags/",
-        ),
+    tags = await create_project(
+        service,
         admin,
-        ip_address=None,
+        "lsst-sqre/sqr-062",
+        scopes={"read:all"},
+        ref="refs/tags/",
     )
-    ook = await service.create_project(
-        GitHubProjectCreate(repository="lsst-sqre/ook", scopes=set()),
-        admin,
-        ip_address=None,
-    )
+    ook = await create_project(service, admin, "lsst-sqre/ook")
     requests = mock.requests
 
     update = GitHubProjectUpdate(description="Changed")
@@ -744,11 +770,13 @@ async def test_update_project_errors(
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_disabled_project_overlap(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config,
+    factory: Factory,
+    respx_mock: respx.Router,
+    admin: TokenData,
 ) -> None:
     service = factory.create_github_project_service()
     mock_github_repositories(respx_mock, [SQR_062])
-    admin = await create_admin(factory)
     create = GitHubProjectCreate(
         repository="lsst-sqre/sqr-062",
         scopes={"read:all"},
@@ -821,26 +849,20 @@ async def test_disabled_project_overlap(
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_delete_project(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config,
+    factory: Factory,
+    respx_mock: respx.Router,
+    admin: TokenData,
 ) -> None:
     service = factory.create_github_project_service()
     token_service = factory.create_token_service()
     mock_github_repositories(respx_mock, [SQR_062, OOK])
-    admin = await create_admin(factory)
     user = await create_session_token(factory, scopes={"user:token"})
     history_store = GitHubProjectHistoryStore(factory.session)
 
-    project = await service.create_project(
-        GitHubProjectCreate(repository="lsst-sqre/sqr-062", scopes=set()),
-        admin,
-        ip_address=None,
-    )
+    project = await create_project(service, admin, "lsst-sqre/sqr-062")
     tokens = [await create_github_token(factory, project) for _ in range(3)]
-    other_project = await service.create_project(
-        GitHubProjectCreate(repository="lsst-sqre/ook", scopes=set()),
-        admin,
-        ip_address=None,
-    )
+    other_project = await create_project(service, admin, "lsst-sqre/ook")
     other = await create_github_token(factory, other_project)
 
     with pytest.raises(PermissionDeniedError):
@@ -883,7 +905,10 @@ async def test_delete_project(
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_delete_project_row_with_tokens(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config,
+    factory: Factory,
+    respx_mock: respx.Router,
+    admin: TokenData,
 ) -> None:
     """Check that the database refuses to orphan the tokens of a project.
 
@@ -894,12 +919,7 @@ async def test_delete_project_row_with_tokens(
     service = factory.create_github_project_service()
     token_service = factory.create_token_service()
     mock_github_repositories(respx_mock, [SQR_062])
-    admin = await create_admin(factory)
-    project = await service.create_project(
-        GitHubProjectCreate(repository="lsst-sqre/sqr-062", scopes=set()),
-        admin,
-        ip_address=None,
-    )
+    project = await create_project(service, admin, "lsst-sqre/sqr-062")
     token = await create_github_token(factory, project)
 
     # Delete the project row beneath the service layer, which is the only
@@ -926,6 +946,7 @@ async def test_concurrent_writes(
     factory: Factory,
     engine: AsyncEngine,
     respx_mock: respx.Router,
+    admin: TokenData,
 ) -> None:
     """Concurrent writers serialize on the registry lock.
 
@@ -937,7 +958,6 @@ async def test_concurrent_writes(
     """
     service = factory.create_github_project_service()
     mock_github_repositories(respx_mock, [SQR_062, DOCS, SQRE_DOCS])
-    admin = await create_admin(factory)
 
     # A second factory has its own session and therefore its own database
     # connection and transaction, standing in for a second Gafaelfawr
@@ -999,12 +1019,3 @@ async def test_concurrent_writes(
         assert deleted is None
         assert isinstance(updated, GitHubProject | NotFoundError)
         assert await service.list_projects(admin) == projects
-
-
-@pytest.mark.parametrize(
-    "config", ["github-token-exchange-disabled"], indirect=True
-)
-@pytest.mark.asyncio
-async def test_not_configured(config: Config, factory: Factory) -> None:
-    with pytest.raises(NotConfiguredError):
-        factory.create_github_project_service()

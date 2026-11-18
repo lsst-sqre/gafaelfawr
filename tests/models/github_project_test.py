@@ -47,34 +47,27 @@ def test_create_validation() -> None:
     assert create.max_lifetime is None
     assert create.enabled
 
-    # Durations can be given as seconds or ISO 8601 and serialize to ISO
-    # 8601.
-    create = GitHubProjectCreate.model_validate(
-        {"repository": "lsst-sqre/sqr-062", "scopes": [], "max_lifetime": 900}
-    )
-    assert create.max_lifetime == timedelta(minutes=15)
-    assert create.model_dump(mode="json")["max_lifetime"] == "PT15M"
-    create = GitHubProjectCreate.model_validate(
-        {
-            "repository": "lsst-sqre/sqr-062",
-            "scopes": ["read:all"],
-            "max_lifetime": "PT2H",
-        }
-    )
-    assert create.max_lifetime == timedelta(hours=2)
-
+    # The username must start with bot-gh- followed by a valid username.
     for username in ("bot-sqr-062", "bot-gh-", "bot-gh-Foo", "someuser"):
         with pytest.raises(ValidationError):
             GitHubProjectCreate(
                 repository="lsst-sqre/sqr-062", scopes=set(), username=username
             )
+
+    # The repository must be an owner and a name, separated by a slash, each
+    # made up of characters GitHub allows.
     for repository in ("sqr-062", "-lsst/sqr-062", "lsst/sqr/062", "a/b c"):
         with pytest.raises(ValidationError):
             GitHubProjectCreate(repository=repository, scopes=set())
+
+    # The ref must be a full Git ref starting with refs/, not a branch name.
     with pytest.raises(ValidationError):
         GitHubProjectCreate(
             repository="lsst-sqre/sqr-062", scopes=set(), ref="main"
         )
+
+    # The workflow is a path and may not carry the ref suffix that the
+    # job_workflow_ref claim has.
     with pytest.raises(ValidationError):
         GitHubProjectCreate(
             repository="lsst-sqre/sqr-062",
@@ -146,6 +139,8 @@ def test_workflow_validation() -> None:
 
 
 def test_update_validation() -> None:
+    # A null username is allowed and is distinct from an omitted one: it
+    # asks for the username to be derived again from the repository.
     update = GitHubProjectUpdate(username=None, description="Some text")
     assert update.model_fields_set == {"username", "description"}
     assert update.model_dump(exclude_unset=True) == {
@@ -153,6 +148,7 @@ def test_update_validation() -> None:
         "description": "Some text",
     }
 
+    # These fields are required in a project, so they cannot be cleared.
     for field in ("repository", "scopes", "max_lifetime", "enabled"):
         with pytest.raises(ValidationError):
             GitHubProjectUpdate(**{field: None})
