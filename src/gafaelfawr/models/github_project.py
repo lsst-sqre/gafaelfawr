@@ -301,8 +301,9 @@ class GitHubProjectUpdate(BaseModel):
     """Changes to a GitHub project.
 
     Fields that are not set are left unchanged. Setting an optional field to
-    null clears it. Setting ``username`` to null derives it from the
-    repository again, and changing ``repository`` looks up its IDs again.
+    null clears it. Changing ``repository`` looks up its IDs again but leaves
+    the username unchanged. Setting ``username`` to null derives it again
+    from the repository, using the new repository if that is also changed.
     """
 
     description: Annotated[str | None, _DESCRIPTION] = None
@@ -315,9 +316,11 @@ class GitHubProjectUpdate(BaseModel):
         Field(
             description=(
                 "Username for which tokens are minted. Must start with"
-                " bot-gh- and otherwise be a valid username. Derived"
-                " from the repository as bot-gh-<owner>-<repo> if set"
-                " to null."
+                " bot-gh- and otherwise be a valid username. If omitted,"
+                " the username is left unchanged, even if the repository"
+                " changes. If set to null, the username is derived again"
+                " as bot-gh-<owner>-<repo> from the repository, using the"
+                " new repository if the update also changes it."
             )
         ),
     ] = None
