@@ -8,6 +8,7 @@ from unittest.mock import ANY
 import pytest
 import pytest_asyncio
 import respx
+from safir.testing.data import Data
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -104,43 +105,20 @@ async def test_create_project(
     factory: Factory,
     respx_mock: respx.Router,
     admin: TokenData,
+    data: Data,
 ) -> None:
     service = factory.create_github_project_service()
     mock = mock_github_repositories(respx_mock, [SQR_062, MIXED_CASE])
 
-    create = GitHubProjectCreate(
-        description="Documentation builds for SQR-062",
-        requested_by="slack:U024BE7LH",
-        repository="LSST-SQRE/SQR-062",
-        workflow=".github/workflows/docs.yaml",
-        ref="refs/heads/main",
-        scopes={"read:all", "exec:test"},
-        max_lifetime=timedelta(minutes=15),
-    )
+    # IDs and timestamps are wildcards in the expected output, so check
+    # them separately.
+    create = data.read_pydantic(GitHubProjectCreate, "github-project/create")
     project = await service.create_project(
         create, admin, ip_address="127.0.0.1"
     )
-    assert project.id
-    assert project.template is None
-    assert project.description == "Documentation builds for SQR-062"
-    assert project.requested_by == "slack:U024BE7LH"
-    assert project.username == "bot-gh-lsst-sqre-sqr-062"
-    assert project.repository == "lsst-sqre/sqr-062"
-    assert project.repository_id == SQR_062.id
-    assert project.repository_owner_id == SQR_062.owner_id
-    assert project.workflow == ".github/workflows/docs.yaml"
-    assert project.environment is None
-    assert project.ref == "refs/heads/main"
-    assert project.scopes == {"exec:test", "read:all"}
-    assert project.max_lifetime == timedelta(minutes=15)
-    assert project.uid is None
-    assert project.gid is None
-    assert project.groups is None
-    assert project.enabled
+    data.assert_pydantic_matches(project, "github-project/project")
     assert_is_now(project.created)
-    assert project.created_by == "some-admin"
     assert project.modified == project.created
-    assert project.modified_by == "some-admin"
     assert mock.requests == 1
 
     # The stored project matches what was returned.
@@ -152,41 +130,17 @@ async def test_create_project(
     async with factory.session.begin():
         history = await history_store.list(project_id=project.id)
     assert len(history) == 1
-    assert history[0].model_dump() == {
-        "project_id": project.id,
-        "template": None,
-        "action": GitHubProjectChange.create,
-        "actor": "some-admin",
-        "ip_address": "127.0.0.1",
-        "event_time": ANY,
-        "old_values": None,
-        "new_values": project.model_dump(mode="json"),
-    }
+    data.assert_pydantic_matches(history[0], "github-project/history-create")
+    assert history[0].project_id == project.id
+    assert history[0].new_values == project.model_dump(mode="json")
     assert_is_now(history[0].event_time)
-    assert history[0].new_values
-    assert history[0].new_values["max_lifetime"] == "PT15M"
-    assert history[0].new_values["scopes"] == ["exec:test", "read:all"]
 
     # An explicit username, identity attributes, and a disabled project.
-    create = GitHubProjectCreate(
-        username="bot-gh-mixed",
-        repository="lsst-sqre/mixed.case_repo",
-        environment="production",
-        scopes=set(),
-        uid=100000,
-        gid=100000,
-        groups=[Group(name="bot-gh-mixed", id=100000)],
-        enabled=False,
+    create = data.read_pydantic(
+        GitHubProjectCreate, "github-project/create-explicit"
     )
     project = await service.create_project(create, admin, ip_address=None)
-    assert project.username == "bot-gh-mixed"
-    assert project.repository == "LSST-SQRE/Mixed.Case_Repo"
-    assert project.repository_id == MIXED_CASE.id
-    assert project.scopes == set()
-    assert project.uid == 100000
-    assert project.gid == 100000
-    assert project.groups == [Group(name="bot-gh-mixed", id=100000)]
-    assert not project.enabled
+    data.assert_pydantic_matches(project, "github-project/project-explicit")
     assert await service.get_project(project.id, admin) == project
     async with factory.session.begin():
         history = await history_store.list(project_id=project.id)
@@ -431,6 +385,7 @@ async def test_update_project(
     factory: Factory,
     respx_mock: respx.Router,
     admin: TokenData,
+    data: Data,
 ) -> None:
     service = factory.create_github_project_service()
     token_service = factory.create_token_service()
@@ -440,16 +395,11 @@ async def test_update_project(
     )
     history_store = GitHubProjectHistoryStore(factory.session)
 
-    project = await service.create_project(
-        GitHubProjectCreate(
-            description="Original",
-            repository="lsst-sqre/sqr-062",
-            workflow=".github/workflows/docs.yaml",
-            scopes={"read:all"},
-        ),
-        admin,
-        ip_address=None,
+    create = data.read_pydantic(
+        GitHubProjectCreate, "github-project/create-update"
     )
+    project = await service.create_project(create, admin, ip_address=None)
+    data.assert_pydantic_matches(project, "github-project/project-update")
     assert mock.requests == 1
 
     # Change some fields, clear one, and leave the rest alone.
@@ -853,6 +803,7 @@ async def test_delete_project(
     factory: Factory,
     respx_mock: respx.Router,
     admin: TokenData,
+    data: Data,
 ) -> None:
     service = factory.create_github_project_service()
     token_service = factory.create_token_service()
@@ -883,16 +834,10 @@ async def test_delete_project(
 
     async with factory.session.begin():
         history = await history_store.list(project_id=project.id)
-    assert history[-1].model_dump() == {
-        "project_id": project.id,
-        "template": None,
-        "action": GitHubProjectChange.delete,
-        "actor": "some-admin",
-        "ip_address": "127.0.0.1",
-        "event_time": ANY,
-        "old_values": project.model_dump(mode="json"),
-        "new_values": None,
-    }
+    data.assert_pydantic_matches(history[-1], "github-project/history-delete")
+    assert history[-1].project_id == project.id
+    assert history[-1].old_values == project.model_dump(mode="json")
+    assert_is_now(history[-1].event_time)
     changes = await token_service.get_change_history(
         admin, username=project.username
     )

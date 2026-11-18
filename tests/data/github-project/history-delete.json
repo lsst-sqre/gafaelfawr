@@ -1,0 +1,32 @@
+{
+  "action": "delete",
+  "actor": "some-admin",
+  "event_time": "<ANY>",
+  "ip_address": "127.0.0.1",
+  "new_values": null,
+  "old_values": {
+    "created": "<ANY>",
+    "created_by": "some-admin",
+    "description": null,
+    "enabled": true,
+    "environment": null,
+    "gid": null,
+    "groups": null,
+    "id": "<ANY>",
+    "max_lifetime": "PT1H",
+    "modified": "<ANY>",
+    "modified_by": "some-admin",
+    "ref": null,
+    "repository": "lsst-sqre/sqr-062",
+    "repository_id": 123456,
+    "repository_owner_id": 654321,
+    "requested_by": null,
+    "scopes": [],
+    "template": null,
+    "uid": null,
+    "username": "bot-gh-lsst-sqre-sqr-062",
+    "workflow": null
+  },
+  "project_id": "<ANY>",
+  "template": null
+}
