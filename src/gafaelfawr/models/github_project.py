@@ -9,7 +9,7 @@ import re
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Self
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import AfterValidator, BaseModel, Field, model_validator
 from safir.pydantic import UtcDatetime
 
 from ..constants import GITHUB_BOT_USERNAME_REGEX, GITHUB_REPOSITORY_REGEX
@@ -39,7 +39,7 @@ _REQUESTED_BY = Field(
     title="Requested by",
     description=(
         "Opaque identifier of the person on whose behalf the project was"
-        " created, as ``<source>:<identifier>``. Recorded and filterable but"
+        " created, as <source>:<identifier>. Recorded and filterable but"
         " never interpreted."
     ),
     examples=["slack:U024BE7LH", "gafaelfawr:someuser"],
@@ -50,7 +50,7 @@ _REQUESTED_BY = Field(
 _USERNAME = Field(
     title="Bot username",
     description=(
-        "Username for which tokens are minted. Must start with ``bot-gh-``"
+        "Username for which tokens are minted. Must start with bot-gh-"
         " and otherwise be a valid username. Several projects may share one."
     ),
     examples=["bot-gh-lsst-sqre-sqr-062"],
@@ -62,8 +62,8 @@ _USERNAME = Field(
 _REPOSITORY = Field(
     title="Repository",
     description=(
-        "GitHub repository as ``owner/name``, matched case-insensitively"
-        " against the ``repository`` claim. Must be a public repository."
+        "GitHub repository as owner/name, matched case-insensitively"
+        " against the repository claim. Must be a public repository."
     ),
     examples=["lsst-sqre/sqr-062"],
     min_length=3,
@@ -76,7 +76,7 @@ _REPOSITORY_ID = Field(
     description=(
         "Numeric GitHub ID of the repository, looked up when the project is"
         " created or its repository is changed and compared against the"
-        " ``repository_id`` claim"
+        " repository_id claim"
     ),
     examples=[123456],
 )
@@ -86,7 +86,7 @@ _REPOSITORY_OWNER_ID = Field(
     description=(
         "Numeric GitHub ID of the repository owner, looked up when the"
         " project is created or its repository is changed and compared"
-        " against the ``repository_owner_id`` claim"
+        " against the repository_owner_id claim"
     ),
     examples=[654321],
 )
@@ -95,11 +95,11 @@ _WORKFLOW = Field(
     title="Workflow",
     description=(
         "Workflow file, compared against the path part of the"
-        " ``job_workflow_ref`` claim. Either ``.github/workflows/<file>``"
+        " job_workflow_ref claim. Either .github/workflows/<file>"
         " for a workflow in the project repository or"
-        " ``<owner>/<repo>/.github/workflows/<file>`` for a reusable"
+        " <owner>/<repo>/.github/workflows/<file> for a reusable"
         " workflow in another repository. No other forms are accepted, and"
-        " a ref suffix such as ``@refs/heads/main`` is not allowed. Matches"
+        " a ref suffix such as @refs/heads/main is not allowed. Matches"
         " any workflow if unset."
     ),
     examples=[
@@ -113,7 +113,7 @@ _ENVIRONMENT = Field(
     title="Environment",
     description=(
         "GitHub Actions environment name, compared against the"
-        " ``environment`` claim. Tokens without that claim never match if"
+        " environment claim. Tokens without that claim never match if"
         " this is set. Matches any environment if unset."
     ),
     examples=["production"],
@@ -123,9 +123,9 @@ _ENVIRONMENT = Field(
 _REF = Field(
     title="Git ref",
     description=(
-        "Git ref, compared against the ``ref`` claim. Either an exact value"
-        " such as ``refs/heads/main`` or a prefix ending in ``/`` such as"
-        " ``refs/tags/``. Matches any ref if unset."
+        "Git ref, compared against the ref claim. Either an exact value"
+        " such as refs/heads/main or a prefix ending in / such as"
+        " refs/tags/. Matches any ref if unset."
     ),
     examples=["refs/heads/main", "refs/tags/"],
     min_length=6,
@@ -136,7 +136,7 @@ _SCOPES = Field(
     title="Scopes",
     description=(
         "Maximum scopes a minted token may carry. Each must be a known"
-        " scope and may not be an ``admin:`` scope."
+        " scope and may not be an admin: scope."
     ),
     examples=[["write:docverse", "exec:linkcheck"]],
 )
@@ -256,8 +256,8 @@ class GitHubProjectCreate(BaseModel):
         Field(
             description=(
                 "Username for which tokens are minted. Must start with"
-                " ``bot-gh-`` and otherwise be a valid username. Derived"
-                " from the repository as ``bot-gh-<owner>-<repo>`` if"
+                " bot-gh- and otherwise be a valid username. Derived"
+                " from the repository as bot-gh-<owner>-<repo> if"
                 " omitted."
             )
         ),
@@ -265,7 +265,9 @@ class GitHubProjectCreate(BaseModel):
 
     repository: Annotated[str, _REPOSITORY]
 
-    workflow: Annotated[str | None, _WORKFLOW] = None
+    workflow: Annotated[
+        str | None, _WORKFLOW, AfterValidator(_validate_workflow)
+    ] = None
 
     environment: Annotated[str | None, _ENVIRONMENT] = None
 
@@ -294,8 +296,6 @@ class GitHubProjectCreate(BaseModel):
 
     enabled: Annotated[bool, _ENABLED] = True
 
-    _validate_workflow = field_validator("workflow")(_validate_workflow)
-
 
 class GitHubProjectUpdate(BaseModel):
     """Changes to a GitHub project.
@@ -315,8 +315,8 @@ class GitHubProjectUpdate(BaseModel):
         Field(
             description=(
                 "Username for which tokens are minted. Must start with"
-                " ``bot-gh-`` and otherwise be a valid username. Derived"
-                " from the repository as ``bot-gh-<owner>-<repo>`` if set"
+                " bot-gh- and otherwise be a valid username. Derived"
+                " from the repository as bot-gh-<owner>-<repo> if set"
                 " to null."
             )
         ),
@@ -324,7 +324,9 @@ class GitHubProjectUpdate(BaseModel):
 
     repository: Annotated[str | None, _REPOSITORY] = None
 
-    workflow: Annotated[str | None, _WORKFLOW] = None
+    workflow: Annotated[
+        str | None, _WORKFLOW, AfterValidator(_validate_workflow)
+    ] = None
 
     environment: Annotated[str | None, _ENVIRONMENT] = None
 
@@ -341,8 +343,6 @@ class GitHubProjectUpdate(BaseModel):
     groups: Annotated[list[Group] | None, _GROUPS] = None
 
     enabled: Annotated[bool | None, _ENABLED] = None
-
-    _validate_workflow = field_validator("workflow")(_validate_workflow)
 
     @model_validator(mode="after")
     def _reject_null_required_fields(self) -> Self:
@@ -384,7 +384,9 @@ class GitHubProject(BaseModel):
 
     repository_owner_id: Annotated[int, _REPOSITORY_OWNER_ID]
 
-    workflow: Annotated[str | None, _WORKFLOW] = None
+    workflow: Annotated[
+        str | None, _WORKFLOW, AfterValidator(_validate_workflow)
+    ] = None
 
     environment: Annotated[str | None, _ENVIRONMENT] = None
 
@@ -428,7 +430,17 @@ class GitHubProject(BaseModel):
         examples=["someadmin"],
     )
 
-    _validate_workflow = field_validator("workflow")(_validate_workflow)
+    @property
+    def workflow_path(self) -> str | None:
+        """Workflow as a full path, as in the ``job_workflow_ref`` claim.
+
+        A workflow given as ``.github/workflows/<file>`` is prefixed with
+        the project repository, and one given as a full
+        ``<owner>/<repo>/.github/workflows/<file>`` path is used as is. The
+        repository part is lowercased, since repository names are matched
+        case-insensitively, but the path part is not.
+        """
+        return self._workflow_path(self.repository, self.workflow)
 
     def overlaps(self, other: GitHubProjectCreate | Self) -> bool:
         """Whether a GitHub Actions ID token could match both projects.
@@ -452,65 +464,53 @@ class GitHubProject(BaseModel):
         if self.repository.lower() != other.repository.lower():
             return False
         if self.workflow and other.workflow:
-            other_path = _workflow_path(other.repository, other.workflow)
+            other_path = self._workflow_path(other.repository, other.workflow)
             if self.workflow_path != other_path:
                 return False
         if self.environment and other.environment:
             if self.environment != other.environment:
                 return False
         if self.ref and other.ref:
-            if not _refs_overlap(self.ref, other.ref):
+            if not self._refs_overlap(self.ref, other.ref):
                 return False
         return True
 
-    @property
-    def workflow_path(self) -> str | None:
-        """Workflow as a full path, as in the ``job_workflow_ref`` claim.
+    @staticmethod
+    def _refs_overlap(a: str, b: str) -> bool:
+        """Whether two ref constraints could match the same ref."""
+        if a == b:
+            return True
+        if a.endswith("/") and b.startswith(a):
+            return True
+        return b.endswith("/") and a.startswith(b)
 
-        A workflow given as ``.github/workflows/<file>`` is prefixed with
-        the project repository, and one given as a full
-        ``<owner>/<repo>/.github/workflows/<file>`` path is used as is. The
-        repository part is lowercased, since repository names are matched
-        case-insensitively, but the path part is not.
+    @staticmethod
+    def _workflow_path(repository: str, workflow: str | None) -> str | None:
+        """Convert a workflow constraint to a full path.
+
+        Parameters
+        ----------
+        repository
+            Repository of the project.
+        workflow
+            Workflow constraint in one of the forms accepted by
+            `_validate_workflow`: either ``.github/workflows/<file>``, relative
+            to the project repository, or a full
+            ``<owner>/<repo>/.github/workflows/<file>`` path.
+
+        Returns
+        -------
+        str or None
+            Full path in the form of the path part of the ``job_workflow_ref``
+            claim, with the repository lowercased, or `None` if the workflow is
+            not constrained.
         """
-        return _workflow_path(self.repository, self.workflow)
-
-
-def _refs_overlap(a: str, b: str) -> bool:
-    """Whether two ref constraints could match the same ref."""
-    if a == b:
-        return True
-    if a.endswith("/") and b.startswith(a):
-        return True
-    return b.endswith("/") and a.startswith(b)
-
-
-def _workflow_path(repository: str, workflow: str | None) -> str | None:
-    """Convert a workflow constraint to a full path.
-
-    Parameters
-    ----------
-    repository
-        Repository of the project.
-    workflow
-        Workflow constraint in one of the forms accepted by
-        `_validate_workflow`: either ``.github/workflows/<file>``, relative
-        to the project repository, or a full
-        ``<owner>/<repo>/.github/workflows/<file>`` path.
-
-    Returns
-    -------
-    str or None
-        Full path in the form of the path part of the ``job_workflow_ref``
-        claim, with the repository lowercased, or `None` if the workflow is
-        not constrained.
-    """
-    if workflow is None:
-        return None
-    workflow_repository, path = _split_workflow(workflow)
-    if workflow_repository is None:
-        workflow_repository = repository
-    return f"{workflow_repository.lower()}/{path}"
+        if workflow is None:
+            return None
+        workflow_repository, path = _split_workflow(workflow)
+        if workflow_repository is None:
+            workflow_repository = repository
+        return f"{workflow_repository.lower()}/{path}"
 
 
 class GitHubProjectHistoryEntry(BaseModel):
