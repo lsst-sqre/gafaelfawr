@@ -1,0 +1,31 @@
+{
+  "created": "<ANY>",
+  "created_by": "bot-templatebot",
+  "description": "Created by Templatebot",
+  "enabled": true,
+  "environment": null,
+  "gid": null,
+  "groups": [
+    {
+      "id": 100000,
+      "name": "technotes"
+    }
+  ],
+  "id": "<ANY>",
+  "max_lifetime": "PT30M",
+  "modified": "<ANY>",
+  "modified_by": "bot-templatebot",
+  "ref": null,
+  "repository": "lsst-sqre/sqr-120",
+  "repository_id": 123456,
+  "repository_owner_id": 654321,
+  "requested_by": "slack:U024BE7LH",
+  "scopes": [
+    "exec:test",
+    "read:all"
+  ],
+  "template": "technote",
+  "uid": 100000,
+  "username": "bot-gh-lsst-sqre-sqr-120",
+  "workflow": "lsst-sqre/rubin-sphinx-technote-workflows/.github/workflows/ci.yaml"
+}

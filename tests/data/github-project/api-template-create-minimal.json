@@ -1,0 +1,16 @@
+{
+  "enabled": false,
+  "gid": 100000,
+  "groups": [
+    {
+      "id": 100000,
+      "name": "bots"
+    }
+  ],
+  "name": "minimal",
+  "owners": [
+    "lsst-dm"
+  ],
+  "scopes": [],
+  "uid": 100000
+}

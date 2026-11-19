@@ -1,0 +1,45 @@
+{
+  "action": "create",
+  "actor": "some-admin",
+  "event_time": "<ANY>",
+  "ip_address": "127.0.0.1",
+  "new_values": {
+    "created": "<ANY>",
+    "created_by": "some-admin",
+    "description": "Documentation builds for technotes",
+    "enabled": true,
+    "environment": null,
+    "gid": null,
+    "groups": [
+      {
+        "id": 100000,
+        "name": "technotes"
+      }
+    ],
+    "max_lifetime": "PT30M",
+    "modified": "<ANY>",
+    "modified_by": "some-admin",
+    "name": "technote",
+    "owners": [
+      {
+        "id": 654321,
+        "name": "lsst-sqre"
+      },
+      {
+        "id": 765432,
+        "name": "lsst-dm"
+      }
+    ],
+    "ref": null,
+    "repository_pattern": "^[a-z]+-[0-9]{3,}$",
+    "scopes": [
+      "exec:test",
+      "read:all"
+    ],
+    "uid": 100000,
+    "workflow": "lsst-sqre/rubin-sphinx-technote-workflows/.github/workflows/ci.yaml"
+  },
+  "old_values": null,
+  "project_id": null,
+  "template": "technote"
+}

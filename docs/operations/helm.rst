@@ -914,7 +914,7 @@ To enable it, set ``config.githubTokenExchange.enabled`` to true:
      githubTokenExchange:
        enabled: true
 
-Gafaelfawr must be able to make outbound HTTPS requests to ``token.actions.githubusercontent.com`` to retrieve GitHub's signing keys.
+Gafaelfawr must be able to make outbound HTTPS requests to ``token.actions.githubusercontent.com`` to retrieve GitHub's signing keys, and to ``api.github.com`` to look up repositories and owners when projects and project templates are registered.
 
 The following additional options customize the behavior of the token exchange:
 

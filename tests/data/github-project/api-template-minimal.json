@@ -1,0 +1,29 @@
+{
+  "created": "<ANY>",
+  "created_by": "some-admin",
+  "description": null,
+  "enabled": false,
+  "environment": null,
+  "gid": 100000,
+  "groups": [
+    {
+      "id": 100000,
+      "name": "bots"
+    }
+  ],
+  "max_lifetime": "PT1H",
+  "modified": "<ANY>",
+  "modified_by": "some-admin",
+  "name": "minimal",
+  "owners": [
+    {
+      "id": 765432,
+      "name": "lsst-dm"
+    }
+  ],
+  "ref": null,
+  "repository_pattern": null,
+  "scopes": [],
+  "uid": 100000,
+  "workflow": null
+}
