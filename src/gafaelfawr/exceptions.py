@@ -21,6 +21,8 @@ __all__ = [
     "DatabaseSchemaError",
     "DisallowedCORSRequestError",
     "DuplicateAdminError",
+    "DuplicateGitHubProjectTemplateError",
+    "DuplicateGitHubUsernameError",
     "DuplicateTokenNameError",
     "ExternalUserInfoError",
     "FetchKeysError",
@@ -28,6 +30,10 @@ __all__ = [
     "FirestoreError",
     "FirestoreNotInitializedError",
     "GitHubError",
+    "GitHubProjectOverlapError",
+    "GitHubProjectTemplateDisabledError",
+    "GitHubProjectTemplateInUseError",
+    "GitHubRepositoryNotAllowedError",
     "GitHubWebError",
     "InputValidationError",
     "InsufficientScopeError",
@@ -36,13 +42,16 @@ __all__ = [
     "InvalidClientIdError",
     "InvalidDelegateToError",
     "InvalidExpiresError",
+    "InvalidGitHubUsernameError",
     "InvalidGrantError",
     "InvalidIPAddressError",
+    "InvalidMaxLifetimeError",
     "InvalidMinimumLifetimeError",
     "InvalidRequestError",
     "InvalidReturnURLError",
     "InvalidScopesError",
     "InvalidServiceError",
+    "InvalidSubjectTokenError",
     "InvalidTokenClaimsError",
     "InvalidTokenError",
     "KubernetesError",
@@ -67,7 +76,10 @@ __all__ = [
     "ProviderError",
     "ProviderWebError",
     "ReturnUriMismatchError",
+    "UnauthorizedScopeError",
     "UnknownAlgorithmError",
+    "UnknownGitHubOwnerError",
+    "UnknownGitHubRepositoryError",
     "UnknownKeyIdError",
     "UnsupportedGrantTypeError",
     "VerifyTokenError",
@@ -92,6 +104,32 @@ class DuplicateAdminError(InputValidationError):
         super().__init__(message, ErrorLocation.body, ["username"])
 
 
+class DuplicateGitHubProjectTemplateError(InputValidationError):
+    """A GitHub project template with the same name already exists."""
+
+    error = "duplicate_template"
+    status_code = status.HTTP_409_CONFLICT
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.body, ["name"])
+
+
+class DuplicateGitHubUsernameError(InputValidationError):
+    """The derived bot username of a GitHub project is already in use.
+
+    Raised when the bot username derived from the repository of a GitHub
+    project is already used by a project for a different repository, since
+    the derivation is ambiguous once hyphens are involved. An explicit
+    username must be provided instead.
+    """
+
+    error = "duplicate_username"
+    status_code = status.HTTP_409_CONFLICT
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.body, ["username"])
+
+
 class DuplicateTokenNameError(InputValidationError):
     """The user tried to reuse the name of a token."""
 
@@ -100,6 +138,72 @@ class DuplicateTokenNameError(InputValidationError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message, ErrorLocation.body, ["token_name"])
+
+
+class GitHubProjectOverlapError(InputValidationError):
+    """The constraints of a GitHub project overlap an existing project.
+
+    Raised when creating or modifying a GitHub project whose constraints could
+    be satisfied by the same GitHub Actions ID token as an existing project
+    for the same repository, since at most one project may match a token.
+
+    Parameters
+    ----------
+    message
+        Error message.
+    project_id
+        ID of the conflicting project.
+    """
+
+    error = "github_project_overlap"
+    status_code = status.HTTP_409_CONFLICT
+
+    def __init__(self, message: str, project_id: int) -> None:
+        super().__init__(message, ErrorLocation.body, ["repository"])
+        self.project_id = project_id
+
+
+class GitHubProjectTemplateDisabledError(InputValidationError):
+    """A GitHub project template used for provisioning is disabled."""
+
+    error = "template_disabled"
+    status_code = status.HTTP_409_CONFLICT
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.path, ["name"])
+
+
+class GitHubProjectTemplateInUseError(InputValidationError):
+    """A GitHub project template cannot be deleted while projects use it.
+
+    Parameters
+    ----------
+    message
+        Error message.
+    count
+        Number of projects provisioned from the template.
+    """
+
+    error = "template_in_use"
+    status_code = status.HTTP_409_CONFLICT
+
+    def __init__(self, message: str, count: int) -> None:
+        super().__init__(message, ErrorLocation.path, ["name"])
+        self.count = count
+
+
+class GitHubRepositoryNotAllowedError(InputValidationError):
+    """A repository may not be provisioned from a GitHub project template.
+
+    Raised when the owner of the repository is not one of the owners allowed
+    by the template, by name and pinned ID, or the repository name does not
+    match the template's repository pattern.
+    """
+
+    error = "repository_not_allowed"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.body, ["repository"])
 
 
 class InvalidClientIdError(InputValidationError):
@@ -140,6 +244,20 @@ class InvalidExpiresError(InputValidationError):
         super().__init__(message, ErrorLocation.body, ["expires"])
 
 
+class InvalidGitHubUsernameError(InputValidationError):
+    """The bot username of a GitHub project is invalid.
+
+    Raised when the username derived from the repository of a GitHub project
+    is not a valid username, in which case an explicit username must be
+    provided instead.
+    """
+
+    error = "invalid_username"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.body, ["username"])
+
+
 class InvalidIPAddressError(InputValidationError):
     """The provided IP address has invalid syntax."""
 
@@ -147,6 +265,15 @@ class InvalidIPAddressError(InputValidationError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message, ErrorLocation.query, ["ip_address"])
+
+
+class InvalidMaxLifetimeError(InputValidationError):
+    """The ``max_lifetime`` of a GitHub project is invalid."""
+
+    error = "invalid_max_lifetime"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.body, ["max_lifetime"])
 
 
 class InvalidMinimumLifetimeError(InputValidationError):
@@ -183,6 +310,29 @@ class InvalidServiceError(InputValidationError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message, ErrorLocation.query, ["delegate_to"])
+
+
+class UnknownGitHubOwnerError(InputValidationError):
+    """An owner of a GitHub project template was not found on GitHub."""
+
+    error = "unknown_owner"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.body, ["owners"])
+
+
+class UnknownGitHubRepositoryError(InputValidationError):
+    """The repository of a GitHub project was not found on GitHub.
+
+    Only public repositories can be registered, since the repository IDs are
+    looked up without credentials, so this is also raised for private
+    repositories.
+    """
+
+    error = "unknown_repository"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.body, ["repository"])
 
 
 class NoScopesError(InputValidationError):
@@ -265,6 +415,40 @@ class InvalidGrantError(OAuthError):
     error = "invalid_grant"
     message = "Invalid authorization code"
     hide_error = True
+
+
+class InvalidSubjectTokenError(OAuthError):
+    """The GitHub Actions ID token presented to the token exchange is invalid.
+
+    This corresponds to the ``invalid_grant`` error in RFC 6749 and RFC 8693,
+    which the latter specifies for a subject token that is "invalid for any
+    reason, including being expired, revoked, or malformed." It is also used
+    when the token verifies but matches no enabled GitHub project.
+
+    Unlike `InvalidGrantError`, the details are sent to the client. The
+    message names the check that failed and values from the caller's own
+    token, which GitHub minted for the caller and which are already theirs
+    to read, so that a workflow author can fix the problem without access to
+    Gafaelfawr's logs. It must never describe registry entries that did not
+    match, so that the exchange cannot be used to probe what the registry
+    trusts.
+    """
+
+    error = "invalid_grant"
+    message = "Invalid GitHub Actions token"
+
+
+class UnauthorizedScopeError(OAuthError):
+    """The token exchange requested a scope the GitHub project does not allow.
+
+    This corresponds to the ``invalid_scope`` error in RFC 6749: "The
+    requested scope is invalid, unknown, malformed, or exceeds the scope
+    granted by the resource owner." The details, which name only the
+    requested scopes that were refused, are sent to the client.
+    """
+
+    error = "invalid_scope"
+    message = "Requested scope not allowed"
 
 
 class UnsupportedGrantTypeError(OAuthError):

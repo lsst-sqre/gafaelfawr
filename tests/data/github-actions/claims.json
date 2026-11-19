@@ -1,0 +1,17 @@
+{
+  "actor": "someuser",
+  "environment": null,
+  "event_name": "push",
+  "job_workflow_ref": "lsst-sqre/ook/.github/workflows/ci.yaml@refs/heads/main",
+  "jti": "0e3b4a6e-1c6f-4a8e-9c4a-7f1b5f2a3d4c",
+  "ref": "refs/heads/main",
+  "repository": "lsst-sqre/ook",
+  "repository_id": 123456,
+  "repository_owner": "lsst-sqre",
+  "repository_owner_id": 654321,
+  "run_attempt": "1",
+  "run_id": "9876543210",
+  "sub": "repo:lsst-sqre/ook:ref:refs/heads/main",
+  "workflow_ref": "lsst-sqre/ook/.github/workflows/ci.yaml@refs/heads/main",
+  "workflow_sha": "0123456789abcdef0123456789abcdef01234567"
+}

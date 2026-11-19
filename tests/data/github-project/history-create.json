@@ -1,0 +1,35 @@
+{
+  "action": "create",
+  "actor": "some-admin",
+  "event_time": "<ANY>",
+  "ip_address": "127.0.0.1",
+  "new_values": {
+    "created": "<ANY>",
+    "created_by": "some-admin",
+    "description": "Documentation builds for SQR-062",
+    "enabled": true,
+    "environment": null,
+    "gid": null,
+    "groups": null,
+    "id": "<ANY>",
+    "max_lifetime": "PT15M",
+    "modified": "<ANY>",
+    "modified_by": "some-admin",
+    "ref": "refs/heads/main",
+    "repository": "lsst-sqre/sqr-062",
+    "repository_id": 123456,
+    "repository_owner_id": 654321,
+    "requested_by": "slack:U024BE7LH",
+    "scopes": [
+      "exec:test",
+      "read:all"
+    ],
+    "template": null,
+    "uid": null,
+    "username": "bot-gh-lsst-sqre-sqr-062",
+    "workflow": ".github/workflows/docs.yaml"
+  },
+  "old_values": null,
+  "project_id": "<ANY>",
+  "template": null
+}

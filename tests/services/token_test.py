@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import ANY
 
 import pytest
+import respx
 from cryptography.fernet import Fernet
 from pydantic import ValidationError
 from safir.metrics import MockEventPublisher
@@ -16,10 +17,13 @@ from gafaelfawr.events import StateEvents
 from gafaelfawr.exceptions import (
     InvalidExpiresError,
     InvalidScopesError,
+    InvalidTokenError,
     PermissionDeniedError,
 )
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.enums import TokenChange, TokenType
+from gafaelfawr.models.github import GitHubRepository
+from gafaelfawr.models.github_project import GitHubProject, GitHubProjectCreate
 from gafaelfawr.models.history import (
     TokenChangeHistoryEntry,
     TokenChangeHistoryRecord,
@@ -36,7 +40,8 @@ from gafaelfawr.schema import Subtoken
 from gafaelfawr.storage.history import TokenChangeHistoryStore
 from gafaelfawr.storage.token import TokenDatabaseStore
 
-from ..support.tokens import create_session_token
+from ..support.github import mock_github_repositories
+from ..support.tokens import create_github_token, create_session_token
 from ..support.util import assert_is_now
 
 
@@ -1838,3 +1843,252 @@ async def test_state_metrics(config: Config, factory: Factory) -> None:
     events.active_user_tokens.published.assert_published_all([{"count": 1}])
 
     await event_manager.aclose()
+
+
+async def create_github_project(
+    factory: Factory,
+    respx_mock: respx.Router,
+    admin: TokenData,
+    repository: str = "lsst-sqre/ook",
+    *,
+    uid: int | None = None,
+    gid: int | None = None,
+    groups: list[Group] | None = None,
+) -> GitHubProject:
+    """Register a GitHub project for tests of its tokens."""
+    mock_github_repositories(
+        respx_mock,
+        [GitHubRepository(full_name=repository, id=123456, owner_id=654321)],
+    )
+    service = factory.create_github_project_service()
+    create = GitHubProjectCreate(
+        repository=repository,
+        scopes={"read:all", "exec:test"},
+        uid=uid,
+        gid=gid,
+        groups=groups,
+    )
+    return await service.create_project(create, admin, ip_address=None)
+
+
+@pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
+@pytest.mark.asyncio
+async def test_create_github_token(
+    config: Config, factory: Factory, respx_mock: respx.Router
+) -> None:
+    token_service = factory.create_token_service()
+    admin = await create_session_token(
+        factory, username="some-admin", scopes={"admin:token"}
+    )
+    project = await create_github_project(
+        factory,
+        respx_mock,
+        admin,
+        uid=2000,
+        gid=3000,
+        groups=[Group(name="bots", id=4000)],
+    )
+    token, expires = await token_service.create_github_token(
+        project,
+        scopes={"read:all"},
+        lifetime=timedelta(minutes=15),
+        ip_address="192.0.2.1",
+    )
+
+    # The token carries the project's identity and the requested scopes
+    # rather than the project's full scope list. The expiration is
+    # calculated from the recorded creation time, so the stored lifetime is
+    # exactly the requested lifetime.
+    data = await token_service.get_data(token)
+    assert data
+    assert_is_now(data.created)
+    assert expires == data.created + timedelta(minutes=15)
+    assert data == TokenData(
+        token=token,
+        username="bot-gh-lsst-sqre-ook",
+        token_type=TokenType.github,
+        scopes={"read:all"},
+        created=data.created,
+        expires=expires,
+        uid=2000,
+        gid=3000,
+        groups=[Group(name="bots", id=4000)],
+    )
+    info = await token_service.get_token_info_unchecked(token.key)
+    assert info
+    assert info == TokenInfo(
+        token=token.key,
+        username="bot-gh-lsst-sqre-ook",
+        token_type=TokenType.github,
+        scopes={"read:all"},
+        created=data.created,
+        expires=expires,
+        github_project_id=project.id,
+    )
+
+    # The creation is recorded with the bot user as the actor and the
+    # project ID, so that the token can be found and revoked by project.
+    history = await token_service.get_change_history(
+        admin, token_type=TokenType.github
+    )
+    assert len(history.entries) == 1
+    assert history.entries[0].model_dump(exclude={"id"}) == {
+        "token": token.key,
+        "username": "bot-gh-lsst-sqre-ook",
+        "token_type": TokenType.github,
+        "token_name": None,
+        "parent": None,
+        "scopes": {"read:all"},
+        "service": None,
+        "expires": int(expires.timestamp()),
+        "actor": "bot-gh-lsst-sqre-ook",
+        "action": TokenChange.create,
+        "old_token_name": None,
+        "old_scopes": None,
+        "old_expires": None,
+        "ip_address": "192.0.2.1",
+        "event_time": int(data.created.timestamp()),
+        "github_project_id": project.id,
+    }
+
+
+@pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
+@pytest.mark.asyncio
+async def test_create_github_token_deleted_project(
+    config: Config, factory: Factory, respx_mock: respx.Router
+) -> None:
+    """Refuse to mint a token for a GitHub project that was deleted.
+
+    The exchange matches an ID token to a project and mints the token in
+    separate transactions, so the project can be deleted in between. The
+    foreign key from the token table then rejects the new token, which must
+    not be left behind in Redis, where it would be valid.
+    """
+    token_service = factory.create_token_service()
+    token_redis_store = factory.create_token_redis_store()
+    admin = await create_session_token(
+        factory, username="some-admin", scopes={"admin:token"}
+    )
+    existing_keys = set(await token_redis_store.list())
+    project = await create_github_project(factory, respx_mock, admin)
+    project_service = factory.create_github_project_service()
+    await project_service.delete_project(project.id, admin, ip_address=None)
+
+    with pytest.raises(InvalidTokenError):
+        await token_service.create_github_token(
+            project,
+            scopes={"read:all"},
+            lifetime=timedelta(minutes=15),
+            ip_address="192.0.2.1",
+        )
+
+    # Nothing was left behind in Redis or the history.
+    assert set(await token_redis_store.list()) == existing_keys
+    history = await token_service.get_change_history(
+        admin, token_type=TokenType.github
+    )
+    assert history.entries == []
+
+
+@pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
+@pytest.mark.asyncio
+async def test_revoke_github_project_tokens(
+    config: Config, factory: Factory, respx_mock: respx.Router
+) -> None:
+    token_service = factory.create_token_service()
+    admin = await create_session_token(
+        factory, username="some-admin", scopes={"admin:token"}
+    )
+    user = await create_session_token(factory, scopes={"user:token"})
+    project = await create_github_project(factory, respx_mock, admin)
+    other_project = await create_github_project(
+        factory, respx_mock, admin, "lsst-sqre/docs"
+    )
+    project_tokens = [
+        await create_github_token(factory, project) for _ in range(2)
+    ]
+    child_token = await token_service.get_internal_token(
+        project_tokens[0], "some-service", set(), ip_address="127.0.0.1"
+    )
+    child = await token_service.get_data(child_token)
+    assert child
+    other = await create_github_token(factory, other_project)
+
+    with pytest.raises(PermissionDeniedError):
+        async with factory.session.begin():
+            await token_service.revoke_github_project_tokens(
+                project.id, user, ip_address="127.0.0.1"
+            )
+
+    async with factory.session.begin():
+        count = await token_service.revoke_github_project_tokens(
+            project.id, admin, ip_address="127.0.0.1"
+        )
+
+    # The count is of the tokens issued for the project. Their child tokens
+    # are revoked along with them but are not counted.
+    assert count == 2
+    for data in (*project_tokens, child):
+        assert await token_service.get_data(data.token) is None
+        info = await token_service.get_token_info_unchecked(data.token.key)
+        assert info is None
+    assert await token_service.get_data(other.token) == other
+    info = await token_service.get_token_info_unchecked(other.token.key)
+    assert info
+    assert info.github_project_id == other_project.id
+    assert info.token_type == TokenType.github
+
+    history = await token_service.get_change_history(
+        admin, token_type=TokenType.github
+    )
+    revoked = [e for e in history.entries if e.action == TokenChange.revoke]
+    assert {e.token for e in revoked} == {d.token.key for d in project_tokens}
+    for entry in revoked:
+        assert entry.actor == "some-admin"
+        assert entry.ip_address == "127.0.0.1"
+        assert entry.github_project_id == project.id
+    created = [e for e in history.entries if e.action == TokenChange.create]
+    project_ids = (project.id, other_project.id)
+    assert all(e.github_project_id in project_ids for e in created)
+    assert revoked[0].model_dump_reduced()["github_project_id"] == project.id
+    session_history = await token_service.get_change_history(
+        admin, token_type=TokenType.session
+    )
+    reduced = session_history.entries[0].model_dump_reduced()
+    assert "github_project_id" not in reduced
+
+    # Revoking again finds nothing.
+    async with factory.session.begin():
+        count = await token_service.revoke_github_project_tokens(
+            project.id, admin, ip_address=None
+        )
+    assert count == 0
+
+
+@pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
+@pytest.mark.asyncio
+async def test_revoke_github_project_tokens_no_transaction(
+    config: Config, factory: Factory, respx_mock: respx.Router
+) -> None:
+    token_service = factory.create_token_service()
+    admin = await create_session_token(
+        factory, username="some-admin", scopes={"admin:token"}
+    )
+    project = await create_github_project(factory, respx_mock, admin)
+    data = await create_github_token(factory, project)
+
+    # Calling outside a transaction must fail before touching any token,
+    # since otherwise the Redis deletion would happen immediately while the
+    # database deletion and history entry would be rolled back.
+    with pytest.raises(RuntimeError, match="inside a transaction"):
+        await token_service.revoke_github_project_tokens(
+            project.id, admin, ip_address="127.0.0.1"
+        )
+    assert await token_service.get_data(data.token) == data
+    info = await token_service.get_token_info_unchecked(data.token.key)
+    assert info
+    assert info.github_project_id == project.id
+    history = await token_service.get_change_history(
+        admin, token_type=TokenType.github
+    )
+    assert all(e.action != TokenChange.revoke for e in history.entries)

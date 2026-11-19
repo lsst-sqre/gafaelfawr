@@ -1,0 +1,28 @@
+{
+  "created": "<ANY>",
+  "created_by": "some-admin",
+  "description": null,
+  "enabled": false,
+  "environment": "production",
+  "gid": 100000,
+  "groups": [
+    {
+      "id": 100000,
+      "name": "bot-gh-mixed"
+    }
+  ],
+  "id": "<ANY>",
+  "max_lifetime": "PT1H",
+  "modified": "<ANY>",
+  "modified_by": "some-admin",
+  "ref": null,
+  "repository": "LSST-SQRE/Mixed.Case_Repo",
+  "repository_id": 456789,
+  "repository_owner_id": 654321,
+  "requested_by": null,
+  "scopes": [],
+  "template": null,
+  "uid": 100000,
+  "username": "bot-gh-mixed",
+  "workflow": null
+}

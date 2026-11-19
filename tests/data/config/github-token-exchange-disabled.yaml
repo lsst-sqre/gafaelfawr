@@ -1,0 +1,23 @@
+# Use GitHub as the provider with the GitHub Actions token exchange block
+# present but disabled, as the Helm chart generates by default.
+
+slackAlerts: true
+afterLogoutUrl: "https://example.com/landing"
+groupMapping:
+  "exec:admin": ["admin"]
+knownScopes:
+  "admin:token": "token administration"
+  "admin:userinfo": "Can see user information for any user"
+  "exec:admin": "admin description"
+  "read:all": "can read everything"
+  "user:token": "Can create and modify user tokens"
+github:
+  clientId: "some-github-client-id"
+githubTokenExchange:
+  enabled: false
+  audience: null
+  maxLifetime: "6h"
+  jwksCacheLifetime: "1h"
+metrics:
+  enabled: false
+  application: "gafaelfawr"

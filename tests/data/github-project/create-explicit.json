@@ -1,0 +1,15 @@
+{
+  "enabled": false,
+  "environment": "production",
+  "gid": 100000,
+  "groups": [
+    {
+      "id": 100000,
+      "name": "bot-gh-mixed"
+    }
+  ],
+  "repository": "lsst-sqre/mixed.case_repo",
+  "scopes": [],
+  "uid": 100000,
+  "username": "bot-gh-mixed"
+}

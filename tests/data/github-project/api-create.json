@@ -1,0 +1,12 @@
+{
+  "description": "Documentation builds for SQR-062",
+  "max_lifetime": "PT15M",
+  "ref": "refs/heads/main",
+  "repository": "LSST-SQRE/SQR-062",
+  "requested_by": "slack:U024BE7LH",
+  "scopes": [
+    "read:all",
+    "exec:test"
+  ],
+  "workflow": ".github/workflows/docs.yaml"
+}

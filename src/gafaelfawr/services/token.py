@@ -31,6 +31,7 @@ from ..exceptions import (
     PermissionDeniedError,
 )
 from ..models.enums import TokenChange, TokenType
+from ..models.github_project import GitHubProject
 from ..models.history import (
     TokenChangeHistoryCursor,
     TokenChangeHistoryEntry,
@@ -237,6 +238,108 @@ class TokenService:
         )
 
         return token
+
+    async def create_github_token(
+        self,
+        project: GitHubProject,
+        *,
+        scopes: set[str],
+        lifetime: timedelta,
+        ip_address: str,
+    ) -> tuple[Token, datetime]:
+        """Add a new token for a GitHub Actions workflow.
+
+        This is the only way a token of type ``github`` is created. It is
+        called by the GitHub Actions token exchange after it has verified a
+        GitHub Actions ID token and matched it to an enabled GitHub project,
+        so there is no authenticating user to check: the ID token is the
+        credential and the project registry is the policy. The scopes and
+        lifetime were determined by the exchange from that policy, so they
+        are not validated again here.
+
+        Parameters
+        ----------
+        project
+            The GitHub project that authorized the token. The token is
+            issued to its bot username with its identity attributes, and
+            records its ID so that the token can be revoked if the project
+            is disabled or deleted.
+        scopes
+            Scopes of the new token.
+        lifetime
+            Lifetime of the new token. The expiration is calculated from the
+            creation time recorded for the token, so that the stored
+            lifetime is exactly this.
+        ip_address
+            The IP address from which the request came, which is that of
+            the GitHub Actions runner.
+
+        Returns
+        -------
+        tuple
+            The new token of type ``github`` and its expiration, so that the
+            caller can report the remaining lifetime without recomputing it.
+
+        Raises
+        ------
+        InvalidTokenError
+            Raised if the token could not be stored, probably due to a
+            desynchronization between Redis and the SQL database.
+        """
+        token = Token()
+        created = datetime.now(tz=UTC).replace(microsecond=0)
+        expires = created + lifetime
+        data = TokenData(
+            token=token,
+            username=project.username,
+            token_type=TokenType.github,
+            scopes=scopes,
+            created=created,
+            expires=expires,
+            uid=project.uid,
+            gid=project.gid,
+            groups=project.groups,
+        )
+        history_entry = TokenChangeHistoryEntry(
+            token=token.key,
+            username=data.username,
+            token_type=TokenType.github,
+            scopes=data.scopes,
+            expires=data.expires,
+            actor=data.username,
+            action=TokenChange.create,
+            ip_address=ip_address,
+            event_time=data.created,
+            github_project_id=project.id,
+        )
+
+        # Store the new token in Redis and the database.
+        await self._token_redis_store.store_data(data)
+        try:
+            async with self._session.begin():
+                await self._token_db_store.add(
+                    data, github_project_id=project.id
+                )
+                await self._token_change_store.add(history_entry)
+        except IntegrityError as e:
+            msg = "Integrity error creating GitHub token"
+            self._logger.exception(msg, error=str(e))
+            await self._token_redis_store.delete(data.token.key)
+            raise InvalidTokenError(msg) from e
+        except Exception:
+            await self._token_redis_store.delete(data.token.key)
+            raise
+
+        # Log the token creation and return it.
+        self._logger.info(
+            "Created new GitHub token",
+            github_project_id=project.id,
+            token_key=token.key,
+            token_expires=format_datetime_for_logging(expires),
+            token_scopes=sorted(data.scopes),
+            token_userinfo=data.to_userinfo_dict(),
+        )
+        return token, expires
 
     async def create_oidc_token(
         self, auth_data: TokenData, *, ip_address: str
@@ -573,16 +676,8 @@ class TokenService:
             return False
         self._check_authorization(info.username, auth_data)
 
-        # Recursively delete the children of this token first. Children are
-        # returned in breadth-first order, so delete them in reverse order to
-        # delete the tokens farthest down in the tree first.  This minimizes
-        # the number of orphaned children at any given point.
         async with self._session.begin():
-            children = await self._token_db_store.get_children(key)
-            children.reverse()
-            for child in children:
-                await self._delete_one_token(child, auth_data, ip_address)
-            return await self._delete_one_token(key, auth_data, ip_address)
+            return await self._delete_token_tree(key, auth_data, ip_address)
 
     async def expire_tokens(self) -> None:
         """Bookkeeping for expired tokens.
@@ -616,6 +711,7 @@ class TokenService:
                     expires=info.expires,
                     actor="<internal>",
                     action=TokenChange.expire,
+                    github_project_id=info.github_project_id,
                 )
                 await self._token_change_store.add(history_entry)
 
@@ -1025,6 +1121,74 @@ class TokenService:
         )
         return info
 
+    async def revoke_github_project_tokens(
+        self,
+        project_id: int,
+        auth_data: TokenData,
+        *,
+        ip_address: str | None,
+    ) -> int:
+        """Revoke all tokens minted for a GitHub project.
+
+        Used when a GitHub project is deleted or disabled. Each revocation is
+        recorded in the token change history with the acting administrator
+        as the actor. Must be called from inside a transaction, so that the
+        revocations are committed together with the change to the project.
+        Calling it outside a transaction is a programming error and raises
+        `RuntimeError` before any token is touched.
+
+        Parameters
+        ----------
+        project_id
+            ID of the GitHub project.
+        auth_data
+            The token data for the authentication token of the administrator
+            making the change.
+        ip_address
+            The IP address from which the request came, or `None` for
+            internal requests by Gafaelfawr.
+
+        Returns
+        -------
+        int
+            Number of tokens revoked. Child tokens of a revoked token are
+            also revoked but are only counted if they were minted for the
+            project themselves.
+
+        Raises
+        ------
+        PermissionDeniedError
+            Raised if the authenticated user is not a token administrator.
+        RuntimeError
+            Raised if called outside a transaction.
+        """
+        # Deleting a token removes it from Redis immediately but only adds
+        # the database deletion and history entry to the current transaction.
+        # Without a transaction opened by the caller, SQLAlchemy would
+        # autobegin one that is rolled back when the session closes, leaving
+        # the tokens gone from Redis while their rows remain, with no history
+        # entries.
+        if not self._session.in_transaction():
+            msg = (
+                "revoke_github_project_tokens must be called inside a"
+                " transaction"
+            )
+            raise RuntimeError(msg)
+        self._check_authorization(None, auth_data)
+        tokens = await self._token_db_store.list_for_github_project(project_id)
+        for info in tokens:
+            # This may find nothing if the token was already deleted as the
+            # child of an earlier token in the list, which is fine.
+            await self._delete_token_tree(info.token, auth_data, ip_address)
+        count = len(tokens)
+        if count:
+            self._logger.info(
+                "Revoked tokens for GitHub project",
+                github_project_id=project_id,
+                count=count,
+            )
+        return count
+
     async def truncate_history(self) -> None:
         """Drop history entries older than the cutoff date.
 
@@ -1277,11 +1441,49 @@ class TokenService:
             self._logger.warning("Permission denied", error=msg)
             raise PermissionDeniedError(msg)
 
+    async def _delete_token_tree(
+        self,
+        key: str,
+        auth_data: TokenData,
+        ip_address: str | None,
+    ) -> bool:
+        """Delete a token and all of its child tokens.
+
+        Assumes authorization has already been checked. Must be called from
+        inside a transaction.
+
+        Parameters
+        ----------
+        key
+            The key of the token to delete.
+        auth_data
+            The token data for the authentication token of the user deleting
+            the token.
+        ip_address
+            The IP address from which the request came, or `None` for
+            internal requests by Gafaelfawr.
+
+        Returns
+        -------
+        bool
+            `True` if the token was deleted, `False` if the token was not
+            found.
+        """
+        # Recursively delete the children of this token first. Children are
+        # returned in breadth-first order, so delete them in reverse order to
+        # delete the tokens farthest down in the tree first.  This minimizes
+        # the number of orphaned children at any given point.
+        children = await self._token_db_store.get_children(key)
+        children.reverse()
+        for child in children:
+            await self._delete_one_token(child, auth_data, ip_address)
+        return await self._delete_one_token(key, auth_data, ip_address)
+
     async def _delete_one_token(
         self,
         key: str,
         auth_data: TokenData,
-        ip_address: str,
+        ip_address: str | None,
     ) -> bool:
         """Delete a single token.
 
@@ -1296,7 +1498,8 @@ class TokenService:
             The token data for the authentication token of the user deleting
             the token.
         ip_address
-            The IP address from which the request came.
+            The IP address from which the request came, or `None` for
+            internal requests by Gafaelfawr.
 
         Returns
         -------
@@ -1320,6 +1523,7 @@ class TokenService:
             actor=auth_data.username,
             action=TokenChange.revoke,
             ip_address=ip_address,
+            github_project_id=info.github_project_id,
         )
 
         await self._token_redis_store.delete(key)

@@ -1,0 +1,18 @@
+{
+  "gid": 3000,
+  "groups": [
+    {
+      "id": 4000,
+      "name": "bots"
+    }
+  ],
+  "max_lifetime": "PT15M",
+  "ref": "refs/heads/main",
+  "repository": "lsst-sqre/ook",
+  "scopes": [
+    "exec:test",
+    "read:all"
+  ],
+  "uid": 2000,
+  "workflow": ".github/workflows/ci.yaml"
+}

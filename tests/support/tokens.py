@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.enums import TokenChange, TokenType
+from gafaelfawr.models.github_project import GitHubProject
 from gafaelfawr.models.history import TokenChangeHistoryEntry
 from gafaelfawr.models.token import Token, TokenData, TokenUserInfo
 from gafaelfawr.models.userinfo import Group
@@ -14,6 +15,7 @@ from gafaelfawr.storage.token import TokenDatabaseStore
 
 __all__ = [
     "add_expired_session_token",
+    "create_github_token",
     "create_session_token",
 ]
 
@@ -74,6 +76,37 @@ async def add_expired_session_token(
 
     await token_db_store.add(data)
     await token_change_store.add(history_entry)
+
+
+async def create_github_token(
+    factory: Factory, project: GitHubProject, *, scopes: set[str] | None = None
+) -> TokenData:
+    """Create a token as the GitHub Actions token exchange would.
+
+    Parameters
+    ----------
+    factory
+        Factory used to create the token service.
+    project
+        GitHub project that authorizes the token.
+    scopes
+        Scopes of the token. If not given, the scopes of the project.
+
+    Returns
+    -------
+    TokenData
+        The data for the generated token.
+    """
+    token_service = factory.create_token_service()
+    token, _ = await token_service.create_github_token(
+        project,
+        scopes=project.scopes if scopes is None else scopes,
+        lifetime=timedelta(hours=1),
+        ip_address="127.0.0.1",
+    )
+    data = await token_service.get_data(token)
+    assert data
+    return data
 
 
 async def create_session_token(

@@ -1,0 +1,8 @@
+{
+  "description": "Original",
+  "repository": "lsst-sqre/sqr-062",
+  "scopes": [
+    "read:all"
+  ],
+  "workflow": ".github/workflows/docs.yaml"
+}

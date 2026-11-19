@@ -12,6 +12,17 @@ __all__ = [
     "CURSOR_REGEX",
     "GID_MAX",
     "GID_MIN",
+    "GITHUB_ACTIONS_ISSUER",
+    "GITHUB_ACTIONS_JWKS_MIN_REFRESH",
+    "GITHUB_ACTIONS_JWT_LEEWAY",
+    "GITHUB_API_URL",
+    "GITHUB_BOT_USERNAME_PREFIX",
+    "GITHUB_BOT_USERNAME_REGEX",
+    "GITHUB_OWNER_REGEX",
+    "GITHUB_PROJECT_DEFAULT_LIFETIME",
+    "GITHUB_PROJECT_TEMPLATE_NAME_REGEX",
+    "GITHUB_PROVISION_SCOPE",
+    "GITHUB_REPOSITORY_REGEX",
     "GROUPNAME_REGEX",
     "HTTP_TIMEOUT",
     "ID_CACHE_SIZE",
@@ -23,6 +34,9 @@ __all__ = [
     "LDAP_TIMEOUT",
     "MINIMUM_LIFETIME",
     "NGINX_SNIPPET",
+    "OAUTH_ACCESS_TOKEN_TYPE",
+    "OAUTH_ID_TOKEN_TYPE",
+    "OAUTH_TOKEN_EXCHANGE_GRANT_TYPE",
     "OIDC_AUTHORIZATION_LIFETIME",
     "REDIS_BACKOFF_MAX",
     "REDIS_BACKOFF_START",
@@ -50,6 +64,58 @@ CONFIG_PATH = "/etc/gafaelfawr/gafaelfawr.yaml"
 
 COOKIE_NAME = "gafaelfawr"
 """Name of the state cookie."""
+
+GITHUB_ACTIONS_ISSUER = "https://token.actions.githubusercontent.com"
+"""Issuer (``iss`` claim) of GitHub Actions ID tokens.
+
+This is fixed rather than configurable because the GitHub Actions token
+exchange only supports GitHub.com, not GitHub Enterprise Server.
+"""
+
+GITHUB_ACTIONS_JWKS_MIN_REFRESH = timedelta(minutes=1)
+"""Minimum interval between key refreshes prompted by unknown key IDs.
+
+A GitHub Actions ID token naming a key ID that is not in the cached key set
+prompts a refresh of the keys, since GitHub rotates its signing keys. Without
+a limit, anyone could force a request to GitHub for each token they send to
+the token exchange. Within this interval after a refresh, tokens naming
+unknown key IDs are rejected without refreshing the keys again. Expiry of the
+cached keys after the configured cache lifetime always forces a refresh.
+"""
+
+GITHUB_ACTIONS_JWT_LEEWAY = 30
+"""Clock skew (in seconds) allowed when checking GitHub Actions ID tokens.
+
+Applied to the ``exp``, ``nbf``, and ``iat`` claims when verifying a GitHub
+Actions ID token presented to the token exchange.
+"""
+
+GITHUB_API_URL = "https://api.github.com"
+"""Base URL of the GitHub REST API, used to pin repository IDs."""
+
+GITHUB_BOT_USERNAME_PREFIX = "bot-gh-"
+"""Required prefix of the bot username of a GitHub project.
+
+Tokens minted by the GitHub Actions token exchange are issued to the bot user
+of the matching project. The prefix makes an identity minted from GitHub
+recognizable wherever a username appears.
+"""
+
+GITHUB_PROJECT_DEFAULT_LIFETIME = timedelta(hours=1)
+"""Default maximum lifetime of tokens minted for a GitHub project.
+
+Used when a project is created without a maximum lifetime. Capped by the
+configured maximum lifetime of the GitHub Actions token exchange, which may
+be shorter than this.
+"""
+
+GITHUB_PROVISION_SCOPE = "admin:github-oidc-provision"
+"""Scope that allows provisioning a GitHub project from a project template.
+
+This scope grants exactly one capability: creating a project from a template
+through the provisioning route. ``admin:token`` also satisfies that route.
+Like every ``admin:`` scope, it may not be granted to a GitHub project.
+"""
 
 HTTP_TIMEOUT = 20.0
 """Timeout (in seconds) for outbound HTTP requests to auth providers."""
@@ -126,6 +192,25 @@ error_page 403 = @autherror;
 """
 """Code snippet to put into NGINX configuration for each ingress."""
 
+OAUTH_ACCESS_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:access_token"
+"""Token type identifier for access tokens, from RFC 8693.
+
+Returned as the ``issued_token_type`` of a successful GitHub Actions token
+exchange.
+"""
+
+OAUTH_ID_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:id_token"
+"""Token type identifier for OpenID Connect ID tokens, from RFC 8693.
+
+The only ``subject_token_type`` accepted by the GitHub Actions token
+exchange, since the subject token is always a GitHub Actions ID token.
+"""
+
+OAUTH_TOKEN_EXCHANGE_GRANT_TYPE = (
+    "urn:ietf:params:oauth:grant-type:token-exchange"
+)
+"""Grant type of an OAuth 2.0 token exchange request, from RFC 8693."""
+
 OIDC_AUTHORIZATION_LIFETIME = 60 * 60
 """How long (in seconds) an authorization code is good for."""
 
@@ -194,6 +279,20 @@ BOT_USERNAME_REGEX = "^bot-[a-z0-9](?:[a-z0-9]|-[a-z0-9])*$"
 
 CURSOR_REGEX = "^p?[0-9]+_[0-9]+$"
 """Regex matching a valid cursor."""
+
+GITHUB_BOT_USERNAME_REGEX = "^bot-gh-[a-z0-9](?:[a-z0-9]|-[a-z0-9])*$"
+"""Regex matching a valid bot username for a GitHub project."""
+
+GITHUB_OWNER_REGEX = "^[a-zA-Z0-9](?:[a-zA-Z0-9]|-[a-zA-Z0-9])*$"
+"""Regex matching the login of a GitHub owner (organization or user)."""
+
+GITHUB_PROJECT_TEMPLATE_NAME_REGEX = "^[a-z0-9](?:[a-z0-9]|-[a-z0-9])*$"
+"""Regex matching the name of a GitHub project template."""
+
+GITHUB_REPOSITORY_REGEX = (
+    "^[a-zA-Z0-9](?:[a-zA-Z0-9]|-[a-zA-Z0-9])*/[a-zA-Z0-9._-]+$"
+)
+"""Regex matching a GitHub repository as ``owner/name``."""
 
 GROUPNAME_REGEX = (
     "^([a-zA-Z]|[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z])[a-zA-Z0-9._-]*$"
