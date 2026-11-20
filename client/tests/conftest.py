@@ -20,6 +20,14 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
+def pytest_collection_modifyitems(
+    config: pytest.Config,
+    items: list[pytest.Item],
+) -> None:
+    for item in items:
+        item.add_marker(pytest.mark.httpx2(assert_all_called=False))
+
+
 @pytest.fixture
 def data(request: pytest.FixtureRequest) -> Data:
     update = request.config.getoption("--update-test-data")
@@ -28,14 +36,14 @@ def data(request: pytest.FixtureRequest) -> Data:
 
 @pytest.fixture
 def mock_discovery(
-    data: Data, respx_mock: respx.Router, monkeypatch: pytest.MonkeyPatch
+    data: Data, httpx2_mock: respx.Router, monkeypatch: pytest.MonkeyPatch
 ) -> Discovery:
     monkeypatch.setenv("REPERTOIRE_BASE_URL", "https://example.com/repertoire")
-    return register_mock_discovery(respx_mock, data.path("discovery.json"))
+    return register_mock_discovery(httpx2_mock, data.path("discovery.json"))
 
 
 @pytest_asyncio.fixture
 async def mock_gafaelfawr(
-    mock_discovery: Discovery, respx_mock: respx.Router
+    mock_discovery: Discovery, httpx2_mock: respx.Router
 ) -> MockGafaelfawr:
-    return await register_mock_gafaelfawr(respx_mock)
+    return await register_mock_gafaelfawr(httpx2_mock)

@@ -3,7 +3,7 @@
 from typing import Any
 
 import pytest
-from httpx import AsyncClient
+from httpx2 import AsyncClient
 from safir.testing.data import Data
 from safir.testing.slack import MockSlackWebhook
 

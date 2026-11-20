@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 import structlog
 from cachetools import TTLCache
-from httpx import AsyncClient, HTTPError, HTTPStatusError, Timeout
+from httpx2 import AsyncClient, HTTPError, HTTPStatusError, Timeout
 from pydantic import BaseModel, ValidationError
 from rubin.repertoire import DiscoveryClient
 from structlog.stdlib import BoundLogger
@@ -46,7 +46,7 @@ class GafaelfawrClient:
         used.
     timeout
         Timeout for Gafaelfawr operations. If not given, defaults to the
-        timeout of the underlying HTTPX_ client.
+        timeout of the underlying HTTPX2_ client.
     userinfo_cache_lifetime
         How long to cache user information for a token.
     userinfo_cache_size
@@ -73,7 +73,7 @@ class GafaelfawrClient:
         # created it.
         self._close_client = http_client is not None
 
-        # The default timeout is the underlying timeout of the HTTPX client.
+        # The default timeout is the underlying timeout of the HTTPX2 client.
         if timeout is not None:
             self._timeout: float | Timeout = timeout.total_seconds()
         else:

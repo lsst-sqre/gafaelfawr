@@ -4,7 +4,7 @@ import re
 from typing import override
 from urllib.parse import urlencode
 
-from httpx import AsyncClient, HTTPError
+from httpx2 import AsyncClient, HTTPError
 from pydantic import ValidationError
 from safir.http import PaginationLinkData
 from structlog.stdlib import BoundLogger
@@ -231,7 +231,7 @@ class GitHubProvider(Provider):
         GitHubError
             Raised if GitHub responded with an error to the request for the
             access token.
-        httpx.HTTPError
+        httpx2.HTTPError
             Raised if an error occurred trying to talk to GitHub.
         """
         data = {
@@ -323,7 +323,7 @@ class GitHubProvider(Provider):
         ------
         GitHubError
             Raised if the user does not have a primary email address.
-        httpx.HTTPError
+        httpx2.HTTPError
             Raised if an error occurred trying to talk to GitHub.
         """
         logger.debug("Fetching email data from %s", self._EMAILS_URL)
@@ -370,7 +370,7 @@ class GitHubProvider(Provider):
         GitHubError
             Raised if the next URL from a Link header didn't point to the
             teams API URL.
-        httpx.HTTPError
+        httpx2.HTTPError
             Raised if an error occurred trying to talk to GitHub.
         """
         logger.debug("Fetching user team data from %s", self._TEAMS_URL)

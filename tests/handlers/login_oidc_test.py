@@ -5,7 +5,8 @@ from urllib.parse import parse_qs, urljoin, urlsplit
 
 import pytest
 import respx
-from httpx import AsyncClient, ConnectError
+from httpx import Request, Response
+from httpx2 import AsyncClient, ConnectError
 from safir.metrics import MockEventPublisher
 from safir.testing.logging import parse_log_tuples
 from safir.testing.slack import MockSlackWebhook
@@ -28,7 +29,7 @@ async def test_login(
     *,
     config: Config,
     client: AsyncClient,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     caplog: pytest.LogCaptureFixture,
     mock_ldap: MockLDAP,
 ) -> None:
@@ -69,7 +70,7 @@ async def test_login(
 
     caplog.clear()
     r = await simulate_oidc_login(
-        client, respx_mock, token, return_url=return_url
+        client, httpx2_mock, token, return_url=return_url
     )
     assert r.status_code == 307
 
@@ -157,7 +158,7 @@ async def test_login(
 @pytest.mark.parametrize("config", ["oidc"], indirect=True)
 @pytest.mark.asyncio
 async def test_login_redirect_header(
-    client: AsyncClient, respx_mock: respx.Router, mock_ldap: MockLDAP
+    client: AsyncClient, httpx2_mock: respx.Router, mock_ldap: MockLDAP
 ) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
     token = create_upstream_oidc_jwt("some-user")
@@ -169,7 +170,7 @@ async def test_login_redirect_header(
 
     r = await simulate_oidc_login(
         client,
-        respx_mock,
+        httpx2_mock,
         token,
         return_url=return_url,
         use_redirect_header=True,
@@ -184,7 +185,7 @@ async def test_firestore(
     config: Config,
     factory: Factory,
     client: AsyncClient,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_ldap: MockLDAP,
     mock_firestore: MockFirestore,
 ) -> None:
@@ -221,7 +222,7 @@ async def test_firestore(
     )
 
     # Simulate the OIDC login.
-    r = await simulate_oidc_login(client, respx_mock, token)
+    r = await simulate_oidc_login(client, httpx2_mock, token)
     assert r.status_code == 307
 
     # Check that the data returned from the user-info API is correct.
@@ -255,7 +256,7 @@ async def test_firestore(
     transaction.delete(
         mock_firestore.collection("users").document("99digits99")
     )
-    r = await simulate_oidc_login(client, respx_mock, token)
+    r = await simulate_oidc_login(client, httpx2_mock, token)
     assert r.status_code == 307
     r = await client.get("/auth/api/v1/user-info")
     assert r.status_code == 200
@@ -263,7 +264,7 @@ async def test_firestore(
 
     # Authenticate as a different user.
     token = create_upstream_oidc_jwt("other-user")
-    r = await simulate_oidc_login(client, respx_mock, token)
+    r = await simulate_oidc_login(client, httpx2_mock, token)
     assert r.status_code == 307
     r = await client.get("/auth/api/v1/user-info")
     assert r.status_code == 200
@@ -285,7 +286,7 @@ async def test_gid_group_lookup(
     *,
     config: Config,
     client: AsyncClient,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_ldap: MockLDAP,
 ) -> None:
     """Test separate lookup of the primary group."""
@@ -301,7 +302,7 @@ async def test_gid_group_lookup(
         "1045",
         [{"cn": ["invalid!name"]}, {"cn": ["foo"]}],
     )
-    r = await simulate_oidc_login(client, respx_mock, token)
+    r = await simulate_oidc_login(client, httpx2_mock, token)
     assert r.status_code == 307
 
     # Check that the data returned from the user-info API is correct.
@@ -321,7 +322,7 @@ async def test_gid_group_lookup(
 @pytest.mark.parametrize("config", ["oidc"], indirect=True)
 @pytest.mark.asyncio
 async def test_missing_attrs(
-    client: AsyncClient, respx_mock: respx.Router, mock_ldap: MockLDAP
+    client: AsyncClient, httpx2_mock: respx.Router, mock_ldap: MockLDAP
 ) -> None:
     token = create_upstream_oidc_jwt("ldap-user")
     mock_ldap.add_test_user(UserInfo(username="ldap-user", uid=2000))
@@ -329,7 +330,7 @@ async def test_missing_attrs(
         "ldap-user", [Group(name="foo", id=1222)]
     )
 
-    r = await simulate_oidc_login(client, respx_mock, token)
+    r = await simulate_oidc_login(client, httpx2_mock, token)
     assert r.status_code == 307
 
     # Check that the data returned from the user-info API is correct.
@@ -351,7 +352,7 @@ async def test_missing_attrs(
 @pytest.mark.parametrize("config", ["oidc-no-attrs"], indirect=True)
 @pytest.mark.asyncio
 async def test_no_attrs(
-    client: AsyncClient, respx_mock: respx.Router, mock_ldap: MockLDAP
+    client: AsyncClient, httpx2_mock: respx.Router, mock_ldap: MockLDAP
 ) -> None:
     """Test configuring LDAP to not request any optional attributes."""
     token = create_upstream_oidc_jwt("some-user")
@@ -368,7 +369,7 @@ async def test_no_attrs(
         "some-user", [Group(name="foo", id=1222)]
     )
 
-    r = await simulate_oidc_login(client, respx_mock, token)
+    r = await simulate_oidc_login(client, httpx2_mock, token)
     assert r.status_code == 307
 
     # Check that the data returned from the user-info API is correct.
@@ -390,12 +391,12 @@ async def test_no_attrs(
 @pytest.mark.parametrize("config", ["oidc"], indirect=True)
 @pytest.mark.asyncio
 async def test_invalidate_cache(
-    client: AsyncClient, respx_mock: respx.Router, mock_ldap: MockLDAP
+    client: AsyncClient, httpx2_mock: respx.Router, mock_ldap: MockLDAP
 ) -> None:
     mock_ldap.add_test_user(UserInfo(username="ldap-user", uid=2000))
     token = create_upstream_oidc_jwt("ldap-user")
 
-    r = await simulate_oidc_login(client, respx_mock, token)
+    r = await simulate_oidc_login(client, httpx2_mock, token)
     assert r.status_code == 403
 
     # Add the group entry and try again. This should immediately succeed
@@ -404,7 +405,7 @@ async def test_invalidate_cache(
     mock_ldap.add_test_group_membership(
         "ldap-user", [Group(name="foo", id=1222)]
     )
-    r = await simulate_oidc_login(client, respx_mock, token)
+    r = await simulate_oidc_login(client, httpx2_mock, token)
     assert r.status_code == 307
 
 
@@ -414,7 +415,7 @@ async def test_no_member_dn(
     *,
     config: Config,
     client: AsyncClient,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_ldap: MockLDAP,
 ) -> None:
     """Test group membership attributes containing bare usernames."""
@@ -430,7 +431,7 @@ async def test_no_member_dn(
             Group(name="group-2", id=123442),
         ],
     )
-    r = await simulate_oidc_login(client, respx_mock, token)
+    r = await simulate_oidc_login(client, httpx2_mock, token)
     assert r.status_code == 307
 
     # Check that the data returned from the user-info API is correct.
@@ -454,7 +455,7 @@ async def test_username_claim(
     *,
     config: Config,
     client: AsyncClient,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_ldap: MockLDAP,
 ) -> None:
     """Uses an alternate configuration file with non-default claims."""
@@ -469,7 +470,7 @@ async def test_username_claim(
     claims = {config.oidc.username_claim: "alt-username"}
     token = create_upstream_oidc_jwt(**claims)
 
-    r = await simulate_oidc_login(client, respx_mock, token)
+    r = await simulate_oidc_login(client, httpx2_mock, token)
     assert r.status_code == 307
 
     # Check that the /auth/api/v1/user-info and /auth routes works and return
@@ -494,7 +495,7 @@ async def test_unicode_name(
     *,
     config: Config,
     client: AsyncClient,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_ldap: MockLDAP,
 ) -> None:
     assert config.ldap
@@ -505,7 +506,7 @@ async def test_unicode_name(
         "some-user", [Group(name="foo", id=1222)]
     )
 
-    r = await simulate_oidc_login(client, respx_mock, token)
+    r = await simulate_oidc_login(client, httpx2_mock, token)
     assert r.status_code == 307
 
     # Check that the name as returned from the user-info API is correct.
@@ -524,7 +525,7 @@ async def test_callback_error(
     *,
     config: Config,
     client: AsyncClient,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     caplog: pytest.LogCaptureFixture,
     mock_slack: MockSlackWebhook,
 ) -> None:
@@ -543,7 +544,7 @@ async def test_callback_error(
         "error": "error_code",
         "error_description": "description",
     }
-    respx_mock.post(str(config.oidc.token_url)).respond(400, json=response)
+    httpx2_mock.post(str(config.oidc.token_url)).respond(400, json=response)
 
     # Simulate the return from the OpenID Connect provider.
     caplog.clear()
@@ -582,7 +583,7 @@ async def test_callback_error(
     # Change the mock error response to not contain an error.  We should then
     # internally raise the exception for the return status, which should
     # translate into an internal server error.
-    respx_mock.post(str(config.oidc.token_url)).respond(
+    httpx2_mock.post(str(config.oidc.token_url)).respond(
         400, json={"foo": "bar"}
     )
     r = await client.get("/login", params={"rd": return_url})
@@ -594,7 +595,7 @@ async def test_callback_error(
     assert "Cannot contact authentication provider" in r.text
 
     # Now try a reply that returns 200 but doesn't have the field we need.
-    respx_mock.post(str(config.oidc.token_url)).respond(json={"foo": "bar"})
+    httpx2_mock.post(str(config.oidc.token_url)).respond(json={"foo": "bar"})
     r = await client.get("/login", params={"rd": return_url})
     query = parse_qs(urlsplit(r.headers["Location"]).query)
     r = await client.get(
@@ -604,7 +605,7 @@ async def test_callback_error(
     assert "No id_token in token reply" in r.text
 
     # Return invalid JSON, which should raise an error during JSON decoding.
-    respx_mock.post(str(config.oidc.token_url)).respond(content=b"foo")
+    httpx2_mock.post(str(config.oidc.token_url)).respond(content=b"foo")
     r = await client.get("/login", params={"rd": return_url})
     query = parse_qs(urlsplit(r.headers["Location"]).query)
     r = await client.get(
@@ -614,7 +615,7 @@ async def test_callback_error(
     assert "not valid JSON" in r.text
 
     # Finally, return invalid JSON and an error reply.
-    respx_mock.post(str(config.oidc.token_url)).respond(400, content=b"foo")
+    httpx2_mock.post(str(config.oidc.token_url)).respond(400, content=b"foo")
     r = await client.get("/login", params={"rd": return_url})
     query = parse_qs(urlsplit(r.headers["Location"]).query)
     r = await client.get(
@@ -792,7 +793,7 @@ async def test_connection_error(
     *,
     config: Config,
     client: AsyncClient,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_slack: MockSlackWebhook,
 ) -> None:
     assert config.oidc
@@ -803,9 +804,12 @@ async def test_connection_error(
     url = urlsplit(r.headers["Location"])
     query = parse_qs(url.query)
 
+    def error(request: Request) -> Response:
+        raise ConnectError("Mock Error")
+
     # Register a connection error for the callback request to the OIDC
     # provider and check that an appropriate error is shown to the user.
-    respx_mock.post(str(config.oidc.token_url)).mock(side_effect=ConnectError)
+    httpx2_mock.post(str(config.oidc.token_url)).mock(side_effect=error)
     r = await client.get(
         "/login", params={"code": "some-code", "state": query["state"][0]}
     )
@@ -859,7 +863,7 @@ async def test_verify_error(
     *,
     config: Config,
     client: AsyncClient,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_slack: MockSlackWebhook,
 ) -> None:
     assert config.oidc
@@ -867,9 +871,9 @@ async def test_verify_error(
     issuer = config.oidc.issuer
     config_url = urljoin(issuer, "/.well-known/openid-configuration")
     jwks_url = urljoin(issuer, "/.well-known/jwks.json")
-    respx_mock.get(config_url).respond(404)
-    respx_mock.get(jwks_url).respond(404)
-    await mock_oidc_provider_token(respx_mock, "some-code", token)
+    httpx2_mock.get(config_url).respond(404)
+    httpx2_mock.get(jwks_url).respond(404)
+    await mock_oidc_provider_token(httpx2_mock, "some-code", token)
     return_url = "https://example.com/foo"
 
     r = await client.get("/login", params={"rd": return_url})
@@ -934,11 +938,13 @@ async def test_verify_error(
 @pytest.mark.parametrize("config", ["oidc"], indirect=True)
 @pytest.mark.asyncio
 async def test_invalid_username(
-    client: AsyncClient, respx_mock: respx.Router, mock_slack: MockSlackWebhook
+    client: AsyncClient,
+    httpx2_mock: respx.Router,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     token = create_upstream_oidc_jwt("invalid@user")
 
-    r = await simulate_oidc_login(client, respx_mock, token)
+    r = await simulate_oidc_login(client, httpx2_mock, token)
     assert r.status_code == 403
     assert "Invalid username in uid claim in token: invalid@user" in r.text
 
@@ -950,14 +956,14 @@ async def test_invalid_username(
 @pytest.mark.asyncio
 async def test_double_username(
     client: AsyncClient,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_ldap: MockLDAP,
     mock_slack: MockSlackWebhook,
 ) -> None:
     """Test error handling of a multivalued ``uid`` attribute."""
     token = create_upstream_oidc_jwt(["one", "two"])
 
-    r = await simulate_oidc_login(client, respx_mock, token)
+    r = await simulate_oidc_login(client, httpx2_mock, token)
     assert r.status_code == 500
     assert "token verification failed" in r.text
 
@@ -1000,14 +1006,14 @@ async def test_no_valid_groups(
     *,
     config: Config,
     client: AsyncClient,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_slack: MockSlackWebhook,
     mock_ldap: MockLDAP,
 ) -> None:
     token = create_upstream_oidc_jwt("some-user")
 
     # Try authenticating with no LDAP entry and thus no valid groups.
-    r = await simulate_oidc_login(client, respx_mock, token)
+    r = await simulate_oidc_login(client, httpx2_mock, token)
     assert r.status_code == 403
     assert r.headers["Cache-Control"] == "no-cache, no-store"
     assert r.headers["Content-Type"] == "text/html; charset=utf-8"
@@ -1021,7 +1027,7 @@ async def test_no_valid_groups(
 
     # Do the same with a valid LDAP entry but no groups.
     mock_ldap.add_test_user(UserInfo(username="some-user", uid=1222, gid=1234))
-    r = await simulate_oidc_login(client, respx_mock, token)
+    r = await simulate_oidc_login(client, httpx2_mock, token)
     assert r.status_code == 403
     assert "some-user is not a member of any authorized groups" in r.text
     r = await client.get("/ingress/auth", params={"scope": "user:token"})
@@ -1034,12 +1040,12 @@ async def test_no_valid_groups(
 @pytest.mark.parametrize("config", ["oidc-enrollment"], indirect=True)
 @pytest.mark.asyncio
 async def test_enrollment_url(
-    client: AsyncClient, respx_mock: respx.Router
+    client: AsyncClient, httpx2_mock: respx.Router
 ) -> None:
     token = create_upstream_oidc_jwt(None)
 
     r = await simulate_oidc_login(
-        client, respx_mock, token, expect_enrollment=True
+        client, httpx2_mock, token, expect_enrollment=True
     )
     assert r.status_code == 307
     assert r.headers["Cache-Control"] == "no-cache, no-store"
@@ -1060,12 +1066,14 @@ async def test_enrollment_url(
 @pytest.mark.parametrize("config", ["oidc-claims"], indirect=True)
 @pytest.mark.asyncio
 async def test_missing_username(
-    client: AsyncClient, respx_mock: respx.Router, mock_slack: MockSlackWebhook
+    client: AsyncClient,
+    httpx2_mock: respx.Router,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     """Test a missing username claim in the ID token but no enrollment URL."""
     token = create_upstream_oidc_jwt(None)
 
-    r = await simulate_oidc_login(client, respx_mock, token)
+    r = await simulate_oidc_login(client, httpx2_mock, token)
     assert r.status_code == 403
     assert r.headers["Cache-Control"] == "no-cache, no-store"
     assert "User is not enrolled" in r.text

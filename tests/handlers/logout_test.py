@@ -2,7 +2,7 @@
 
 import pytest
 import respx
-from httpx import AsyncClient
+from httpx2 import AsyncClient
 from safir.testing.logging import parse_log_tuples
 from safir.testing.slack import MockSlackWebhook
 
@@ -136,7 +136,7 @@ async def test_logout_github(
     *,
     client: AsyncClient,
     config: Config,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     user_info = GitHubUserInfo(
@@ -150,7 +150,7 @@ async def test_logout_github(
     )
 
     # Log in and log out.
-    mock_github(respx_mock, "some-code", user_info, expect_revoke=True)
+    mock_github(httpx2_mock, "some-code", user_info, expect_revoke=True)
     r = await client.get("/login", params={"rd": "https://example.com"})
     assert r.status_code == 307
     query = query_from_url(r.headers["Location"])

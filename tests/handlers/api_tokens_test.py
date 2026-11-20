@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import ANY
 
 import pytest
-from httpx import AsyncClient
+from httpx2 import AsyncClient
 from safir.datetime import format_datetime_for_logging
 from safir.testing.logging import parse_log_tuples
 from safir.testing.slack import MockSlackWebhook

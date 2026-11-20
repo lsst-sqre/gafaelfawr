@@ -4,7 +4,7 @@ import re
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
-from httpx import Response
+from httpx2 import Response
 
 from gafaelfawr.config import Config
 from gafaelfawr.models.auth import (

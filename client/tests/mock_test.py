@@ -95,15 +95,15 @@ async def test_fail_on(data: Data, mock_gafaelfawr: MockGafaelfawr) -> None:
 
 @pytest.mark.asyncio
 async def test_missing_discovery(
-    data: Data, monkeypatch: pytest.MonkeyPatch, respx_mock: respx.Router
+    data: Data, monkeypatch: pytest.MonkeyPatch, httpx2_mock: respx.Router
 ) -> None:
     monkeypatch.setenv("REPERTOIRE_BASE_URL", "https://example.com/repertoire")
-    register_mock_discovery(respx_mock, data.path("empty.json"))
+    register_mock_discovery(httpx2_mock, data.path("empty.json"))
 
     # If the Gafaelfawr service (v1) is not included in the discovery
     # information, register_mock_gafaelfawr should assert.
     with pytest.raises(AssertionError):
-        await register_mock_gafaelfawr(respx_mock)
+        await register_mock_gafaelfawr(httpx2_mock)
 
 
 @pytest.mark.asyncio

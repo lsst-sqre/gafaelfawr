@@ -1,6 +1,6 @@
 """Lookups of public repository and owner metadata from the GitHub API."""
 
-from httpx import AsyncClient, HTTPError, HTTPStatusError, Response
+from httpx2 import AsyncClient, HTTPError, HTTPStatusError, Response
 from structlog.stdlib import BoundLogger
 
 from ..constants import GITHUB_API_URL
@@ -132,12 +132,12 @@ class GitHubStorage:
 
         Returns
         -------
-        httpx.Response
+        httpx2.Response
             Successful response.
 
         Raises
         ------
-        httpx.HTTPError
+        httpx2.HTTPError
             Raised if the request failed or returned an error status.
         """
         r = await self._http_client.get(

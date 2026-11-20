@@ -9,7 +9,7 @@ it for a Gafaelfawr token for the GitHub project that the ID token matches.
 from typing import Any
 
 import jwt
-from httpx import AsyncClient, HTTPError
+from httpx2 import AsyncClient, HTTPError
 from jwt import PyJWK
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession

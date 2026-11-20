@@ -11,7 +11,7 @@ import structlog
 from asgi_lifespan import LifespanManager
 from cryptography.fernet import Fernet
 from fastapi import FastAPI
-from httpx import ASGITransport, AsyncClient
+from httpx2 import ASGITransport, AsyncClient
 from safir.database import create_database_engine, stamp_database_async
 from safir.testing.data import Data
 from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
@@ -47,6 +47,14 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=False,
         help="Overwrite expected test output with current results",
     )
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config,
+    items: list[pytest.Item],
+) -> None:
+    for item in items:
+        item.add_marker(pytest.mark.httpx2(assert_all_called=False))
 
 
 @pytest.fixture(autouse=True)
@@ -89,7 +97,7 @@ async def app(
 
 @pytest_asyncio.fixture
 async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
-    """Return an ``httpx.AsyncClient`` configured to talk to the test app."""
+    """Return an ``httpx2.AsyncClient`` configured to talk to the test app."""
     async with AsyncClient(
         base_url=f"https://{TEST_HOSTNAME}",
         headers={
@@ -207,13 +215,13 @@ async def factory(
 
 @pytest.fixture
 def mock_slack(
-    config: Config, respx_mock: respx.Router
+    config: Config, httpx2_mock: respx.Router
 ) -> MockSlackWebhook | None:
     """Mock a Slack webhook."""
     if not config.slack_webhook:
         return None
     webhook = config.slack_webhook.get_secret_value()
-    return mock_slack_webhook(webhook, respx_mock)
+    return mock_slack_webhook(webhook, httpx2_mock)
 
 
 @pytest.fixture(scope="session")

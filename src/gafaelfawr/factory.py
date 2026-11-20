@@ -9,7 +9,7 @@ import structlog
 from bonsai import LDAPClient
 from bonsai.asyncio import AIOConnectionPool
 from google.cloud import firestore
-from httpx import AsyncClient
+from httpx2 import AsyncClient
 from kubernetes_asyncio.client import ApiClient
 from limits.aio.strategies import FixedWindowRateLimiter, RateLimiter
 from limits.storage import storage_from_string

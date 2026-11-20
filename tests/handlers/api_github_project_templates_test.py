@@ -4,7 +4,8 @@ from datetime import UTC, datetime
 
 import pytest
 import respx
-from httpx import AsyncClient, Response
+from httpx import Response
+from httpx2 import AsyncClient
 from safir.testing.data import Data
 from safir.testing.slack import MockSlackWebhook
 
@@ -66,12 +67,12 @@ PROJECTS_URL_PREFIX = f"https://{TEST_HOSTNAME}{PROJECTS_URL}"
 async def test_lifecycle(
     client: AsyncClient,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_slack: MockSlackWebhook,
     data: Data,
 ) -> None:
-    owners = mock_github_owners(respx_mock, [LSST_SQRE, LSST_DM])
-    repositories = mock_github_repositories(respx_mock, [SQR_120, DMTN_300])
+    owners = mock_github_owners(httpx2_mock, [LSST_SQRE, LSST_DM])
+    repositories = mock_github_repositories(httpx2_mock, [SQR_120, DMTN_300])
     admin_data = await create_session_token(
         factory, username="some-admin", scopes={"admin:token"}
     )
@@ -236,10 +237,10 @@ async def test_lifecycle(
 async def test_create_minimal(
     client: AsyncClient,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     data: Data,
 ) -> None:
-    mock_github_owners(respx_mock, [LSST_SQRE, LSST_DM])
+    mock_github_owners(httpx2_mock, [LSST_SQRE, LSST_DM])
     admin_data = await create_session_token(
         factory, username="some-admin", scopes={"admin:token"}
     )
@@ -267,10 +268,10 @@ async def test_create_minimal(
 async def test_update(
     client: AsyncClient,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
 ) -> None:
-    owners = mock_github_owners(respx_mock, [LSST_SQRE, LSST_DM, LSST])
-    mock_github_repositories(respx_mock, [SQR_120])
+    owners = mock_github_owners(httpx2_mock, [LSST_SQRE, LSST_DM, LSST])
+    mock_github_repositories(httpx2_mock, [SQR_120])
     admin_data = await create_session_token(
         factory, username="some-admin", scopes={"admin:token"}
     )
@@ -358,10 +359,10 @@ async def test_update(
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_delete_in_use(
-    client: AsyncClient, factory: Factory, respx_mock: respx.Router
+    client: AsyncClient, factory: Factory, httpx2_mock: respx.Router
 ) -> None:
-    mock_github_owners(respx_mock, [LSST_SQRE, LSST_DM])
-    mock_github_repositories(respx_mock, [SQR_120, DMTN_300])
+    mock_github_owners(httpx2_mock, [LSST_SQRE, LSST_DM])
+    mock_github_repositories(httpx2_mock, [SQR_120, DMTN_300])
     admin_data = await create_session_token(factory, scopes={"admin:token"})
     headers = {"Authorization": f"Bearer {admin_data.token}"}
     r = await client.post(URL, json=TECHNOTE, headers=headers)
@@ -397,12 +398,12 @@ async def test_delete_in_use(
 async def test_errors(
     client: AsyncClient,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    mock_github_owners(respx_mock, [LSST_SQRE, LSST_DM])
+    mock_github_owners(httpx2_mock, [LSST_SQRE, LSST_DM])
     repositories = mock_github_repositories(
-        respx_mock, [SQR_120, SQR_062, OOK, IMPOSTOR_SQR]
+        httpx2_mock, [SQR_120, SQR_062, OOK, IMPOSTOR_SQR]
     )
     admin_data = await create_session_token(factory, scopes={"admin:token"})
     headers = {"Authorization": f"Bearer {admin_data.token}"}
@@ -656,11 +657,11 @@ async def test_errors(
 async def test_github_failure(
     client: AsyncClient,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    owners = mock_github_owners(respx_mock, [LSST_SQRE, LSST_DM])
-    repositories = mock_github_repositories(respx_mock, [SQR_120])
+    owners = mock_github_owners(httpx2_mock, [LSST_SQRE, LSST_DM])
+    repositories = mock_github_repositories(httpx2_mock, [SQR_120])
     admin_data = await create_session_token(factory, scopes={"admin:token"})
     headers = {"Authorization": f"Bearer {admin_data.token}"}
     expected_error = {
@@ -739,12 +740,12 @@ async def test_provisioner_scope(
     client: AsyncClient,
     config: Config,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_slack: MockSlackWebhook,
 ) -> None:
     """The provisioning scope allows exactly one route."""
-    mock_github_owners(respx_mock, [LSST_SQRE])
-    mock_github_repositories(respx_mock, [SQR_120, DMTN_300])
+    mock_github_owners(httpx2_mock, [LSST_SQRE])
+    mock_github_repositories(httpx2_mock, [SQR_120, DMTN_300])
     admin_data = await create_session_token(factory, scopes={"admin:token"})
     admin_headers = {"Authorization": f"Bearer {admin_data.token}"}
     provisioner_data = await create_session_token(
@@ -838,10 +839,10 @@ async def test_provisioner_scope(
 async def test_auth_required(
     client: AsyncClient,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    mock_github_owners(respx_mock, [LSST_SQRE, LSST_DM])
+    mock_github_owners(httpx2_mock, [LSST_SQRE, LSST_DM])
     admin_data = await create_session_token(factory, scopes={"admin:token"})
     csrf = await set_session_cookie(client, admin_data.token)
 

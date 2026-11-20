@@ -103,12 +103,12 @@ async def create_project(
 async def test_create_project(
     config: Config,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     admin: TokenData,
     data: Data,
 ) -> None:
     service = factory.create_github_project_service()
-    mock = mock_github_repositories(respx_mock, [SQR_062, MIXED_CASE])
+    mock = mock_github_repositories(httpx2_mock, [SQR_062, MIXED_CASE])
 
     # IDs and timestamps are wildcards in the expected output, so check
     # them separately.
@@ -163,12 +163,12 @@ async def test_create_project(
 async def test_create_project_default_lifetime(
     config: Config,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     admin: TokenData,
 ) -> None:
     """Omitting max_lifetime stores the default lifetime of one hour."""
     service = factory.create_github_project_service()
-    mock_github_repositories(respx_mock, [SQR_062])
+    mock_github_repositories(httpx2_mock, [SQR_062])
     history_store = GitHubProjectHistoryStore(factory.session)
 
     assert config.github_token_exchange
@@ -194,12 +194,12 @@ async def test_create_project_default_lifetime(
 async def test_create_project_capped_lifetime(
     config: Config,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     admin: TokenData,
 ) -> None:
     """A configured maximum below one hour caps the default lifetime."""
     service = factory.create_github_project_service()
-    mock_github_repositories(respx_mock, [SQR_062, OOK])
+    mock_github_repositories(httpx2_mock, [SQR_062, OOK])
 
     assert config.github_token_exchange
     assert config.github_token_exchange.max_lifetime == timedelta(minutes=30)
@@ -229,11 +229,11 @@ async def test_create_project_capped_lifetime(
 async def test_create_project_errors(
     config: Config,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     admin: TokenData,
 ) -> None:
     service = factory.create_github_project_service()
-    mock = mock_github_repositories(respx_mock, [SQR_062, DOCS, SQRE_DOCS])
+    mock = mock_github_repositories(httpx2_mock, [SQR_062, DOCS, SQRE_DOCS])
     user = await create_session_token(factory, scopes={"user:token"})
     create = GitHubProjectCreate(
         repository="lsst-sqre/sqr-062", scopes={"read:all"}
@@ -335,11 +335,11 @@ async def test_create_project_errors(
 async def test_list_projects(
     config: Config,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     admin: TokenData,
 ) -> None:
     service = factory.create_github_project_service()
-    mock_github_repositories(respx_mock, [SQR_062, OOK])
+    mock_github_repositories(httpx2_mock, [SQR_062, OOK])
 
     docs = await create_project(
         service,
@@ -383,13 +383,13 @@ async def test_list_projects(
 async def test_update_project(
     config: Config,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     admin: TokenData,
     data: Data,
 ) -> None:
     service = factory.create_github_project_service()
     token_service = factory.create_token_service()
-    mock = mock_github_repositories(respx_mock, [SQR_062, OOK])
+    mock = mock_github_repositories(httpx2_mock, [SQR_062, OOK])
     other_admin = await create_session_token(
         factory, username="other-admin", scopes={"admin:token"}
     )
@@ -547,11 +547,11 @@ async def test_update_project(
 async def test_update_project_unchanged(
     config: Config,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     admin: TokenData,
 ) -> None:
     service = factory.create_github_project_service()
-    mock = mock_github_repositories(respx_mock, [SQR_062])
+    mock = mock_github_repositories(httpx2_mock, [SQR_062])
     other_admin = await create_session_token(
         factory, username="other-admin", scopes={"admin:token"}
     )
@@ -640,11 +640,11 @@ async def test_update_project_unchanged(
 async def test_update_project_errors(
     config: Config,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     admin: TokenData,
 ) -> None:
     service = factory.create_github_project_service()
-    mock = mock_github_repositories(respx_mock, [SQR_062, OOK, SQRE_DOCS])
+    mock = mock_github_repositories(httpx2_mock, [SQR_062, OOK, SQRE_DOCS])
     user = await create_session_token(factory, scopes={"user:token"})
 
     main = await create_project(
@@ -722,11 +722,11 @@ async def test_update_project_errors(
 async def test_disabled_project_overlap(
     config: Config,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     admin: TokenData,
 ) -> None:
     service = factory.create_github_project_service()
-    mock_github_repositories(respx_mock, [SQR_062])
+    mock_github_repositories(httpx2_mock, [SQR_062])
     create = GitHubProjectCreate(
         repository="lsst-sqre/sqr-062",
         scopes={"read:all"},
@@ -801,13 +801,13 @@ async def test_disabled_project_overlap(
 async def test_delete_project(
     config: Config,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     admin: TokenData,
     data: Data,
 ) -> None:
     service = factory.create_github_project_service()
     token_service = factory.create_token_service()
-    mock_github_repositories(respx_mock, [SQR_062, OOK])
+    mock_github_repositories(httpx2_mock, [SQR_062, OOK])
     user = await create_session_token(factory, scopes={"user:token"})
     history_store = GitHubProjectHistoryStore(factory.session)
 
@@ -852,7 +852,7 @@ async def test_delete_project(
 async def test_delete_project_row_with_tokens(
     config: Config,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     admin: TokenData,
 ) -> None:
     """Check that the database refuses to orphan the tokens of a project.
@@ -863,7 +863,7 @@ async def test_delete_project_row_with_tokens(
     """
     service = factory.create_github_project_service()
     token_service = factory.create_token_service()
-    mock_github_repositories(respx_mock, [SQR_062])
+    mock_github_repositories(httpx2_mock, [SQR_062])
     project = await create_project(service, admin, "lsst-sqre/sqr-062")
     token = await create_github_token(factory, project)
 
@@ -890,7 +890,7 @@ async def test_concurrent_writes(
     config: Config,
     factory: Factory,
     engine: AsyncEngine,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     admin: TokenData,
 ) -> None:
     """Concurrent writers serialize on the registry lock.
@@ -902,7 +902,7 @@ async def test_concurrent_writes(
     first to commit and then sees its row.
     """
     service = factory.create_github_project_service()
-    mock_github_repositories(respx_mock, [SQR_062, DOCS, SQRE_DOCS])
+    mock_github_repositories(httpx2_mock, [SQR_062, DOCS, SQRE_DOCS])
 
     # A second factory has its own session and therefore its own database
     # connection and transaction, standing in for a second Gafaelfawr

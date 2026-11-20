@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from unittest.mock import ANY
 
 import pytest
-from httpx import AsyncClient
+from httpx2 import AsyncClient
 from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.constants import COOKIE_NAME

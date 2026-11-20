@@ -65,11 +65,11 @@ async def test_create_token(mock_gafaelfawr: MockGafaelfawr) -> None:
 
 @pytest.mark.asyncio
 async def test_missing_discovery(
-    monkeypatch: pytest.MonkeyPatch, respx_mock: respx.Router
+    monkeypatch: pytest.MonkeyPatch, httpx2_mock: respx.Router
 ) -> None:
     monkeypatch.setenv("REPERTOIRE_BASE_URL", "https://example.com/repertoire")
     path = Path(__file__).parent / "data" / "empty.json"
-    register_mock_discovery(respx_mock, path)
+    register_mock_discovery(httpx2_mock, path)
     client = GafaelfawrClient()
 
     # If the Gafaelfawr service (v1) is not included in the discovery

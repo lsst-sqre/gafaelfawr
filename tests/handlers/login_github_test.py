@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 import respx
-from httpx import AsyncClient, Response
+from httpx2 import AsyncClient, Response
 from safir.metrics import NOT_NONE, MockEventPublisher
 from safir.testing.logging import parse_log_tuples
 from safir.testing.slack import MockSlackWebhook
@@ -26,7 +26,7 @@ from ..support.github import mock_github
 
 async def simulate_github_login(
     client: AsyncClient,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     user_info: GitHubUserInfo,
     *,
     headers: dict[str, str] | None = None,
@@ -44,8 +44,8 @@ async def simulate_github_login(
     ----------
     client
         Client to use to make calls to the application.
-    respx_mock
-        Mock for httpx calls.
+    httpx2_mock
+        Mock for HTTPX2 calls.
     user_info
         The user information that GitHub should return.
     headers
@@ -61,7 +61,7 @@ async def simulate_github_login(
 
     Returns
     -------
-    httpx.Response
+    httpx2.Response
         The response from the return to the ``/login`` handler.
     """
     config = config_dependency.config()
@@ -69,7 +69,7 @@ async def simulate_github_login(
     if not headers:
         headers = {}
     mock_github(
-        respx_mock,
+        httpx2_mock,
         "some-code",
         user_info,
         paginate_teams=paginate_teams,
@@ -103,7 +103,7 @@ async def simulate_github_login(
 @pytest.mark.asyncio
 async def test_login(
     client: AsyncClient,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     user_info = GitHubUserInfo(
@@ -126,7 +126,7 @@ async def test_login(
     # Simulate the GitHub login.
     caplog.clear()
     r = await simulate_github_login(
-        client, respx_mock, user_info, return_url=return_url
+        client, httpx2_mock, user_info, return_url=return_url
     )
     assert r.status_code == 307
     assert parse_log_tuples("gafaelfawr", caplog.record_tuples) == [
@@ -218,7 +218,7 @@ async def test_login(
 
 @pytest.mark.asyncio
 async def test_redirect_header(
-    client: AsyncClient, respx_mock: respx.Router
+    client: AsyncClient, httpx2_mock: respx.Router
 ) -> None:
     """Test receiving the redirect header via X-Auth-Request-Redirect."""
     user_info = GitHubUserInfo(
@@ -229,7 +229,7 @@ async def test_redirect_header(
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="ORG")],
     )
     return_url = "https://example.com/foo?a=bar&b=baz"
-    mock_github(respx_mock, "some-code", user_info)
+    mock_github(httpx2_mock, "some-code", user_info)
 
     # Simulate the initial authentication request.
     r = await client.get(
@@ -260,7 +260,7 @@ async def test_no_destination(
 
 @pytest.mark.asyncio
 async def test_cookie_and_token(
-    client: AsyncClient, respx_mock: respx.Router
+    client: AsyncClient, httpx2_mock: respx.Router
 ) -> None:
     """Test that cookie auth takes precedence over an Authorization header.
 
@@ -281,7 +281,7 @@ async def test_cookie_and_token(
     # Simulate the GitHub login.
     r = await simulate_github_login(
         client,
-        respx_mock,
+        httpx2_mock,
         user_info,
         headers={"Authorization": "token some-jupyterhub-token"},
     )
@@ -298,7 +298,9 @@ async def test_cookie_and_token(
 
 @pytest.mark.asyncio
 async def test_bad_redirect(
-    client: AsyncClient, respx_mock: respx.Router, mock_slack: MockSlackWebhook
+    client: AsyncClient,
+    httpx2_mock: respx.Router,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     r = await client.get("/login", params={"rd": "https://foo.example.com/"})
     assert r.status_code == 422
@@ -328,7 +330,7 @@ async def test_bad_redirect(
 
 @pytest.mark.asyncio
 async def test_github_uppercase(
-    client: AsyncClient, respx_mock: respx.Router
+    client: AsyncClient, httpx2_mock: respx.Router
 ) -> None:
     """Tests that usernames and organization names are forced to lowercase.
 
@@ -344,7 +346,7 @@ async def test_github_uppercase(
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="ORG")],
     )
 
-    r = await simulate_github_login(client, respx_mock, user_info)
+    r = await simulate_github_login(client, httpx2_mock, user_info)
     assert r.status_code == 307
 
     # The user returned by the /auth route should be forced to lowercase.
@@ -369,7 +371,9 @@ async def test_github_uppercase(
 
 @pytest.mark.asyncio
 async def test_invalid_username(
-    client: AsyncClient, respx_mock: respx.Router, mock_slack: MockSlackWebhook
+    client: AsyncClient,
+    httpx2_mock: respx.Router,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     """Test that invalid usernames are rejected."""
     user_info = GitHubUserInfo(
@@ -381,7 +385,7 @@ async def test_invalid_username(
     )
 
     r = await simulate_github_login(
-        client, respx_mock, user_info, expect_revoke=True
+        client, httpx2_mock, user_info, expect_revoke=True
     )
     assert r.status_code == 403
     assert "Invalid username: invalid user" in r.text
@@ -392,7 +396,7 @@ async def test_invalid_username(
 
 @pytest.mark.asyncio
 async def test_invalid_groups(
-    client: AsyncClient, respx_mock: respx.Router
+    client: AsyncClient, httpx2_mock: respx.Router
 ) -> None:
     user_info = GitHubUserInfo(
         name="A User",
@@ -406,7 +410,7 @@ async def test_invalid_groups(
         ],
     )
 
-    r = await simulate_github_login(client, respx_mock, user_info)
+    r = await simulate_github_login(client, httpx2_mock, user_info)
     assert r.status_code == 307
 
     r = await client.get("/auth/api/v1/user-info")
@@ -426,7 +430,7 @@ async def test_invalid_groups(
 
 @pytest.mark.asyncio
 async def test_paginated_teams(
-    client: AsyncClient, respx_mock: respx.Router
+    client: AsyncClient, httpx2_mock: respx.Router
 ) -> None:
     user_info = GitHubUserInfo(
         name="GitHub User",
@@ -446,7 +450,7 @@ async def test_paginated_teams(
     )
 
     r = await simulate_github_login(
-        client, respx_mock, user_info, paginate_teams=True
+        client, httpx2_mock, user_info, paginate_teams=True
     )
     assert r.status_code == 307
 
@@ -473,7 +477,7 @@ async def test_paginated_teams(
 async def test_no_valid_groups(
     client: AsyncClient,
     config: Config,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_slack: MockSlackWebhook,
 ) -> None:
     user_info = GitHubUserInfo(
@@ -485,7 +489,7 @@ async def test_no_valid_groups(
     )
 
     r = await simulate_github_login(
-        client, respx_mock, user_info, expect_revoke=True
+        client, httpx2_mock, user_info, expect_revoke=True
     )
     assert r.status_code == 403
     assert r.headers["Cache-Control"] == "no-cache, no-store"
@@ -516,7 +520,7 @@ async def test_no_valid_groups(
 
 @pytest.mark.asyncio
 async def test_unicode_name(
-    client: AsyncClient, respx_mock: respx.Router
+    client: AsyncClient, httpx2_mock: respx.Router
 ) -> None:
     user_info = GitHubUserInfo(
         name="名字",
@@ -526,7 +530,7 @@ async def test_unicode_name(
         teams=[GitHubTeam(slug="a-team", gid=1000, organization="org")],
     )
 
-    r = await simulate_github_login(client, respx_mock, user_info)
+    r = await simulate_github_login(client, httpx2_mock, user_info)
     assert r.status_code == 307
 
     # Check that the name as returned from the user-info API is correct.
@@ -547,7 +551,7 @@ async def test_unicode_name(
 
 @pytest.mark.asyncio
 async def test_invalid_state(
-    client: AsyncClient, config: Config, respx_mock: respx.Router
+    client: AsyncClient, config: Config, httpx2_mock: respx.Router
 ) -> None:
     user_info = GitHubUserInfo(
         name="GitHub User",
@@ -558,7 +562,7 @@ async def test_invalid_state(
     )
     return_url = "https://example.com/foo"
 
-    mock_github(respx_mock, "some-code", user_info)
+    mock_github(httpx2_mock, "some-code", user_info)
     r = await client.get("/login", params={"rd": return_url})
     assert r.status_code == 307
     url = urlsplit(r.headers["Location"])
@@ -604,7 +608,7 @@ async def test_invalid_state(
 @pytest.mark.parametrize("config", ["github-subdomain"], indirect=True)
 @pytest.mark.asyncio
 async def test_subdomain(
-    client: AsyncClient, respx_mock: respx.Router
+    client: AsyncClient, httpx2_mock: respx.Router
 ) -> None:
     user_info = GitHubUserInfo(
         name="GitHub User",
@@ -621,7 +625,7 @@ async def test_subdomain(
         f"https://{TEST_HOSTNAME}:4444/foo?a=bar&b=baz",
     ):
         r = await simulate_github_login(
-            client, respx_mock, user_info, return_url=return_url
+            client, httpx2_mock, user_info, return_url=return_url
         )
         assert r.status_code == 307
 

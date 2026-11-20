@@ -1,7 +1,7 @@
 """Tests for errors in the ``/ingress/auth`` route."""
 
 import pytest
-from httpx import AsyncClient
+from httpx2 import AsyncClient
 
 from gafaelfawr.factory import Factory
 from gafaelfawr.storage.token import TokenDatabaseStore

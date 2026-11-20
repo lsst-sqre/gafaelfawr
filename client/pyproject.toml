@@ -23,6 +23,7 @@ dependencies = [
     "cachetools>=6.1,<9",
     "fastapi>=0.100,<1",
     "httpx>=0.28,<1",
+    "httpx2>=2,<3",
     "pydantic>=2.10,<3",
     "pydantic-settings>=2.6,<3",
     "rubin-repertoire>=0.6,<4",
@@ -52,6 +53,7 @@ dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.25",
     "pytest-cov>=6",
+    "pytest-httpx2>=1",
     "pytest-sugar>=1",
     "respx>=0.22",
 ]
@@ -120,10 +122,10 @@ asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "strict"
 filterwarnings = [
     # dataclases-avroschema hasn't been fully updated for Python 3.14
-    "ignore:.*Core Pydantic V1 functionality.*:UserWarning",
     "ignore:.*'_UnionGenericAlias' is deprecated.*:DeprecationWarning",
-    # testcontainers hasn't updated all of the community modules
-    "ignore:.*wait_container_is_ready decorator.*:DeprecationWarning",
+]
+markers = [
+    "httpx2: implemented by pytest-httpx2 but not registered correctly"
 ]
 # The python_files setting is not for test detection (pytest will pick up any
 # test files named *_test.py without this setting) but to enable special
@@ -133,11 +135,7 @@ filterwarnings = [
 # enables magical assert processing (showing a full diff on assert failures
 # with complex data structures rather than only the assert message) in files
 # listed in python_files.
-python_files = [
-    "src/rubin/gafaelfawr/_mock.py",
-    "tests/*.py",
-    "tests/*/*.py",
-]
+python_files = ["tests/*.py", "tests/*/*.py"]
 
 [tool.setuptools_scm]
 root = ".."
@@ -147,3 +145,6 @@ required-environments = [
     "sys_platform == 'manylinux' and platform_machine == 'x86_64'",
     "sys_platform == 'manylinux' and platform_machine == 'aarch64'",
 ]
+
+[tool.uv.sources]
+rubin-repertoire = { git = "https://github.com/lsst-sqre/repertoire", branch = "t/DM-56973", subdirectory = "client" }

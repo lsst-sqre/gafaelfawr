@@ -8,7 +8,7 @@ from typing import Any
 from urllib.parse import urlencode
 
 import pytest
-from httpx import AsyncClient
+from httpx2 import AsyncClient
 from safir.database import datetime_to_db
 from safir.http import PaginationLinkData
 from safir.testing.data import Data

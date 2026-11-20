@@ -8,7 +8,7 @@ from unittest.mock import ANY
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 import pytest
-from httpx import AsyncClient, BasicAuth
+from httpx2 import AsyncClient, BasicAuth
 from safir.datetime import format_datetime_for_logging
 from safir.testing.logging import parse_log_tuples
 from safir.testing.slack import MockSlackWebhook
