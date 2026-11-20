@@ -1,6 +1,6 @@
 """Helper functions for managing test cookies."""
 
-from httpx import AsyncClient
+from httpx2 import AsyncClient
 
 from gafaelfawr.constants import COOKIE_NAME
 from gafaelfawr.models.state import State

@@ -6,7 +6,8 @@ from unittest.mock import ANY
 
 import pytest
 import respx
-from httpx import AsyncClient, ConnectError, Response
+from httpx import Response
+from httpx2 import AsyncClient, ConnectError
 from safir.testing.data import Data
 from safir.testing.slack import MockSlackWebhook
 
@@ -42,11 +43,11 @@ URL_PREFIX = f"https://{TEST_HOSTNAME}{URL}"
 async def test_lifecycle(
     client: AsyncClient,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_slack: MockSlackWebhook,
     data: Data,
 ) -> None:
-    mock = mock_github_repositories(respx_mock, [SQR_062, OOK])
+    mock = mock_github_repositories(httpx2_mock, [SQR_062, OOK])
     admin_data = await create_session_token(
         factory, username="some-admin", scopes={"admin:token"}
     )
@@ -210,9 +211,9 @@ async def test_lifecycle(
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_list_filters(
-    client: AsyncClient, factory: Factory, respx_mock: respx.Router
+    client: AsyncClient, factory: Factory, httpx2_mock: respx.Router
 ) -> None:
-    mock_github_repositories(respx_mock, [SQR_062, OOK, DOCS])
+    mock_github_repositories(httpx2_mock, [SQR_062, OOK, DOCS])
     admin_data = await create_session_token(factory, scopes={"admin:token"})
     headers = {"Authorization": f"Bearer {admin_data.token}"}
 
@@ -300,10 +301,10 @@ async def test_list_filters(
 async def test_errors(
     client: AsyncClient,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    mock_github_repositories(respx_mock, [SQR_062, DOCS, SQRE_DOCS])
+    mock_github_repositories(httpx2_mock, [SQR_062, DOCS, SQRE_DOCS])
     admin_data = await create_session_token(factory, scopes={"admin:token"})
     headers = {"Authorization": f"Bearer {admin_data.token}"}
 
@@ -492,11 +493,11 @@ async def test_errors(
 async def test_github_failure(
     client: AsyncClient,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_slack: MockSlackWebhook,
     data: Data,
 ) -> None:
-    mock = mock_github_repositories(respx_mock, [SQR_062, OOK])
+    mock = mock_github_repositories(httpx2_mock, [SQR_062, OOK])
     admin_data = await create_session_token(factory, scopes={"admin:token"})
     headers = {"Authorization": f"Bearer {admin_data.token}"}
     create = {"repository": "lsst-sqre/sqr-062", "scopes": ["read:all"]}
@@ -604,10 +605,10 @@ async def test_bootstrap(
     client: AsyncClient,
     config: Config,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
 ) -> None:
     """The bootstrap token can manage projects, as it can service tokens."""
-    mock_github_repositories(respx_mock, [SQR_062])
+    mock_github_repositories(httpx2_mock, [SQR_062])
     bootstrap_token = config.bootstrap_token.get_secret_value()
     headers = {"Authorization": f"Bearer {bootstrap_token}"}
 
@@ -637,10 +638,10 @@ async def test_bootstrap(
 async def test_auth_required(
     client: AsyncClient,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    mock_github_repositories(respx_mock, [SQR_062])
+    mock_github_repositories(httpx2_mock, [SQR_062])
     admin_data = await create_session_token(factory, scopes={"admin:token"})
     csrf = await set_session_cookie(client, admin_data.token)
     create = {"repository": "lsst-sqre/sqr-062", "scopes": []}
@@ -677,10 +678,10 @@ async def test_auth_required(
 async def test_csrf_required(
     client: AsyncClient,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    mock_github_repositories(respx_mock, [SQR_062])
+    mock_github_repositories(httpx2_mock, [SQR_062])
     admin_data = await create_session_token(factory, scopes={"admin:token"})
     csrf = await set_session_cookie(client, admin_data.token)
     create = {"repository": "lsst-sqre/sqr-062", "scopes": []}
@@ -714,10 +715,10 @@ async def test_csrf_required(
 async def test_unauthorized(
     client: AsyncClient,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    mock_github_repositories(respx_mock, [SQR_062])
+    mock_github_repositories(httpx2_mock, [SQR_062])
     admin_data = await create_session_token(factory, scopes={"admin:token"})
     create = {"repository": "lsst-sqre/sqr-062", "scopes": []}
 

@@ -1847,7 +1847,7 @@ async def test_state_metrics(config: Config, factory: Factory) -> None:
 
 async def create_github_project(
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     admin: TokenData,
     repository: str = "lsst-sqre/ook",
     *,
@@ -1857,7 +1857,7 @@ async def create_github_project(
 ) -> GitHubProject:
     """Register a GitHub project for tests of its tokens."""
     mock_github_repositories(
-        respx_mock,
+        httpx2_mock,
         [GitHubRepository(full_name=repository, id=123456, owner_id=654321)],
     )
     service = factory.create_github_project_service()
@@ -1874,7 +1874,7 @@ async def create_github_project(
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_create_github_token(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config, factory: Factory, httpx2_mock: respx.Router
 ) -> None:
     token_service = factory.create_token_service()
     admin = await create_session_token(
@@ -1882,7 +1882,7 @@ async def test_create_github_token(
     )
     project = await create_github_project(
         factory,
-        respx_mock,
+        httpx2_mock,
         admin,
         uid=2000,
         gid=3000,
@@ -1955,7 +1955,7 @@ async def test_create_github_token(
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_create_github_token_deleted_project(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config, factory: Factory, httpx2_mock: respx.Router
 ) -> None:
     """Refuse to mint a token for a GitHub project that was deleted.
 
@@ -1970,7 +1970,7 @@ async def test_create_github_token_deleted_project(
         factory, username="some-admin", scopes={"admin:token"}
     )
     existing_keys = set(await token_redis_store.list())
-    project = await create_github_project(factory, respx_mock, admin)
+    project = await create_github_project(factory, httpx2_mock, admin)
     project_service = factory.create_github_project_service()
     await project_service.delete_project(project.id, admin, ip_address=None)
 
@@ -1993,16 +1993,16 @@ async def test_create_github_token_deleted_project(
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_revoke_github_project_tokens(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config, factory: Factory, httpx2_mock: respx.Router
 ) -> None:
     token_service = factory.create_token_service()
     admin = await create_session_token(
         factory, username="some-admin", scopes={"admin:token"}
     )
     user = await create_session_token(factory, scopes={"user:token"})
-    project = await create_github_project(factory, respx_mock, admin)
+    project = await create_github_project(factory, httpx2_mock, admin)
     other_project = await create_github_project(
-        factory, respx_mock, admin, "lsst-sqre/docs"
+        factory, httpx2_mock, admin, "lsst-sqre/docs"
     )
     project_tokens = [
         await create_github_token(factory, project) for _ in range(2)
@@ -2068,13 +2068,13 @@ async def test_revoke_github_project_tokens(
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_revoke_github_project_tokens_no_transaction(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config, factory: Factory, httpx2_mock: respx.Router
 ) -> None:
     token_service = factory.create_token_service()
     admin = await create_session_token(
         factory, username="some-admin", scopes={"admin:token"}
     )
-    project = await create_github_project(factory, respx_mock, admin)
+    project = await create_github_project(factory, httpx2_mock, admin)
     data = await create_github_token(factory, project)
 
     # Calling outside a transaction must fail before touching any token,

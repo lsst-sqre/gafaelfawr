@@ -29,7 +29,7 @@ dependencies = [
     "fastapi>=0.100",
     "google-api-core",
     "google-cloud-firestore>=2.25",
-    "httpx",
+    "httpx2>=2",
     "limits",
     "kopf>=1.42",
     "kubernetes-asyncio",
@@ -72,6 +72,7 @@ dev = [
     "pytest>9.1.0",
     "pytest-asyncio>=0.25",
     "pytest-cov>=6",
+    "pytest-httpx2>=1",
     "pytest-sugar>=1",
     "respx>=0.22",
     "rubin-gafaelfawr",
@@ -163,6 +164,9 @@ filterwarnings = [
     # dataclases-avroschema hasn't been fully updated for Python 3.14
     "ignore:.*'_UnionGenericAlias' is deprecated.*:DeprecationWarning",
 ]
+markers = [
+    "httpx2: implemented by pytest-httpx2 but not registered correctly"
+]
 norecursedirs = ["client/*"]
 # The python_files setting is not for test detection (pytest will pick up any
 # test files named *_test.py without this setting) but to enable special
@@ -226,3 +230,5 @@ required-environments = [
 
 [tool.uv.sources]
 rubin-gafaelfawr = { path = "client", editable = true }
+rubin-repertoire = { git = "https://github.com/lsst-sqre/repertoire", branch = "t/DM-56973", subdirectory = "client" }
+safir = { git = "https://github.com/lsst-sqre/safir" }

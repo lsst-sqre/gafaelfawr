@@ -8,7 +8,7 @@ import jwt
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-from httpx import AsyncClient, HTTPError, HTTPStatusError
+from httpx2 import AsyncClient, HTTPError, HTTPStatusError
 from structlog.stdlib import BoundLogger
 
 from ..config import OIDCConfig

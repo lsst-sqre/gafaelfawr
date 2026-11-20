@@ -1,7 +1,7 @@
 """Tests for the IVOA GMS protocol."""
 
 import pytest
-from httpx import AsyncClient
+from httpx2 import AsyncClient
 
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.token import TokenUserInfo

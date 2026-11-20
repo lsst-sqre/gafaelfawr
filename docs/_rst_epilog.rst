@@ -1,6 +1,6 @@
 .. _Alembic: https://alembic.sqlalchemy.org/en/latest/index.html
 .. _Github rate limit implementation: https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28
-.. _HTTPX: https://www.python-httpx.org/
+.. _HTTPX2: https://pydantic.dev/docs/httpx2/get-started/
 .. _ingress-nginx: https://kubernetes.github.io/ingress-nginx/
 .. _Keycloak: https://www.keycloak.org/
 .. _Kopf: https://docs.kopf.dev/en/stable/
@@ -11,6 +11,7 @@
 .. _Phalanx: https://phalanx.lsst.io/
 .. _prek: https://prek.j178.dev/
 .. _pytest: https://docs.pytest.org/en/latest/
+.. _pytest-httpx2: https://github.com/lundberg/pytest-httpx2
 .. _Repertoire: https://repertoire.lsst.io/
 .. _RFC 2307bis: https://datatracker.ietf.org/doc/html/draft-howard-rfc2307bis-02
 .. _RESPX: https://lundberg.github.io/respx/

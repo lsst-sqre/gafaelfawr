@@ -13,7 +13,7 @@ Creating the mock in a test fixture
 ===================================
 
 `MockGafaelfawr` requires RESPX_ in addition to :py:mod:`rubin.gafaelfawr`.
-Add ``respx`` to your project's development dependencies.
+Add ``pytest-httpx2`` and ``respx`` to your project's development dependencies.
 
 Then, add a fixture (usually to :file:`tests/conftest.py`) that calls `register_mock_gafaelfawr` and returns the `MockGafaelfawr` object.
 
@@ -25,8 +25,12 @@ Then, add a fixture (usually to :file:`tests/conftest.py`) that calls `register_
 
 
    @pytest_asyncio.fixture
-   async def mock_gafaelfawr(respx_mock: respx.Router) -> MockGafaelfawr:
-       return await register_mock_gafaelfawr(respx_mock)
+   async def mock_gafaelfawr(httpx2_mock: respx.Router) -> MockGafaelfawr:
+       return await register_mock_gafaelfawr(httpx2_mock)
+
+See the `Safir documentation <https://safir.lsst.io/user-guide/http-client.html
+#testing-considerations>`__ for more details about mocking HTTPX2.
+In particular, it is very likely that not all Gafaelfawr mocks will be called by your tests, so you will need to follow the instructions there to tell pytest-httpx2 to not fail on uncalled mocks.
 
 Overriding service discovery
 ----------------------------
@@ -48,12 +52,12 @@ A simple Repertoire mock configuration that will work for most Gafaelfawr client
 
    @pytest.fixture
    def mock_discovery(
-       respx_mock: respx.Router,
+       httpx2_mock: respx.Router,
        monkeypatch: pytest.MonkeyPatch,
    ) -> Discovery:
        monkeypatch.setenv("REPERTOIRE_BASE_URL", "https://example.com/repertoire")
        path = Path(__file__).parent / "data" / "discovery.json"
-       return register_mock_discovery(respx_mock, path)
+       return register_mock_discovery(httpx2_mock, path)
 
 You will need to provide :file:`tests/data/discovery.json`.
 The Gafaelfawr client asks for the URL of version ``v1`` of the the internal service ``gafaelfawr``.

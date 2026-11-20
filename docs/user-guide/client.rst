@@ -58,9 +58,9 @@ Manually creating a client
 
 Other users can create a Gafaelfawr client by calling the `GafaelfawrClient` constructor.
 Normally, no parameters are needed.
-Call `GafaelfawrClient.aclose` to shut down its internal HTTPX_ connection pool when the client is no longer used.
+Call `GafaelfawrClient.aclose` to shut down its internal HTTPX2_ connection pool when the client is no longer used.
 
-If the application has an existing HTTPX_ connection pool, that ``httpx.AsyncClient`` object can be passed in as the first argument and the Gafaelfawr client will use that.
+If the application has an existing HTTPX2_ connection pool, that ``httpx.AsyncClient`` object can be passed in as the first argument and the Gafaelfawr client will use that.
 
 The Gafaelfawr client uses Repertoire_ under the hood to discover the location of Gafaelfawr.
 This means that Repertoire must also be configured, which normally means that the ``REPERTOIRE_BASE_URL`` environment variable must be set.

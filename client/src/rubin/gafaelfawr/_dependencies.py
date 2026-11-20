@@ -3,7 +3,7 @@
 from typing import Annotated
 
 from fastapi import Depends
-from httpx import AsyncClient
+from httpx2 import AsyncClient
 from rubin.repertoire import DiscoveryClient, discovery_dependency
 from safir.dependencies.http_client import http_client_dependency
 

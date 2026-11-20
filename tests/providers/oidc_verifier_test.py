@@ -45,7 +45,7 @@ def encode_token(
 @pytest.mark.parametrize("config", ["oidc"], indirect=True)
 @pytest.mark.asyncio
 async def test_verify_token(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config, factory: Factory, httpx2_mock: respx.Router
 ) -> None:
     assert config.oidc
     verifier = factory.create_oidc_token_verifier()
@@ -82,11 +82,11 @@ async def test_verify_token(
 @pytest.mark.parametrize("config", ["oidc"], indirect=True)
 @pytest.mark.asyncio
 async def test_verify_missing_kid(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config, factory: Factory, httpx2_mock: respx.Router
 ) -> None:
     assert config.oidc
     verifier = factory.create_oidc_token_verifier()
-    await mock_oidc_provider_config(respx_mock, "kid")
+    await mock_oidc_provider_config(httpx2_mock, "kid")
 
     now = datetime.now(tz=UTC).replace(microsecond=0)
     exp = now + timedelta(days=24)
@@ -106,7 +106,7 @@ async def test_verify_missing_kid(
 @pytest.mark.parametrize("config", ["oidc"], indirect=True)
 @pytest.mark.asyncio
 async def test_key_retrieval(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config, factory: Factory, httpx2_mock: respx.Router
 ) -> None:
     assert config.oidc
     verifier = factory.create_oidc_token_verifier()
@@ -118,8 +118,8 @@ async def test_key_retrieval(
     # a connection refused from the OpenID Connect endpoint.
     jwks_url = urljoin(config.oidc.issuer, "/.well-known/jwks.json")
     oidc_url = urljoin(config.oidc.issuer, "/.well-known/openid-configuration")
-    respx_mock.get(jwks_url).respond(json=jwks.model_dump())
-    respx_mock.get(oidc_url).respond(404)
+    httpx2_mock.get(jwks_url).respond(json=jwks.model_dump())
+    httpx2_mock.get(oidc_url).respond(404)
 
     # Check token verification with this configuration.
     token = create_upstream_oidc_jwt("some-user", kid="some-kid")
@@ -127,48 +127,48 @@ async def test_key_retrieval(
 
     # Wrong algorithm for the key.
     jwks.keys[0].alg = "ES256"
-    respx_mock.get(jwks_url).respond(json=jwks.model_dump())
+    httpx2_mock.get(jwks_url).respond(json=jwks.model_dump())
     with pytest.raises(UnknownAlgorithmError):
         await verifier.verify_token(token)
 
     # Should go back to working if we fix the algorithm and add more keys.
     # Add an explicit 404 from the OpenID connect endpoint.
-    respx_mock.get(oidc_url).respond(404)
+    httpx2_mock.get(oidc_url).respond(404)
     jwks.keys[0].alg = ALGORITHM
     keypair = RSAKeyPair.generate()
     jwks.keys.insert(0, keypair.public_key_as_jwks("a-kid").keys[0])
-    respx_mock.get(jwks_url).respond(json=jwks.model_dump())
+    httpx2_mock.get(jwks_url).respond(json=jwks.model_dump())
     assert await verifier.verify_token(token)
 
     # Try with a new key ID and return a malformed reponse.
-    respx_mock.get(jwks_url).respond(json=["foo"])
+    httpx2_mock.get(jwks_url).respond(json=["foo"])
     token = create_upstream_oidc_jwt("some-user", kid="malformed")
     with pytest.raises(FetchKeysError):
         await verifier.verify_token(token)
 
     # Return a 404 error.
-    respx_mock.get(jwks_url).respond(404)
+    httpx2_mock.get(jwks_url).respond(404)
     with pytest.raises(ProviderWebError):
         await verifier.verify_token(token)
 
     # Fix the JWKS handler but register a malformed URL as the OpenID Connect
     # configuration endpoint, which should be checked first.
     jwks.keys[1].kid = "another-kid"
-    respx_mock.get(jwks_url).respond(json=jwks.model_dump())
-    respx_mock.get(oidc_url).respond(json=["foo"])
+    httpx2_mock.get(jwks_url).respond(json=jwks.model_dump())
+    httpx2_mock.get(oidc_url).respond(json=["foo"])
     token = create_upstream_oidc_jwt("some-user", kid="another-kid")
     with pytest.raises(FetchKeysError):
         await verifier.verify_token(token)
 
     # Try again with a working OpenID Connect configuration.
-    respx_mock.get(oidc_url).respond(json={"jwks_uri": jwks_url})
+    httpx2_mock.get(oidc_url).respond(json={"jwks_uri": jwks_url})
     assert await verifier.verify_token(token)
 
 
 @pytest.mark.parametrize("config", ["oidc-subdomain"], indirect=True)
 @pytest.mark.asyncio
 async def test_issuer_with_path(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config, factory: Factory, httpx2_mock: respx.Router
 ) -> None:
     assert config.oidc
     verifier = factory.create_oidc_token_verifier()
@@ -180,8 +180,8 @@ async def test_issuer_with_path(
     # a connection refused from the OpenID Connect endpoint.
     jwks_url = config.oidc.issuer + "/.well-known/jwks.json"
     oidc_url = config.oidc.issuer + "/.well-known/openid-configuration"
-    respx_mock.get(jwks_url).respond(json=jwks.model_dump())
-    respx_mock.get(oidc_url).respond(json={"jwks_uri": jwks_url})
+    httpx2_mock.get(jwks_url).respond(json=jwks.model_dump())
+    httpx2_mock.get(oidc_url).respond(json={"jwks_uri": jwks_url})
 
     # Check token verification with this configuration.
     token = create_upstream_oidc_jwt("some-user", kid="some-kid")

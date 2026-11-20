@@ -49,7 +49,7 @@ class Provider(metaclass=ABCMeta):
 
         Raises
         ------
-        httpx.HTTPError
+        httpx2.HTTPError
             Raised if an HTTP client error occurred trying to talk to the
             authentication provider.
         ProviderError

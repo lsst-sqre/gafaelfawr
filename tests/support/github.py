@@ -7,7 +7,8 @@ from unittest.mock import ANY
 from urllib.parse import parse_qs
 
 import respx
-from httpx import Request, RequestError, Response
+from httpx import Request, Response
+from httpx2 import RequestError
 
 from gafaelfawr.config import GitHubConfig
 from gafaelfawr.constants import GITHUB_API_URL
@@ -238,7 +239,8 @@ class MockGitHubRepositories:
         if isinstance(self.failure, Response):
             return self.failure
         if self.failure:
-            raise self.failure("Mock Error", request=request)
+            # Pass in the real request once respx supports httpx2 properly.
+            raise self.failure("Mock Error", request=None)
         full_name = str(request.url)[len(prefix) :]
         repository = self.repositories.get(full_name.lower())
         if not repository:
@@ -333,7 +335,8 @@ class MockGitHubOwners:
         if isinstance(self.failure, Response):
             return self.failure
         if self.failure:
-            raise self.failure("Mock Error", request=request)
+            # Pass in the real request once respx supports httpx2 properly.
+            raise self.failure("Mock Error", request=None)
         login = str(request.url)[len(prefix) :]
         owner = self.owners.get(login.lower())
         if not owner:

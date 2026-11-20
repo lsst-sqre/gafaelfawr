@@ -9,7 +9,7 @@ from unittest.mock import ANY
 
 import pytest
 import respx
-from httpx import AsyncClient
+from httpx2 import AsyncClient
 from rubin.repertoire import (
     Discovery,
     DiscoveryClient,
@@ -26,10 +26,10 @@ from .support.ldap import MockLDAP
 
 @pytest.fixture
 def mock_discovery(
-    data: Data, respx_mock: respx.Router, monkeypatch: pytest.MonkeyPatch
+    data: Data, httpx2_mock: respx.Router, monkeypatch: pytest.MonkeyPatch
 ) -> Discovery:
     monkeypatch.setenv("REPERTOIRE_BASE_URL", "https://example.com/repertoire")
-    return register_mock_discovery(respx_mock, data.path("discovery.json"))
+    return register_mock_discovery(httpx2_mock, data.path("discovery.json"))
 
 
 @pytest.fixture

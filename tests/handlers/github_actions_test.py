@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 import respx
 from fastapi import FastAPI
-from httpx import ASGITransport, AsyncClient
+from httpx2 import ASGITransport, AsyncClient
 from safir.metrics import MockEventPublisher
 from safir.testing.data import Data
 from safir.testing.slack import MockSlackWebhook
@@ -96,11 +96,11 @@ def published_exchanges() -> MockEventPublisher:
 async def test_exchange(
     client: AsyncClient,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     data: Data,
 ) -> None:
-    mock_github_repositories(respx_mock, [OOK])
-    mock = mock_github_actions_oidc(respx_mock)
+    mock_github_repositories(httpx2_mock, [OOK])
+    mock = mock_github_actions_oidc(httpx2_mock)
     create = data.read_pydantic(
         GitHubProjectCreate, "github-actions/exchange-project"
     )
@@ -196,10 +196,10 @@ async def test_exchange(
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_scope_errors(
-    client: AsyncClient, factory: Factory, respx_mock: respx.Router
+    client: AsyncClient, factory: Factory, httpx2_mock: respx.Router
 ) -> None:
-    mock_github_repositories(respx_mock, [OOK])
-    mock_github_actions_oidc(respx_mock)
+    mock_github_repositories(httpx2_mock, [OOK])
+    mock_github_actions_oidc(httpx2_mock)
     await register_project(factory, OOK, scopes={"read:all", "exec:test"})
     id_token = create_github_actions_jwt()
 
@@ -237,10 +237,10 @@ async def test_scope_errors(
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_request_errors(
-    client: AsyncClient, factory: Factory, respx_mock: respx.Router
+    client: AsyncClient, factory: Factory, httpx2_mock: respx.Router
 ) -> None:
-    mock_github_repositories(respx_mock, [OOK])
-    mock = mock_github_actions_oidc(respx_mock)
+    mock_github_repositories(httpx2_mock, [OOK])
+    mock = mock_github_actions_oidc(httpx2_mock)
     await register_project(factory, OOK)
     id_token = create_github_actions_jwt()
 
@@ -332,12 +332,12 @@ async def test_verification_errors(
     client: AsyncClient,
     config: Config,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
 ) -> None:
     assert config.github_token_exchange
     audience = config.github_token_exchange.audience
-    mock_github_repositories(respx_mock, [OOK])
-    mock_github_actions_oidc(respx_mock)
+    mock_github_repositories(httpx2_mock, [OOK])
+    mock_github_actions_oidc(httpx2_mock)
     await register_project(factory, OOK)
 
     async def assert_rejected(id_token: str, description: str) -> None:
@@ -408,10 +408,10 @@ async def test_verification_errors(
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_matching(
-    client: AsyncClient, factory: Factory, respx_mock: respx.Router
+    client: AsyncClient, factory: Factory, httpx2_mock: respx.Router
 ) -> None:
-    mock_github_repositories(respx_mock, [OOK, SQR_062, DOCS])
-    mock_github_actions_oidc(respx_mock)
+    mock_github_repositories(httpx2_mock, [OOK, SQR_062, DOCS])
+    mock_github_actions_oidc(httpx2_mock)
 
     # Disjoint projects for one repository: the CI workflow on the default
     # branch, any workflow on a tag, and a reusable workflow from another
@@ -565,7 +565,7 @@ async def test_matching(
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_multiple_matches(
-    client: AsyncClient, factory: Factory, respx_mock: respx.Router
+    client: AsyncClient, factory: Factory, httpx2_mock: respx.Router
 ) -> None:
     """Overlapping enabled projects are refused rather than picked from.
 
@@ -573,8 +573,8 @@ async def test_multiple_matches(
     so the second project is created disabled and then enabled beneath the
     service.
     """
-    mock_github_repositories(respx_mock, [OOK])
-    mock_github_actions_oidc(respx_mock)
+    mock_github_repositories(httpx2_mock, [OOK])
+    mock_github_actions_oidc(httpx2_mock)
     await register_project(factory, OOK, ref="refs/heads/main")
     broad = await register_project(factory, OOK, enabled=False)
     store = GitHubProjectStore(factory.session)
@@ -610,7 +610,7 @@ async def test_lifetime_cap(
     client: AsyncClient,
     config: Config,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
 ) -> None:
     """The configured maximum lifetime caps the project's lifetime.
 
@@ -620,8 +620,8 @@ async def test_lifetime_cap(
     """
     assert config.github_token_exchange
     assert config.github_token_exchange.max_lifetime == timedelta(minutes=30)
-    mock_github_repositories(respx_mock, [OOK])
-    mock_github_actions_oidc(respx_mock)
+    mock_github_repositories(httpx2_mock, [OOK])
+    mock_github_actions_oidc(httpx2_mock)
     project = await register_project(factory, OOK)
     store = GitHubProjectStore(factory.session)
     async with factory.session.begin():
@@ -646,10 +646,10 @@ async def test_lifetime_cap(
 async def test_keys_unavailable(
     client: AsyncClient,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    mock_github_repositories(respx_mock, [OOK])
+    mock_github_repositories(httpx2_mock, [OOK])
     await register_project(factory, OOK)
     id_token = create_github_actions_jwt()
     expected = {
@@ -660,17 +660,17 @@ async def test_keys_unavailable(
     }
 
     # GitHub's OpenID Connect configuration cannot be retrieved.
-    respx_mock.get(GITHUB_ACTIONS_CONFIG_URL).respond(500)
+    httpx2_mock.get(GITHUB_ACTIONS_CONFIG_URL).respond(500)
     r = await client.post(URL, data=exchange_request(id_token))
     assert r.status_code == 502
     assert r.json() == expected
     assert len(mock_slack.messages) == 1
 
     # The key set is malformed.
-    respx_mock.get(GITHUB_ACTIONS_CONFIG_URL).respond(
+    httpx2_mock.get(GITHUB_ACTIONS_CONFIG_URL).respond(
         json={"jwks_uri": GITHUB_ACTIONS_JWKS_URL}
     )
-    respx_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(json={"keys": []})
+    httpx2_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(json={"keys": []})
     r = await client.post(URL, data=exchange_request(id_token))
     assert r.status_code == 502
     assert r.json() == expected
@@ -684,7 +684,7 @@ async def test_keys_unavailable(
 async def test_storage_error(
     app: FastAPI,
     factory: Factory,
-    respx_mock: respx.Router,
+    httpx2_mock: respx.Router,
     mock_slack: MockSlackWebhook,
 ) -> None:
     """A failure to store the minted token is a server error.
@@ -693,8 +693,8 @@ async def test_storage_error(
     though the token service raises `InvalidTokenError` for it, and it must
     reach Slack.
     """
-    mock_github_repositories(respx_mock, [OOK])
-    mock_github_actions_oidc(respx_mock)
+    mock_github_repositories(httpx2_mock, [OOK])
+    mock_github_actions_oidc(httpx2_mock)
     await register_project(factory, OOK)
     id_token = create_github_actions_jwt()
 

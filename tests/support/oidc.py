@@ -3,8 +3,10 @@
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urljoin, urlsplit
 
+import httpx2
 import respx
-from httpx import AsyncClient, Request, Response
+from httpx import Request, Response
+from httpx2 import AsyncClient
 
 from gafaelfawr.config import OIDCConfig
 from gafaelfawr.dependencies.config import config_dependency
@@ -175,7 +177,7 @@ async def simulate_oidc_login(
     use_redirect_header: bool = False,
     callback_route: str = "/login",
     expect_enrollment: bool = False,
-) -> Response:
+) -> httpx2.Response:
     """Simulate an OpenID Connect login and return the final response.
 
     Parameters

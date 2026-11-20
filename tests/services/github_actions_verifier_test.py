@@ -46,11 +46,11 @@ def age_cache(jwks_cache: JWKSCache) -> None:
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_verify_token(
-    config: Config, factory: Factory, respx_mock: respx.Router, data: Data
+    config: Config, factory: Factory, httpx2_mock: respx.Router, data: Data
 ) -> None:
     assert config.github_token_exchange
     verifier = factory.create_github_actions_token_verifier()
-    mock = mock_github_actions_oidc(respx_mock)
+    mock = mock_github_actions_oidc(httpx2_mock)
 
     token = create_github_actions_jwt(environment="production")
     claims = await verifier.verify_token(token)
@@ -88,10 +88,10 @@ async def test_verify_token(
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_verify_rejections(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config, factory: Factory, httpx2_mock: respx.Router
 ) -> None:
     verifier = factory.create_github_actions_token_verifier()
-    mock_github_actions_oidc(respx_mock)
+    mock_github_actions_oidc(httpx2_mock)
     excinfo: pytest.ExceptionInfo[Exception]
 
     # Wrong issuer.
@@ -172,10 +172,10 @@ async def test_verify_rejections(
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_key_rotation(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config, factory: Factory, httpx2_mock: respx.Router
 ) -> None:
     verifier = factory.create_github_actions_token_verifier()
-    mock = mock_github_actions_oidc(respx_mock, "old-kid")
+    mock = mock_github_actions_oidc(httpx2_mock, "old-kid")
     jwks_cache = factory._context.github_jwks_cache
     assert jwks_cache
 
@@ -240,20 +240,20 @@ async def test_key_rotation(
 @pytest.mark.parametrize("config", ["github-token-exchange"], indirect=True)
 @pytest.mark.asyncio
 async def test_key_retrieval_errors(
-    config: Config, factory: Factory, respx_mock: respx.Router
+    config: Config, factory: Factory, httpx2_mock: respx.Router
 ) -> None:
     verifier = factory.create_github_actions_token_verifier()
     token = create_github_actions_jwt()
 
     # GitHub's OpenID Connect configuration is unavailable or malformed,
     # including a JWKS URI that is not an HTTPS URL.
-    respx_mock.get(GITHUB_ACTIONS_CONFIG_URL).respond(500)
+    httpx2_mock.get(GITHUB_ACTIONS_CONFIG_URL).respond(500)
     with pytest.raises(GitHubWebError):
         await verifier.verify_token(token)
-    respx_mock.get(GITHUB_ACTIONS_CONFIG_URL).respond(json=["foo"])
+    httpx2_mock.get(GITHUB_ACTIONS_CONFIG_URL).respond(json=["foo"])
     with pytest.raises(FetchKeysError):
         await verifier.verify_token(token)
-    respx_mock.get(GITHUB_ACTIONS_CONFIG_URL).respond(content=b"not json")
+    httpx2_mock.get(GITHUB_ACTIONS_CONFIG_URL).respond(content=b"not json")
     with pytest.raises(FetchKeysError):
         await verifier.verify_token(token)
     for jwks_uri in (
@@ -264,26 +264,26 @@ async def test_key_retrieval_errors(
         "ftp://token.actions.githubusercontent.com/.well-known/jwks",
         "http://token.actions.githubusercontent.com/.well-known/jwks",
     ):
-        respx_mock.get(GITHUB_ACTIONS_CONFIG_URL).respond(
+        httpx2_mock.get(GITHUB_ACTIONS_CONFIG_URL).respond(
             json={"jwks_uri": jwks_uri}
         )
         with pytest.raises(FetchKeysError):
             await verifier.verify_token(token)
 
     # The key set is unavailable or malformed.
-    respx_mock.get(GITHUB_ACTIONS_CONFIG_URL).respond(
+    httpx2_mock.get(GITHUB_ACTIONS_CONFIG_URL).respond(
         json={"jwks_uri": GITHUB_ACTIONS_JWKS_URL}
     )
-    respx_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(404)
+    httpx2_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(404)
     with pytest.raises(GitHubWebError):
         await verifier.verify_token(token)
-    respx_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(json={"foo": "bar"})
+    httpx2_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(json={"foo": "bar"})
     with pytest.raises(FetchKeysError):
         await verifier.verify_token(token)
-    respx_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(json={"keys": "foo"})
+    httpx2_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(json={"keys": "foo"})
     with pytest.raises(FetchKeysError):
         await verifier.verify_token(token)
-    respx_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(json={"keys": ["foo"]})
+    httpx2_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(json={"keys": ["foo"]})
     with pytest.raises(FetchKeysError):
         await verifier.verify_token(token)
 
@@ -292,17 +292,17 @@ async def test_key_retrieval_errors(
     # and is not cached, so each attempt retries.
     jwks = TEST_KEYPAIR.public_key_as_jwks("github-kid").model_dump()
     jwks["keys"][0]["alg"] = "ES256"
-    respx_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(json=jwks)
+    httpx2_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(json=jwks)
     with pytest.raises(FetchKeysError):
         await verifier.verify_token(token)
     jwks["keys"][0]["alg"] = "RS256"
     jwks["keys"][0]["kid"] = None
-    respx_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(json=jwks)
+    httpx2_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(json=jwks)
     with pytest.raises(FetchKeysError):
         await verifier.verify_token(token)
     jwks["keys"][0]["kid"] = "github-kid"
     jwks["keys"][0]["n"] = "not-a-modulus"
-    respx_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(json=jwks)
+    httpx2_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(json=jwks)
     with pytest.raises(FetchKeysError):
         await verifier.verify_token(token)
 
@@ -315,7 +315,7 @@ async def test_key_retrieval_errors(
         {**jwks["keys"][0], "kid": None},
         *jwks["keys"],
     ]
-    respx_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(json=jwks)
+    httpx2_mock.get(GITHUB_ACTIONS_JWKS_URL).respond(json=jwks)
     assert await verifier.verify_token(token)
     for kid in ("other-kid", "bad-kid"):
         with pytest.raises(UnknownKeyIdError):
@@ -326,6 +326,6 @@ async def test_key_retrieval_errors(
     jwks_cache = factory._context.github_jwks_cache
     assert jwks_cache
     await jwks_cache.clear()
-    mock = mock_github_actions_oidc(respx_mock)
+    mock = mock_github_actions_oidc(httpx2_mock)
     assert await verifier.verify_token(token)
     assert mock.jwks_requests == 1

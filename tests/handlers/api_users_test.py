@@ -2,7 +2,7 @@
 
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient
+from httpx2 import AsyncClient
 from safir.testing.data import Data
 
 from gafaelfawr.config import Config

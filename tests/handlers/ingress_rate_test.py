@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
 
 import pytest
-from httpx import AsyncClient
+from httpx2 import AsyncClient
 
 from gafaelfawr.factory import Factory
 from gafaelfawr.models.auth import AuthError, AuthErrorChallenge

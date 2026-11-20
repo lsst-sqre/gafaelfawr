@@ -5,7 +5,7 @@ from unittest.mock import ANY
 
 import pytest
 from cryptography.fernet import Fernet
-from httpx import AsyncClient
+from httpx2 import AsyncClient
 from safir.testing.slack import MockSlackWebhook
 
 from gafaelfawr.config import Config

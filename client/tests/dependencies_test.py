@@ -7,7 +7,7 @@ from typing import Annotated
 import pytest
 from asgi_lifespan import LifespanManager
 from fastapi import Depends, FastAPI, Header
-from httpx import ASGITransport, AsyncClient
+from httpx2 import ASGITransport, AsyncClient
 from safir.dependencies.http_client import http_client_dependency
 
 from rubin.gafaelfawr import (
@@ -54,9 +54,9 @@ async def test_dependency(mock_gafaelfawr: MockGafaelfawr) -> None:
             r = await client.get("/", headers={"X-Auth-Request-Token": token})
             assert r.status_code == 200
 
-    # When the HTTPX client dependency is shut down and recreated, this should
-    # result in a new Gafaelfawr client. Otherwise, the Gafaelfawr client
-    # would try to use the closed HTTPX client.
+    # When the HTTPX2 client dependency is shut down and recreated, this
+    # should result in a new Gafaelfawr client. Otherwise, the Gafaelfawr
+    # client would try to use the closed HTTPX2 client.
     old_client = cached_client
     cached_client = None
     async with LifespanManager(app):
