@@ -18,6 +18,7 @@ from safir.slack.blockkit import (
 from safir.slack.sentry import SentryEventInfo
 
 __all__ = [
+    "ConflictingUsernameFilterError",
     "DatabaseSchemaError",
     "DisallowedCORSRequestError",
     "DuplicateAdminError",
@@ -92,6 +93,15 @@ class InputValidationError(ClientRequestError, kopf.PermanentError):
     This is a thin wrapper around `~safir.fastapi.ClientRequestError` to add
     inheritance from `kopf.PermanentError` for the Kubernetes operator.
     """
+
+
+class ConflictingUsernameFilterError(InputValidationError):
+    """Both a username and a username prefix were given as filters."""
+
+    error = "conflicting_filters"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, ErrorLocation.query, ["username_prefix"])
 
 
 class DuplicateAdminError(InputValidationError):

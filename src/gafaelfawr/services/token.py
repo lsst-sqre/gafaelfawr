@@ -24,6 +24,7 @@ from ..events import (
     StateEvents,
 )
 from ..exceptions import (
+    ConflictingUsernameFilterError,
     InvalidExpiresError,
     InvalidIPAddressError,
     InvalidScopesError,
@@ -40,6 +41,7 @@ from ..models.history import (
 from ..models.token import (
     AdminTokenRequest,
     Token,
+    TokenCursor,
     TokenData,
     TokenInfo,
     TokenUserInfo,
@@ -987,6 +989,76 @@ class TokenService:
         self._check_authorization(username, auth_data)
         async with self._session.begin():
             return await self._token_db_store.list_tokens(username=username)
+
+    async def list_tokens_paginated(
+        self,
+        auth_data: TokenData,
+        cursor_type: type[TokenCursor],
+        *,
+        cursor: TokenCursor | None = None,
+        limit: int | None = None,
+        username: str | None = None,
+        username_prefix: str | None = None,
+        token_type: TokenType | None = None,
+        scopes: set[str] | None = None,
+    ) -> CountedPaginatedList[TokenInfo, TokenCursor]:
+        """List the tokens of all users with optional pagination.
+
+        Unlike `list_tokens`, this is only available to token
+        administrators, even if the listing is restricted to their own
+        username.
+
+        Parameters
+        ----------
+        auth_data
+            The token data for the authentication token of the user making
+            this request.
+        cursor_type
+            Type of pagination cursor, which determines the order in which
+            the tokens are returned.
+        cursor
+            A pagination cursor specifying where to start in the results.
+            This must be of type ``cursor_type``.
+        limit
+            Limit the number of returned results.
+        username
+            Limit the results to tokens for the given username.
+        username_prefix
+            Limit the results to tokens for usernames starting with this
+            string. This may not be combined with ``username``.
+        token_type
+            Limit the results to tokens of this type.
+        scopes
+            Limit the results to tokens that have all of these scopes,
+            possibly among others.
+
+        Returns
+        -------
+        safir.database.CountedPaginatedList of TokenInfo
+            Information for all matching tokens.
+
+        Raises
+        ------
+        ConflictingUsernameFilterError
+            Raised if both a username and a username prefix were given.
+        PermissionDeniedError
+            Raised if the authentication information is not for a token
+            administrator.
+        """
+        self._check_authorization(None, auth_data)
+        if username and username_prefix:
+            msg = "Only one of username and username_prefix may be given"
+            raise ConflictingUsernameFilterError(msg)
+        async with self._session.begin():
+            return await self._token_db_store.list_paginated(
+                cursor_type,
+                cursor=cursor,
+                limit=limit,
+                username=username,
+                username_prefix=username_prefix,
+                token_type=token_type,
+                scopes=scopes,
+            )
 
     async def modify_token(
         self,

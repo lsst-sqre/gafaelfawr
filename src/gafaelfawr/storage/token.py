@@ -5,17 +5,22 @@ from datetime import UTC, datetime
 from itertools import batched
 from typing import cast
 
-from safir.database import datetime_to_db
+from safir.database import (
+    CountedPaginatedList,
+    CountedPaginatedQueryRunner,
+    datetime_to_db,
+)
 from safir.redis import DeserializeError, EncryptedPydanticRedisStorage
 from safir.sentry import report_exception
 from safir.slack.webhook import SlackWebhookClient
-from sqlalchemy import CursorResult, delete, distinct, func, or_, select
+from sqlalchemy import CursorResult, Text, delete, distinct, func, or_, select
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.ext.asyncio import AsyncSession
 from structlog.stdlib import BoundLogger
 
 from ..exceptions import DuplicateTokenNameError
 from ..models.enums import TokenType
-from ..models.token import Token, TokenData, TokenInfo
+from ..models.token import Token, TokenCursor, TokenData, TokenInfo
 from ..schema import Subtoken as SQLSubtoken
 from ..schema import Token as SQLToken
 
@@ -406,6 +411,73 @@ class TokenDatabaseStore:
             TokenInfo.model_validate(t, from_attributes=True)
             for t in result.all()
         ]
+
+    async def list_paginated(
+        self,
+        cursor_type: type[TokenCursor],
+        *,
+        cursor: TokenCursor | None = None,
+        limit: int | None = None,
+        username: str | None = None,
+        username_prefix: str | None = None,
+        token_type: TokenType | None = None,
+        scopes: set[str] | None = None,
+    ) -> CountedPaginatedList[TokenInfo, TokenCursor]:
+        """List tokens with optional pagination.
+
+        Only a listing restricted to service tokens can use the
+        ``token_by_service_username`` index. Other listings that are not
+        restricted to one username scan the whole table.
+
+        Parameters
+        ----------
+        cursor_type
+            Type of pagination cursor, which determines the order in which
+            the tokens are returned.
+        cursor
+            A pagination cursor specifying where to start in the results.
+            This must be of type ``cursor_type``.
+        limit
+            Limit the number of returned results.
+        username
+            Limit the returned tokens to ones for the given username.
+        username_prefix
+            Limit the returned tokens to ones for usernames starting with
+            this string.
+        token_type
+            Limit the returned tokens to ones of the given type.
+        scopes
+            Limit the returned tokens to ones that have all of these scopes,
+            possibly among others.
+
+        Returns
+        -------
+        safir.database.CountedPaginatedList of TokenInfo
+            Information about the tokens, which may be empty.
+        """
+        stmt = select(SQLToken)
+        if username:
+            stmt = stmt.where(SQLToken.username == username)
+        if username_prefix:
+            stmt = stmt.where(
+                SQLToken.username.startswith(username_prefix, autoescape=True)
+            )
+        if token_type:
+            stmt = stmt.where(SQLToken.token_type == token_type)
+        if scopes:
+            # Scopes are stored as a comma-separated string, so this cannot
+            # use an index and tests each token matching the other filters.
+            token_scopes = func.string_to_array(
+                SQLToken.scopes, ",", type_=ARRAY(Text)
+            )
+            stmt = stmt.where(token_scopes.contains(sorted(scopes)))
+
+        # The runner is specific to the cursor type and thus the sort order,
+        # so it cannot be created once in the constructor.
+        runner = CountedPaginatedQueryRunner(TokenInfo, cursor_type)
+        return await runner.query_object(
+            self._session, stmt, cursor=cursor, limit=limit
+        )
 
     async def list_with_parents(self) -> list[TokenInfo]:
         """List all tokens including parent information.
