@@ -1,0 +1,68 @@
+[
+  {
+    "created": "<ANY>",
+    "scopes": [
+      "admin:token"
+    ],
+    "token": "<ANY>",
+    "token_type": "service",
+    "username": "bot-a-service"
+  },
+  {
+    "created": "<ANY>",
+    "scopes": [],
+    "token": "<ANY>",
+    "token_type": "service",
+    "username": "bot-ab"
+  },
+  {
+    "created": "<ANY>",
+    "scopes": [
+      "exec:test",
+      "read:all"
+    ],
+    "token": "<ANY>",
+    "token_type": "service",
+    "username": "bot-mobu"
+  },
+  {
+    "created": "<ANY>",
+    "scopes": [
+      "exec:test",
+      "read:all"
+    ],
+    "token": "<ANY>",
+    "token_type": "service",
+    "username": "bot-mobu"
+  },
+  {
+    "created": "<ANY>",
+    "scopes": [
+      "read:all",
+      "read:some"
+    ],
+    "token": "<ANY>",
+    "token_type": "service",
+    "username": "bot-mobu-tap"
+  },
+  {
+    "created": "<ANY>",
+    "scopes": [
+      "read:all"
+    ],
+    "token": "<ANY>",
+    "token_type": "service",
+    "username": "bot-mobu2"
+  },
+  {
+    "created": "<ANY>",
+    "scopes": [
+      "admin:token",
+      "exec:test",
+      "read:all"
+    ],
+    "token": "<ANY>",
+    "token_type": "service",
+    "username": "bot-nublado"
+  }
+]

@@ -1,0 +1,49 @@
+[
+  {
+    "username": "bot-ab",
+    "token_type": "service",
+    "scopes": []
+  },
+  {
+    "username": "bot-mobu",
+    "token_type": "service",
+    "scopes": ["exec:test", "read:all"]
+  },
+  {
+    "username": "bot-mobu",
+    "token_type": "service",
+    "scopes": ["exec:test", "read:all"]
+  },
+  {
+    "username": "bot-nublado",
+    "token_type": "service",
+    "scopes": ["admin:token", "exec:test", "read:all"]
+  },
+  {
+    "username": "bot-a-service",
+    "token_type": "service",
+    "scopes": ["admin:token"]
+  },
+  {
+    "username": "bot-mobu2",
+    "token_type": "service",
+    "scopes": ["read:all"]
+  },
+  {
+    "username": "paul",
+    "token_type": "user",
+    "token_name": "desktop",
+    "scopes": ["read:some"]
+  },
+  {
+    "username": "bot-mobu-tap",
+    "token_type": "service",
+    "scopes": ["read:all", "read:some"]
+  },
+  {
+    "username": "paul",
+    "token_type": "user",
+    "token_name": "laptop",
+    "scopes": ["read:all"]
+  }
+]
