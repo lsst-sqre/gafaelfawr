@@ -47,4 +47,17 @@ class Token(SchemaBase):
             "github_project_id",
             postgresql_where=text("github_project_id IS NOT NULL"),
         ),
+        # Service tokens are a small fraction of a table dominated by
+        # session, notebook, and internal tokens, so index them separately
+        # to keep listing them cheap. text_pattern_ops lets the index match
+        # a username prefix, which a B-tree index cannot do unless the
+        # collation of the database is C.
+        Index(
+            "token_by_service_username",
+            "username",
+            "created",
+            "token",
+            postgresql_where=text("token_type = 'service'"),
+            postgresql_ops={"username": "text_pattern_ops"},
+        ),
     )
