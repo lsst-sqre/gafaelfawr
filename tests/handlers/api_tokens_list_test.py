@@ -472,6 +472,29 @@ async def test_invalid(
         assert r.status_code == 422
         assert r.json()["detail"][0]["type"] == "invalid_cursor"
 
+    # The username in a cursor must be a valid username. In particular, a
+    # NUL byte must be rejected rather than passed to the database.
+    key = "a" * 22
+    for username in ("\x00", "bot-\x00", "Bot-Mobu", "bot mobu", "bot-mobu\n"):
+        r = await client.get(
+            URL,
+            params={
+                "sort": "username",
+                "cursor": f"1614985055_{username}_{key}",
+            },
+            headers=headers,
+        )
+        assert r.status_code == 422
+        assert r.json()["detail"][0]["type"] == "invalid_cursor"
+
+    # A well-formed cursor for a valid username is still accepted.
+    r = await client.get(
+        URL,
+        params={"sort": "username", "cursor": f"1614985055_bot-mobu_{key}"},
+        headers=headers,
+    )
+    assert r.status_code == 200
+
     # Only the creation time and the username are supported for sorting.
     r = await client.get(URL, params={"sort": "last_used"}, headers=headers)
     assert r.status_code == 422

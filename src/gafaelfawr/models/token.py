@@ -43,6 +43,13 @@ _CURSOR_KEY_PATTERN = "[A-Za-z0-9_-]{22}"
 _CURSOR_TIME_PATTERN = r"[0-9]+(?:\.[0-9]+)?"
 """Pattern matching a creation time in a serialized cursor."""
 
+_CURSOR_USERNAME_PATTERN = USERNAME_REGEX.removeprefix("^").removesuffix("$")
+"""Pattern matching a username in a serialized cursor.
+
+This is `~gafaelfawr.constants.USERNAME_REGEX` without its anchors, so that
+it can be embedded in the pattern for the whole cursor.
+"""
+
 
 class Token(BaseModel):
     """An opaque token.
@@ -737,7 +744,8 @@ class TokenUsernameCursor(TokenCursor):
 
     _REGEX: ClassVar[re.Pattern[str]] = re.compile(
         f"(?P<previous>p?)(?P<created>{_CURSOR_TIME_PATTERN})"
-        f"_(?P<username>[^_]+)_(?P<key>{_CURSOR_KEY_PATTERN})"
+        f"_(?P<username>{_CURSOR_USERNAME_PATTERN})"
+        f"_(?P<key>{_CURSOR_KEY_PATTERN})"
     )
 
     @override
