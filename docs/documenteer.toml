@@ -55,7 +55,12 @@ nitpick_ignore = [
     # Bug in Sphinx with type declarations
     ["py:class", "safir.pydantic._types.TypeAliasType"],
     # Bug in Sphinx with Python 3.14
-    ["py:data", "typing.Union"]
+    ["py:data", "typing.Union"],
+    # sphinx-autodoc-typehints links a method marked with override to the
+    # method it overrides, using the private module in which Safir defines
+    # the class. That name is not in the Safir intersphinx inventory.
+    ["py:meth", "safir.database._pagination.PaginationCursor.apply_cursor"],
+    ["py:meth", "safir.database._pagination.PaginationCursor.invert"],
 ]
 nitpick_ignore_regex = [
     # Bug in autodoc_pydantic.

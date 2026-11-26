@@ -1,16 +1,22 @@
 """Representation of an authentication token and associated data."""
 
+import re
+from abc import ABCMeta, abstractmethod
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
-from typing import Any, Self, override
+from typing import Any, ClassVar, Self, override
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
+from safir.database import InvalidCursorError, PaginationCursor, datetime_to_db
 from safir.pydantic import UtcDatetime
+from sqlalchemy import Select, SQLColumnExpression, collate, tuple_
 
 from ..constants import USERNAME_REGEX
 from ..exceptions import InvalidTokenError
+from ..schema import Token as SQLToken
 from ..types import Scopes, Timestamp
 from ..util import random_128_bits
-from .enums import TokenType
+from .enums import SortOrder, TokenSort, TokenType
 from .userinfo import Group
 
 __all__ = [
@@ -18,12 +24,31 @@ __all__ = [
     "NewToken",
     "Token",
     "TokenBase",
+    "TokenCreatedCursor",
+    "TokenCreatedDescendingCursor",
+    "TokenCursor",
     "TokenData",
     "TokenInfo",
     "TokenUserInfo",
+    "TokenUsernameCursor",
+    "TokenUsernameDescendingCursor",
     "UserTokenModifyRequest",
     "UserTokenRequest",
+    "token_cursor_type",
 ]
+
+_CURSOR_KEY_PATTERN = "[A-Za-z0-9_-]{22}"
+"""Pattern matching a token key in a serialized cursor."""
+
+_CURSOR_TIME_PATTERN = r"[0-9]+(?:\.[0-9]+)?"
+"""Pattern matching a creation time in a serialized cursor."""
+
+_CURSOR_USERNAME_PATTERN = USERNAME_REGEX.removeprefix("^").removesuffix("$")
+"""Pattern matching a username in a serialized cursor.
+
+This is `~gafaelfawr.constants.USERNAME_REGEX` without its anchors, so that
+it can be embedded in the pattern for the whole cursor.
+"""
 
 
 class Token(BaseModel):
@@ -537,3 +562,269 @@ class UserTokenModifyRequest(BaseModel):
         ),
         examples=[1625986130],
     )
+
+
+@dataclass
+class TokenCursor(PaginationCursor[TokenInfo], metaclass=ABCMeta):
+    """Pagination cursor for a listing of tokens.
+
+    A listing of tokens can be sorted in several ways, but the sort order of
+    a paginated query is a property of the cursor class rather than of a
+    cursor, since the first page of results has to be sorted before any
+    cursor exists. Each sort order therefore has its own subclass. Use
+    `token_cursor_type` to choose the one for a requested sort order.
+
+    Subclasses define the sort key, which must end with the token key so
+    that the order is total, and the serialized form of the cursor. A
+    listing in descending order reverses every column of the sort key, so
+    the position of a cursor can always be applied as one row comparison.
+    """
+
+    created: datetime
+    """Creation time of the token at the cursor position."""
+
+    key: str
+    """Key of the token at the cursor position."""
+
+    descending: ClassVar[bool] = False
+    """Whether the listing is sorted in descending order."""
+
+    @override
+    @classmethod
+    def apply_order(cls, stmt: Select, *, reverse: bool = False) -> Select:
+        columns = cls._columns()
+        if cls.descending != reverse:
+            return stmt.order_by(*(c.desc() for c in columns))
+        else:
+            return stmt.order_by(*columns)
+
+    @override
+    def apply_cursor(self, stmt: Select) -> Select:
+        columns = tuple_(*self._columns())
+        position = self._position()
+
+        # A forward cursor includes the token it was built from. A previous
+        # cursor excludes it and selects the tokens before it.
+        if self.previous:
+            if self.descending:
+                return stmt.where(columns > position)
+            else:
+                return stmt.where(columns < position)
+        elif self.descending:
+            return stmt.where(columns <= position)
+        else:
+            return stmt.where(columns >= position)
+
+    @override
+    def invert(self) -> Self:
+        return replace(self, previous=not self.previous)
+
+    @classmethod
+    @abstractmethod
+    def _columns(cls) -> tuple[SQLColumnExpression[Any], ...]:
+        """Return the columns of the sort key, most significant first."""
+
+    @abstractmethod
+    def _position(self) -> tuple[Any, ...]:
+        """Return the value of the sort key at the cursor position."""
+
+    @staticmethod
+    def _parse_created(created: str) -> datetime:
+        """Parse the creation time from a serialized cursor.
+
+        Parameters
+        ----------
+        created
+            Creation time in seconds since epoch.
+
+        Returns
+        -------
+        datetime
+            Corresponding time.
+
+        Raises
+        ------
+        safir.database.InvalidCursorError
+            Raised if the time is out of range.
+        """
+        try:
+            return datetime.fromtimestamp(float(created), tz=UTC)
+        except (OSError, OverflowError, ValueError) as e:
+            raise InvalidCursorError(f"Cannot parse cursor: {e!s}") from e
+
+    def _serialize_created(self) -> str:
+        """Serialize the creation time for the string form of the cursor.
+
+        Returns
+        -------
+        str
+            Creation time in seconds since epoch, with a fractional part
+            only if the time is not a whole number of seconds.
+        """
+        timestamp = self.created.timestamp()
+        if timestamp.is_integer():
+            return str(int(timestamp))
+        else:
+            return str(timestamp)
+
+
+@dataclass
+class TokenCreatedCursor(TokenCursor):
+    """Cursor for tokens sorted by creation time, oldest first.
+
+    The serialized form is the creation time in seconds since epoch and the
+    token key, separated by an underscore, with a ``p`` prefix for a cursor
+    for the previous page.
+    """
+
+    _REGEX: ClassVar[re.Pattern[str]] = re.compile(
+        f"(?P<previous>p?)(?P<created>{_CURSOR_TIME_PATTERN})"
+        f"_(?P<key>{_CURSOR_KEY_PATTERN})"
+    )
+
+    @override
+    @classmethod
+    def from_entry(cls, entry: TokenInfo, *, reverse: bool = False) -> Self:
+        return cls(created=entry.created, key=entry.token, previous=reverse)
+
+    @override
+    @classmethod
+    def from_str(cls, cursor: str) -> Self:
+        match = cls._REGEX.fullmatch(cursor)
+        if not match:
+            msg = "Not a cursor for tokens sorted by creation time"
+            raise InvalidCursorError(msg)
+        return cls(
+            created=cls._parse_created(match["created"]),
+            key=match["key"],
+            previous=bool(match["previous"]),
+        )
+
+    @override
+    def __str__(self) -> str:
+        previous = "p" if self.previous else ""
+        return f"{previous}{self._serialize_created()}_{self.key}"
+
+    @override
+    @classmethod
+    def _columns(cls) -> tuple[SQLColumnExpression[Any], ...]:
+        return (SQLToken.created, SQLToken.token)
+
+    @override
+    def _position(self) -> tuple[Any, ...]:
+        return (datetime_to_db(self.created), self.key)
+
+
+@dataclass
+class TokenCreatedDescendingCursor(TokenCreatedCursor):
+    """Cursor for tokens sorted by creation time, newest first."""
+
+    descending: ClassVar[bool] = True
+
+
+@dataclass
+class TokenUsernameCursor(TokenCursor):
+    """Cursor for tokens sorted by username, in ascending order.
+
+    Tokens for the same username are sorted by creation time, oldest first.
+    Usernames are compared in the C collation, which is to say by code
+    point, so that the order does not depend on the locale of the database.
+
+    The serialized form is the creation time in seconds since epoch, the
+    username, and the token key, separated by underscores, with a ``p``
+    prefix for a cursor for the previous page. Usernames cannot contain an
+    underscore, so the username ends at the last underscore but one. The
+    creation time comes first, although it is not the most significant part
+    of the sort key, so that a username starting with ``p`` cannot be
+    mistaken for that prefix.
+    """
+
+    username: str
+    """Username of the token at the cursor position."""
+
+    _REGEX: ClassVar[re.Pattern[str]] = re.compile(
+        f"(?P<previous>p?)(?P<created>{_CURSOR_TIME_PATTERN})"
+        f"_(?P<username>{_CURSOR_USERNAME_PATTERN})"
+        f"_(?P<key>{_CURSOR_KEY_PATTERN})"
+    )
+
+    @override
+    @classmethod
+    def from_entry(cls, entry: TokenInfo, *, reverse: bool = False) -> Self:
+        return cls(
+            username=entry.username,
+            created=entry.created,
+            key=entry.token,
+            previous=reverse,
+        )
+
+    @override
+    @classmethod
+    def from_str(cls, cursor: str) -> Self:
+        match = cls._REGEX.fullmatch(cursor)
+        if not match:
+            msg = "Not a cursor for tokens sorted by username"
+            raise InvalidCursorError(msg)
+        return cls(
+            username=match["username"],
+            created=cls._parse_created(match["created"]),
+            key=match["key"],
+            previous=bool(match["previous"]),
+        )
+
+    @override
+    def __str__(self) -> str:
+        previous = "p" if self.previous else ""
+        created = self._serialize_created()
+        return f"{previous}{created}_{self.username}_{self.key}"
+
+    @override
+    @classmethod
+    def _columns(cls) -> tuple[SQLColumnExpression[Any], ...]:
+        return (
+            collate(SQLToken.username, "C"),
+            SQLToken.created,
+            SQLToken.token,
+        )
+
+    @override
+    def _position(self) -> tuple[Any, ...]:
+        return (self.username, datetime_to_db(self.created), self.key)
+
+
+@dataclass
+class TokenUsernameDescendingCursor(TokenUsernameCursor):
+    """Cursor for tokens sorted by username, in descending order.
+
+    Tokens for the same username are sorted by creation time, newest first.
+    """
+
+    descending: ClassVar[bool] = True
+
+
+_CURSOR_TYPES: dict[tuple[TokenSort, SortOrder], type[TokenCursor]] = {
+    (TokenSort.created, SortOrder.asc): TokenCreatedCursor,
+    (TokenSort.created, SortOrder.desc): TokenCreatedDescendingCursor,
+    (TokenSort.username, SortOrder.asc): TokenUsernameCursor,
+    (TokenSort.username, SortOrder.desc): TokenUsernameDescendingCursor,
+}
+"""Cursor class for each sort order of a listing of tokens."""
+
+
+def token_cursor_type(sort: TokenSort, order: SortOrder) -> type[TokenCursor]:
+    """Return the cursor class for a sort order of a listing of tokens.
+
+    Parameters
+    ----------
+    sort
+        Field by which the tokens are sorted.
+    order
+        Direction in which the tokens are sorted.
+
+    Returns
+    -------
+    type of TokenCursor
+        Cursor class that sorts tokens in that order, used both to sort the
+        listing and to parse and generate its cursors.
+    """
+    return _CURSOR_TYPES[sort, order]

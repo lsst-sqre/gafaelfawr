@@ -12,7 +12,9 @@ from enum import Enum
 __all__ = [
     "AdminChange",
     "GitHubProjectChange",
+    "SortOrder",
     "TokenChange",
+    "TokenSort",
     "TokenType",
 ]
 
@@ -32,6 +34,13 @@ class GitHubProjectChange(Enum):
     delete = "delete"
 
 
+class SortOrder(Enum):
+    """Direction in which to sort a listing."""
+
+    asc = "asc"
+    desc = "desc"
+
+
 class TokenChange(Enum):
     """Type of change made to a token."""
 
@@ -39,6 +48,16 @@ class TokenChange(Enum):
     revoke = "revoke"
     expire = "expire"
     edit = "edit"
+
+
+class TokenSort(Enum):
+    """Field by which to sort a listing of tokens."""
+
+    created = "created"
+    """Sort by creation time and then by token key."""
+
+    username = "username"
+    """Sort by username, then by creation time, and then by token key."""
 
 
 class TokenType(Enum):

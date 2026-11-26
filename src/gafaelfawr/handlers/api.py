@@ -20,12 +20,19 @@ from fastapi import (
     Response,
     status,
 )
+from pydantic import StringConstraints
 from safir.models import ErrorLocation, ErrorModel
 from safir.pydantic import UtcDatetime
 from safir.sentry import report_exception
 from safir.slack.webhook import SlackRouteErrorHandler
 
-from ..constants import ACTOR_REGEX, CURSOR_REGEX, USERNAME_REGEX
+from ..constants import (
+    ACTOR_REGEX,
+    CURSOR_REGEX,
+    SCOPE_REGEX,
+    USERNAME_PREFIX_REGEX,
+    USERNAME_REGEX,
+)
 from ..dependencies.auth import AuthenticateRead, AuthenticateWrite
 from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import (
@@ -35,7 +42,7 @@ from ..exceptions import (
     NotFoundError,
 )
 from ..models.auth import APIConfig, APILoginResponse, Scope
-from ..models.enums import TokenType
+from ..models.enums import SortOrder, TokenSort, TokenType
 from ..models.github_project import (
     GitHubBotUsername,
     GitHubProject,
@@ -59,6 +66,7 @@ from ..models.token import (
     TokenInfo,
     UserTokenModifyRequest,
     UserTokenRequest,
+    token_cursor_type,
 )
 from ..models.userinfo import AllGroups, UserInfo
 from ..util import random_128_bits
@@ -1103,6 +1111,154 @@ async def get_token_info(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=[{"type": "invalid_token", "msg": msg}],
         )
+
+
+@router.get(
+    "/auth/api/v1/tokens",
+    description=(
+        "List the tokens of all users, optionally limited to those matching"
+        " every given filter. Only a listing limited to service tokens is"
+        " backed by a database index; other listings that are not limited"
+        " to one username read every token and may be slow. Usernames are"
+        " sorted by code point, and tokens that are equal in the sort field"
+        " are sorted by creation time and then by token key, so the order"
+        " is always the same. If a limit was specified, links to paginated"
+        " results may be found in the Link header of the reply and the"
+        " total number of matching tokens in the X-Total-Count header."
+    ),
+    response_model_exclude_none=True,
+    responses={
+        200: {"headers": _pagination_headers},
+        422: {
+            "description": (
+                "Both username and username_prefix were given"
+                " (`conflicting_filters`), or the cursor is not a cursor"
+                " for the requested sort field (`invalid_cursor`)"
+            ),
+            "model": ErrorModel,
+        },
+    },
+    summary="List tokens for all users",
+    tags=["admin"],
+)
+async def get_admin_tokens(
+    *,
+    token_type: Annotated[
+        TokenType | None,
+        Query(
+            title="Token type",
+            description="Only show tokens of this type",
+            examples=["service"],
+        ),
+    ] = None,
+    username: Annotated[
+        str | None,
+        Query(
+            title="Username",
+            description=(
+                "Only show tokens for this user. May not be combined with"
+                " username_prefix."
+            ),
+            examples=["bot-mobu"],
+            min_length=1,
+            max_length=64,
+            pattern=USERNAME_REGEX,
+        ),
+    ] = None,
+    username_prefix: Annotated[
+        str | None,
+        Query(
+            title="Username prefix",
+            description=(
+                "Only show tokens for users whose username starts with this"
+                " string. May not be combined with username."
+            ),
+            examples=["bot-"],
+            min_length=1,
+            max_length=64,
+            pattern=USERNAME_PREFIX_REGEX,
+        ),
+    ] = None,
+    scope: Annotated[
+        list[Annotated[str, StringConstraints(pattern=SCOPE_REGEX)]] | None,
+        Query(
+            title="Scope",
+            description=(
+                "Only show tokens that have this scope, possibly among"
+                " others. May be given more than once, in which case only"
+                " tokens that have all of the given scopes are shown."
+            ),
+            examples=[["read:all"]],
+        ),
+    ] = None,
+    sort: Annotated[
+        TokenSort,
+        Query(
+            title="Sort field",
+            description=(
+                "Field by which to sort the tokens. Sorting by username"
+                " sorts the tokens of each user by creation time."
+            ),
+            examples=["username"],
+        ),
+    ] = TokenSort.created,
+    order: Annotated[
+        SortOrder,
+        Query(
+            title="Sort order",
+            description=(
+                "Whether to sort in ascending or descending order. With"
+                " the default sort field, descending order shows the newest"
+                " tokens first."
+            ),
+            examples=["asc"],
+        ),
+    ] = SortOrder.desc,
+    cursor: Annotated[
+        str | None,
+        Query(
+            title="Cursor",
+            description=(
+                "Pagination cursor, taken from the Link header of a"
+                " previous reply. A cursor is only valid for the sort field"
+                " of the listing that returned it."
+            ),
+            examples=["1614985055_dDQg_NTNS51GxeEteqnkag"],
+        ),
+    ] = None,
+    limit: Annotated[
+        int | None,
+        Query(
+            title="Row limit",
+            description=(
+                "Maximum number of tokens to return. If not given, all"
+                " matching tokens are returned."
+            ),
+            examples=[100],
+            ge=1,
+        ),
+    ] = None,
+    auth_data: Annotated[TokenData, Depends(authenticate_admin_read)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
+    response: Response,
+) -> list[TokenInfo]:
+    token_service = context.factory.create_token_service()
+    cursor_type = token_cursor_type(sort, order)
+    parsed_cursor = cursor_type.from_str(cursor) if cursor else None
+    results = await token_service.list_tokens_paginated(
+        auth_data,
+        cursor_type,
+        cursor=parsed_cursor,
+        limit=limit,
+        username=username,
+        username_prefix=username_prefix,
+        token_type=token_type,
+        scopes=set(scope) if scope else None,
+    )
+    if limit:
+        response.headers["Link"] = results.link_header(context.request.url)
+        response.headers["X-Total-Count"] = str(results.count)
+    return results.entries
 
 
 @router.post(

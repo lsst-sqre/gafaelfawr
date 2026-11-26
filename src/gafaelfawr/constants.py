@@ -50,6 +50,7 @@ __all__ = [
     "UID_BOT_MAX",
     "UID_BOT_MIN",
     "UID_USER_MIN",
+    "USERNAME_PREFIX_REGEX",
     "USERNAME_REGEX",
 ]
 
@@ -301,6 +302,13 @@ GROUPNAME_REGEX = (
 
 SCOPE_REGEX = "^[a-zA-Z0-9:._-]+$"
 """Regex matching a valid scope."""
+
+USERNAME_PREFIX_REGEX = "^[a-z0-9-]+$"
+"""Regex matching a prefix of a valid username.
+
+This is looser than `USERNAME_REGEX` because a prefix of a valid username,
+such as ``bot-``, may end in a hyphen or consist only of digits.
+"""
 
 USERNAME_REGEX = (
     "^[a-z0-9](?:[a-z0-9]|-[a-z0-9])*[a-z](?:[a-z0-9]|-[a-z0-9])*$"
